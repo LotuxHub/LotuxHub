@@ -7,10 +7,10 @@
 -- =====================================================
 -- CARREGA MODULOS
 -- =====================================================
-local redzlib   = loadstring(game:HttpGet("https://raw.githubusercontent.com/enzoplaaygamemg12/Script-ReduxHub-/refs/heads/minha-branch/Library/RedzUiLib.lua"))()
-local QuestData = loadstring(game:HttpGet("https://raw.githubusercontent.com/enzoplaaygamemg12/Script-ReduxHub-/refs/heads/minha-branch/Script/Quests.lua"))()
-local Config    = loadstring(game:HttpGet("https://raw.githubusercontent.com/enzoplaaygamemg12/Script-ReduxHub-/refs/heads/minha-branch/Script/Config.lua"))()
-local Functions = loadstring(game:HttpGet("https://raw.githubusercontent.com/enzoplaaygamemg12/Script-ReduxHub-/refs/heads/minha-branch/Script/Functions.lua"))()
+local redzlib   = loadstring(game:HttpGet("https://raw.githubusercontent.com/LotuxHub/LotuxHub/refs/heads/main/Library/LotuxLibrary.lua"))()
+local QuestData = loadstring(game:HttpGet("https://raw.githubusercontent.com/LotuxHub/LotuxHub/refs/heads/main/Scripts/BloxFruits/Quests.lua"))()
+local Config    = loadstring(game:HttpGet("https://raw.githubusercontent.com/LotuxHub/LotuxHub/refs/heads/main/Scripts/BloxFruits/Config.lua"))()
+local Functions = loadstring(game:HttpGet("https://raw.githubusercontent.com/LotuxHub/LotuxHub/refs/heads/main/Scripts/BloxFruits/Functions.lua"))()
 
 -- =====================================================
 -- SERVICES
@@ -72,7 +72,7 @@ local Bosses    = QuestData.Bosses
 local LangData    = {}
 local CurrentLang = "English"
 
-local LANG_URL = "https://raw.githubusercontent.com/enzoplaaygamemg12/Script-ReduxHub-/refs/heads/main/Script/Language.json"
+local LANG_URL = "https://raw.githubusercontent.com/LotuxHub/LotuxHub/refs/heads/main/Scripts/BloxFruits/Language.json"
 
 local function LoadLanguage()
     local ok, raw = pcall(function() return game:HttpGet(LANG_URL, true) end)
