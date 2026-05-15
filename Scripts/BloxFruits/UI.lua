@@ -513,7 +513,7 @@ end)
 -- =====================================================
 -- NOTIFICACOES
 -- =====================================================
-local IMG     = "rbxassetid://135350717440671"
+local IMG     = "rbxassetid://93533571632029"
 local uiReady = false
 local function Notify(cfg)
     if not uiReady then return end
@@ -524,9 +524,9 @@ end
 -- WINDOW
 -- =====================================================
 local Window = redzlib:MakeWindow({
-    Title      = "Redux Hub V1",
-    SubTitle   = "by Redux Studio V1.0.0",
-    SaveFolder = "ReduxHub_Loader",
+    Title      = "Lotux Hub",
+    SubTitle   = "by LoadFlint/Lucas",
+    SaveFolder = "LotuxHubBckp",
 })
 
 Window:AddMinimizeButton({

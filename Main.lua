@@ -77,17 +77,15 @@ local function criarPainelErro()
     HeaderFix.ZIndex = 3
     HeaderFix.Parent = Header
 
-    local IconeErro = Instance.new("TextLabel")
+    local IconeErro = Instance.new("ImageLabel")
     IconeErro.Size = UDim2.new(0, 30, 0, 30)
     IconeErro.Position = UDim2.new(0, 14, 0.5, -15)
     IconeErro.BackgroundColor3 = Color3.fromRGB(180, 30, 30)
-    IconeErro.Text = "✕"
-    IconeErro.TextColor3 = Color3.fromRGB(255, 255, 255)
-    IconeErro.TextSize = 14
-    IconeErro.Font = Enum.Font.GothamBold
+    IconeErro.Image = "rbxassetid://93533571632029"
+    IconeErro.ScaleType = Enum.ScaleType.Fit
     IconeErro.ZIndex = 4
     IconeErro.Parent = Header
-
+    
     local IconeCorner = Instance.new("UICorner")
     IconeCorner.CornerRadius = UDim.new(0, 6)
     IconeCorner.Parent = IconeErro
