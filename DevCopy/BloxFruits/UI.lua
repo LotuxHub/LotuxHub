@@ -1,6 +1,7 @@
 -- =====================================================
---         Redux Hub - Blox Fruits Script
---         v2.3 - Fix Quest + Fix Sea Detection
+--         Lotux Hub - Blox Fruits Script
+--         by LoadFlint/lucas
+--         v3.0 - Modular + Visual Features
 -- =====================================================
 
 -- =====================================================
@@ -25,7 +26,9 @@ local UserInputService  = game:GetService("UserInputService")
 
 local Player = Players.LocalPlayer
 
--- Referencias por tabela (ponteiro)
+-- =====================================================
+-- REFERENCIAS INTERNAS
+-- =====================================================
 local isTeleporting = { value = false }
 local NoClip        = { value = false }
 local NotAutoEquip  = { value = false }
@@ -47,6 +50,7 @@ end)
 local Camera = workspace.CurrentCamera
 
 -- =====================================================
+-- REMOTES
 -- =====================================================
 local CommF_
 pcall(function()
@@ -60,7 +64,7 @@ end)
 local QuestList = QuestData.QuestList
 local Islands   = QuestData.Islands
 local Materials = QuestData.Materials
-        local Bosses    = QuestData.Bosses
+local Bosses    = QuestData.Bosses
 
 -- =====================================================
 -- LANGUAGE SYSTEM
@@ -68,8 +72,7 @@ local Materials = QuestData.Materials
 local LangData    = {}
 local CurrentLang = "English"
 
-
-local LANG_URL    = "https://raw.githubusercontent.com/enzoplaaygamemg12/Script-ReduxHub-/refs/heads/main/Script/Language.json"
+local LANG_URL = "https://raw.githubusercontent.com/enzoplaaygamemg12/Script-ReduxHub-/refs/heads/main/Script/Language.json"
 
 local function LoadLanguage()
     local ok, raw = pcall(function() return game:HttpGet(LANG_URL, true) end)
@@ -90,17 +93,7 @@ local function T(key, vars)
 end
 
 -- =====================================================
--- [FIX 2] DETECT SEA - cobre servidor publico Sea 2
---
--- PlaceIds conhecidos:
---   Sea 1 : 2753915549
---   Sea 2 privado : 4442272183
---   Sea 2 publico : 79091703265657  <-- NOVO
---   Sea 3 : 7449423635
---
--- Fallback 1: keywords no workspace (Map)
--- Fallback 2: level do player
--- Override manual pela UI: _G.OverrideSea
+-- DETECT SEA
 -- =====================================================
 local SEA_PLACE_IDS = {
     [1] = { 2753915549, 6817450498, 8903419500 },
@@ -122,15 +115,9 @@ local function GetSeaByWorkspace()
     local sea3Keywords = { "SeaOfTreats", "Hydra", "Tartarus", "CastleOnSea", "FloatingTurtle", "HydraIsland" }
     local sea2Keywords = { "Dressrosa", "GreenZone", "KingdomOfRose", "Graveyard", "SnowMountain", "DressrosaIsland" }
     local sea1Keywords = { "Jungle", "PirateVillage", "MiddleTown", "Desert", "Skylands" }
-    for _, kw in ipairs(sea3Keywords) do
-        if workspace:FindFirstChild(kw, true) then return 3 end
-    end
-    for _, kw in ipairs(sea2Keywords) do
-        if workspace:FindFirstChild(kw, true) then return 2 end
-    end
-    for _, kw in ipairs(sea1Keywords) do
-        if workspace:FindFirstChild(kw, true) then return 1 end
-    end
+    for _, kw in ipairs(sea3Keywords) do if workspace:FindFirstChild(kw, true) then return 3 end end
+    for _, kw in ipairs(sea2Keywords) do if workspace:FindFirstChild(kw, true) then return 2 end end
+    for _, kw in ipairs(sea1Keywords) do if workspace:FindFirstChild(kw, true) then return 1 end end
     return nil
 end
 
@@ -177,23 +164,19 @@ task.spawn(function()
 end)
 
 -- =====================================================
--- AUTOCLICK LOOP (CORRIGIDO - sem fly, só ataque)
+-- AUTOCLICK LOOP
 -- =====================================================
 local currentTarget = nil
 
 task.spawn(function()
-    while task.wait(0.12) do  -- Aumentado para 0.12s para reduzir tremor
+    while task.wait(0.12) do
         if not Config.AutoClick then continue end
-
         local char = Player.Character
         if not char or not HumanoidRootPart then continue end
         if Humanoid and Humanoid.Health <= 0 then continue end
 
-        -- Encontra o alvo mais próximo
-        local bestTarget = nil
-        local bestDist   = math.huge
+        local bestTarget, bestDist = nil, math.huge
 
-        -- Mobs
         local enemies = workspace:FindFirstChild("Enemies")
         if enemies then
             for _, obj in ipairs(enemies:GetChildren()) do
@@ -202,16 +185,12 @@ task.spawn(function()
                     local hrp = obj:FindFirstChild("HumanoidRootPart")
                     if hum and hrp and hum.Health > 0 then
                         local d = (hrp.Position - HumanoidRootPart.Position).Magnitude
-                        if d < bestDist then
-                            bestDist   = d
-                            bestTarget = obj
-                        end
+                        if d < bestDist then bestDist = d; bestTarget = obj end
                     end
                 end
             end
         end
 
-        -- Players (opcional, pode remover se não quiser)
         for _, otherPlayer in ipairs(Players:GetPlayers()) do
             if otherPlayer ~= Player then
                 local otherChar = otherPlayer.Character
@@ -220,49 +199,29 @@ task.spawn(function()
                     local hrp = otherChar:FindFirstChild("HumanoidRootPart")
                     if hum and hrp and hum.Health > 0 then
                         local d = (hrp.Position - HumanoidRootPart.Position).Magnitude
-                        if d < bestDist then
-                            bestDist   = d
-                            bestTarget = otherChar
-                        end
+                        if d < bestDist then bestDist = d; bestTarget = otherChar end
                     end
                 end
             end
         end
 
         if not bestTarget then continue end
-
         local hrpTarget = bestTarget:FindFirstChild("HumanoidRootPart")
         if not hrpTarget then continue end
 
-        -- Só olha para o alvo (sem mover o personagem)
         pcall(function()
             HumanoidRootPart.CFrame = CFrame.lookAt(HumanoidRootPart.Position, hrpTarget.Position)
         end)
 
-        -- Só ataca se estiver perto o suficiente (evita tentar atacar de longe)
         local dist = (hrpTarget.Position - HumanoidRootPart.Position).Magnitude
         if dist > 25 then continue end
 
-        -- Ataca sem fly (usa apenas FastAttack)
         Functions.FastAttack(bestTarget, Config, NotAutoEquip)
     end
 end)
 
 -- =====================================================
--- [FIX 1] FARM LOOP PRINCIPAL - Quest corrigida
---
--- PROBLEMA ORIGINAL:
---   Quando a quest era completada, Quest.Visible ficava false.
---   O codigo chamava HasActiveQuest() -> false -> AbandonQuest()
---   logo em seguida, antes de pegar nova quest.
---   Isso causava delay e loop travado.
---
--- CORRECAO:
---   Usamos a GUI do jogo diretamente (igual ao Tiroreal):
---     Quest.Visible == false -> vai pegar nova quest (NAO chama AbandonQuest)
---     Quest.Visible == true  -> verifica se o mob da quest bate com NameMon
---       - Se bate: mata o mob
---       - Se NAO bate: ai sim chama AbandonQuest e pega a certa
+-- FARM LOOP PRINCIPAL
 -- =====================================================
 local farmRunning = false
 
@@ -286,7 +245,7 @@ task.spawn(function()
             farmRunning = false; continue
         end
 
-        -- ── AUTO FARM NEAREST ──
+        -- AUTO FARM NEAREST
         if Config.AutoFarmNearest and not Config.AutoFarmLevel then
             pcall(function()
                 local mob = Functions.GetNearestEnemy(Character, HumanoidRootPart, nil)
@@ -297,8 +256,8 @@ task.spawn(function()
 
                 if Config.AutoBusoHaki then Functions.ActivateBuso(CommF_) end
                 if Config.SelectedWeaponName and Config.SelectedWeaponName ~= "" then
-    Functions.EquipWeapon(Config.SelectedWeaponName, NotAutoEquip)
-end
+                    Functions.EquipWeapon(Config.SelectedWeaponName, NotAutoEquip)
+                end
                 currentTarget = mob
                 NoClip.value  = true
 
@@ -325,14 +284,12 @@ end
             end)
             farmRunning = false
 
-        -- ── AUTO FARM LEVEL (com fix de quest) ──
-                -- ── AUTO FARM LEVEL (com fix de quest e bring mob) ──
+        -- AUTO FARM LEVEL (com quest)
         elseif Config.AutoFarmLevel then
             pcall(function()
                 local quest = Functions.GetQuestForLevel(QuestList, CurrentSea, Player)
                 if not quest then farmRunning = false; return end
 
-                -- Entrada em dungeons/ilhas especiais
                 if quest.RequestEntrance and HumanoidRootPart then
                     if (quest.CFrameMon.Position - HumanoidRootPart.Position).Magnitude > 10000 then
                         pcall(function() CommF_:InvokeServer("requestEntrance", quest.RequestEntrance) end)
@@ -348,7 +305,7 @@ end
                     questTitle = Player.PlayerGui.Main.Quest.Container.QuestTitle.Title.Text
                 end)
 
-                -- Sem quest ativa -> pega a quest
+                -- Sem quest -> pega a quest
                 if not questVisible then
                     currentTarget = nil
                     NoClip.value  = false
@@ -367,8 +324,8 @@ end
                     pcall(function() CommF_:InvokeServer("StartQuest", quest.NameQuest, quest.QuestLv) end)
                     task.wait(0.5)
                     if Config.SelectedWeaponName and Config.SelectedWeaponName ~= "" then
-    Functions.EquipWeapon(Config.SelectedWeaponName, NotAutoEquip)
-end
+                        Functions.EquipWeapon(Config.SelectedWeaponName, NotAutoEquip)
+                    end
 
                 -- Quest ativa
                 else
@@ -388,12 +345,10 @@ end
                             if hrp and hum and hum.Health > 0 then
                                 if Config.AutoBusoHaki then Functions.ActivateBuso(CommF_) end
                                 if Config.SelectedWeaponName and Config.SelectedWeaponName ~= "" then
-    Functions.EquipWeapon(Config.SelectedWeaponName, NotAutoEquip)
-end
+                                    Functions.EquipWeapon(Config.SelectedWeaponName, NotAutoEquip)
+                                end
                                 currentTarget = mob
                                 NoClip.value  = true
-                                
-                                -- Posição para bring (se ativado)
                                 local bringPosition = hrp.CFrame
 
                                 repeat
@@ -401,11 +356,7 @@ end
                                     if not mob.Parent then break end
                                     local mhrp = mob:FindFirstChild("HumanoidRootPart")
                                     if not mhrp then break end
-                                    
-                                    -- Atualiza posição do bring
                                     bringPosition = mhrp.CFrame
-                                    
-                                    -- Só voa se estiver longe (evita tremor)
                                     local distToMob = (mhrp.Position - HumanoidRootPart.Position).Magnitude
                                     if distToMob > 15 then
                                         Functions.FlyToPosition(
@@ -413,10 +364,7 @@ end
                                             TweenService, Config, isTeleporting, NotAutoEquip
                                         )
                                     end
-                                    
-                                    -- Bring mob (puxa outros mobs para perto)
                                     if Config.BringMob then
-                                        -- Puxa mobs do mesmo tipo para a posição do alvo
                                         local enemiesFolder = workspace:FindFirstChild("Enemies")
                                         if enemiesFolder then
                                             for _, otherMob in ipairs(enemiesFolder:GetChildren()) do
@@ -433,7 +381,6 @@ end
                                             end
                                         end
                                     end
-                                    
                                 until not mob.Parent
                                     or not mob:FindFirstChild("Humanoid")
                                     or mob:FindFirstChild("Humanoid").Health <= 0
@@ -447,7 +394,6 @@ end
                                 currentTarget = nil
                             end
                         else
-                            -- Mob nao encontrado perto: voa ate a area
                             currentTarget = nil
                             NoClip.value  = true
                             Functions.FlyToPosition(
@@ -455,8 +401,6 @@ end
                                 TweenService, Config, isTeleporting, NotAutoEquip
                             )
                             NoClip.value = false
-                            
-                            -- Tenta pegar pelo ReplicatedStorage
                             local rs = game:GetService("ReplicatedStorage")
                             if rs:FindFirstChild(quest.Mob) then
                                 local rsMob = rs:FindFirstChild(quest.Mob)
@@ -480,7 +424,99 @@ end
 end)
 
 -- =====================================================
--- ESP LOOP
+-- ESP MOB - CIRCULO VERDE (Drawing API)
+-- Raio de deteccao: 5000 studs, circulo pequeno
+-- =====================================================
+local _mobESP   = {}
+local _espConns = {}
+
+local function _createMobCircle()
+    local circle        = Drawing.new("Circle")
+    circle.Color        = Color3.fromRGB(0, 255, 0)
+    circle.Thickness    = 2
+    circle.NumSides     = 50
+    circle.Filled       = false
+    circle.Radius       = 1.2
+    circle.Visible      = true
+    return circle
+end
+
+local function _addMobCircleESP(mob)
+    if _mobESP[mob] then return end
+    local circle = _createMobCircle()
+    _mobESP[mob] = circle
+    mob.AncestryChanged:Connect(function(_, parent)
+        if not parent then
+            if _mobESP[mob] then
+                _mobESP[mob]:Remove()
+                _mobESP[mob] = nil
+            end
+        end
+    end)
+end
+
+local function _clearAllMobCircles()
+    for mob, circle in pairs(_mobESP) do
+        pcall(function() circle:Remove() end)
+        _mobESP[mob] = nil
+    end
+end
+
+-- Loop de update dos circulos
+local _espCircleConn = nil
+local function _startMobCircleLoop()
+    if _espCircleConn then return end
+    _espCircleConn = RunService.RenderStepped:Connect(function()
+        if not Config.ESPEnabled then return end
+        local char = Player.Character
+        local hrp  = char and char:FindFirstChild("HumanoidRootPart")
+        if not hrp then return end
+        for mob, circle in pairs(_mobESP) do
+            pcall(function()
+                if mob and mob:FindFirstChild("HumanoidRootPart")
+                   and mob:FindFirstChildOfClass("Humanoid")
+                   and mob.Humanoid.Health > 0 then
+                    local distance = (mob.HumanoidRootPart.Position - hrp.Position).Magnitude
+                    if distance <= 5000 then
+                        local pos, onScreen = Camera:WorldToViewportPoint(mob.HumanoidRootPart.Position)
+                        if onScreen then
+                            circle.Position = Vector2.new(pos.X, pos.Y)
+                            circle.Visible  = true
+                        else
+                            circle.Visible = false
+                        end
+                    else
+                        circle.Visible = false
+                    end
+                else
+                    circle.Visible = false
+                end
+            end)
+        end
+    end)
+end
+
+local function _stopMobCircleLoop()
+    if _espCircleConn then
+        _espCircleConn:Disconnect()
+        _espCircleConn = nil
+    end
+end
+
+-- Registra mobs ja existentes e novos
+local function _initMobCircleESP()
+    local ef = workspace:FindFirstChild("Enemies")
+    if ef then
+        for _, mob in ipairs(ef:GetChildren()) do _addMobCircleESP(mob) end
+        ef.ChildAdded:Connect(function(mob)
+            task.wait(0.2)
+            if Config.ESPEnabled then _addMobCircleESP(mob) end
+        end)
+    end
+end
+
+-- =====================================================
+-- ESP LOOP - SelectionBox (existente)
 -- =====================================================
 RunService.Heartbeat:Connect(function()
     if not Config.ESPEnabled then return end
@@ -489,11 +525,11 @@ RunService.Heartbeat:Connect(function()
     for _, obj in ipairs(ef:GetChildren()) do
         if obj:IsA("Model") and obj ~= Character then
             local hum = obj:FindFirstChildOfClass("Humanoid")
-            if hum and hum.Health > 0 and not obj:FindFirstChild("ESP_Redux") then
+            if hum and hum.Health > 0 and not obj:FindFirstChild("ESP_Lotux") then
                 local box         = Instance.new("SelectionBox")
-                box.Name          = "ESP_Redux"
+                box.Name          = "ESP_Lotux"
                 box.Color3        = Color3.fromRGB(255, 50, 50)
-                box.LineThickness = 0.05
+                box.LineThickness  = 0.05
                 box.Adornee       = obj
                 box.Parent        = obj
             end
@@ -524,9 +560,9 @@ end
 -- WINDOW
 -- =====================================================
 local Window = redzlib:MakeWindow({
-    Title      = "Redux Hub V1",
-    SubTitle   = "by Redux Studio V1.0.0",
-    SaveFolder = "ReduxHub_Loader",
+    Title      = "Lotux Hub",
+    SubTitle   = "by LoadFlint/lucas v3.0",
+    SaveFolder = "LotuxHub_Save",
 })
 
 Window:AddMinimizeButton({
@@ -539,7 +575,7 @@ Window:AddMinimizeButton({
 -- =====================================================
 local Home = Window:MakeTab({ Title = T("tab_home"), Icon = "home" })
 Home:AddSection(T("sec_discord"))
-Home:AddDiscordInvite({ Title = "Redux Studio", Logo = IMG, Link = "https://discord.gg/HkB97N772p" })
+Home:AddDiscordInvite({ Title = "Lotux Hub", Logo = IMG, Link = "https://discord.gg/HkB97N772p" })
 Home:AddSection(T("sec_states"))
 
 local tzPara        = Home:AddParagraph({ Title = T("lbl_time_zone"),    Text = T("loading") })
@@ -579,7 +615,7 @@ task.spawn(function()
         end)
         pcall(function()
             weaponResPara:Set("Arma Resolvida",
-                Config.SelectedWeaponName ~= "" and Config.SelectedWeaponName or "(nenhuma no mochila)")
+                Config.SelectedWeaponName ~= "" and Config.SelectedWeaponName or "(nenhuma na mochila)")
         end)
         pcall(function()
             local q = Functions.GetQuestForLevel(QuestList, CurrentSea, Player)
@@ -605,7 +641,7 @@ task.spawn(function()
 end)
 
 -- =====================================================
--- TAB: MAIN
+-- TAB: MAIN (FARM)
 -- =====================================================
 local Main = Window:MakeTab({ Title = T("tab_main"), Icon = "menu" })
 
@@ -754,19 +790,15 @@ Settings:AddSlider({ Title = T("ui_jump"), Min = 50, Max = 200, Default = 50,
     Callback = function(v) Config.Jump = v; if Humanoid then Humanoid.JumpPower = v end end })
 
 Settings:AddSection(T("sec_visual"))
-
 local _uiScaleDebounce = nil
 Settings:AddSlider({
     Title   = "Tamanho da UI (%)",
-    Min     = 50,
-    Max     = 150,
-    Default = 100,
+    Min     = 50, Max = 150, Default = 100,
     Callback = function(v)
         if _uiScaleDebounce then task.cancel(_uiScaleDebounce) end
         _uiScaleDebounce = task.delay(0.4, function()
             _uiScaleDebounce = nil
-            local scaleValue = math.floor(450 * (100 / v))
-            scaleValue = math.clamp(scaleValue, 300, 2000)
+            local scaleValue = math.clamp(math.floor(450 * (100 / v)), 300, 2000)
             Config.UIScale = scaleValue
             pcall(function() redzlib:SetScale(scaleValue) end)
         end)
@@ -782,7 +814,7 @@ Settings:AddToggle({ Title = T("ui_no_fog"), Default = true,
 Settings:AddToggle({ Title = T("ui_notify_error"), Default = false, Callback = function(v) Config.NotifyErroScript = v end })
 Settings:AddButton({ Title = T("ui_test_notify"),
     Callback = function()
-        Notify({ Title = "Redux Hub v2.3", Description = "Script funcionando!", Image = IMG, Type = "Success", Duration = 3 })
+        Notify({ Title = "Lotux Hub v3.0", Description = "Script funcionando!", Image = IMG, Type = "Success", Duration = 3 })
     end })
 Settings:AddToggle({ Title = T("ui_noclip"), Default = false,
     Callback = function(v)
@@ -823,24 +855,184 @@ SoonTab("tab_shopping",  "shoppingbag")
 -- =====================================================
 local Esp = Window:MakeTab({ Title = T("tab_esp"), Icon = "eye" })
 Esp:AddSection(T("sec_esp_settings"))
+
+-- ESP Mobs (SelectionBox vermelho)
 Esp:AddToggle({
     Title    = T("ui_esp_mobs"),
     Default  = false,
     Callback = function(v)
         Config.ESPEnabled = v
-        if not v then
+        if v then
+            -- Inicia circulos verdes + rastreamento de mobs
+            _initMobCircleESP()
+            _startMobCircleLoop()
+        else
+            -- Remove SelectionBoxes
             for _, obj in pairs(workspace:GetDescendants()) do
-                if obj:IsA("SelectionBox") and obj.Name == "ESP_Redux" then obj:Destroy() end
+                if obj:IsA("SelectionBox") and obj.Name == "ESP_Lotux" then obj:Destroy() end
             end
+            -- Remove circulos verdes
+            _stopMobCircleLoop()
+            _clearAllMobCircles()
         end
         Notify({ Title = T(v and "esp_on" or "esp_off"), Image = IMG, Type = v and "Success" or "Info", Duration = 2 })
     end,
 })
+
 Esp:AddToggle({
     Title    = T("ui_esp_teammates"),
     Default  = false,
     Callback = function(v) Config.ESPTeammates = v end,
 })
+
+Esp:AddSection("ESP Players e Mobs Especiais")
+
+-- ESP Players (nome + HP + distância - verde=time / vermelho=inimigo)
+Esp:AddToggle({
+    Title    = "ESP Players (nome + HP + distância)",
+    Default  = false,
+    Callback = function(v)
+        Config.ESPTeammates = v
+        if not v then
+            -- limpa labels de todos os players
+            for _, plr in ipairs(Players:GetPlayers()) do
+                pcall(function()
+                    local head = plr.Character and plr.Character:FindFirstChild("Head")
+                    if head then
+                        for _, child in ipairs(head:GetChildren()) do
+                            if child.Name:find("LotuxESP") then child:Destroy() end
+                        end
+                    end
+                end)
+            end
+        end
+        Notify({ Title = v and "ESP Players Ativado" or "ESP Players Desativado", Image = IMG, Type = v and "Success" or "Info", Duration = 2 })
+    end,
+})
+
+-- ESP Sea Beasts (criaturas do mar)
+Esp:AddToggle({
+    Title    = "ESP Sea Beasts (criaturas do mar)",
+    Default  = false,
+    Callback = function(v)
+        Config.ESPSeaBeasts = v
+        if not v then
+            for _, mob in ipairs((workspace:FindFirstChild("SeaBeasts") or {Beasts={}}).GetChildren and workspace.SeaBeasts:GetChildren() or {}) do
+                pcall(function()
+                    if mob:FindFirstChild("LotuxSeaESP") then mob.LotuxSeaESP:Destroy() end
+                end)
+            end
+        end
+        Notify({ Title = v and "ESP Sea Beasts Ativado" or "ESP Sea Beasts Desativado", Image = IMG, Type = v and "Success" or "Info", Duration = 2 })
+    end,
+})
+
+-- ESP NPCs
+Esp:AddToggle({
+    Title    = "ESP NPCs",
+    Default  = false,
+    Callback = function(v)
+        Config.ESPNpcs = v
+        if not v then
+            for _, npc in ipairs((workspace:FindFirstChild("NPCs") and workspace.NPCs:GetChildren()) or {}) do
+                pcall(function()
+                    if npc:FindFirstChild("LotuxNpcESP") then npc.LotuxNpcESP:Destroy() end
+                end)
+            end
+        end
+        Notify({ Title = v and "ESP NPCs Ativado" or "ESP NPCs Desativado", Image = IMG, Type = v and "Success" or "Info", Duration = 2 })
+    end,
+})
+
+Esp:AddSection("ESP Ilhas e Objetos")
+Esp:AddToggle({
+    Title    = "ESP Ilhas",
+    Default  = false,
+    Callback = function(v)
+        Config.ESPIslands = v
+        if not v then
+            local locs = workspace:FindFirstChild("_WorldOrigin") and workspace._WorldOrigin:FindFirstChild("Locations")
+            if locs then
+                for _, isle in ipairs(locs:GetChildren()) do
+                    pcall(function()
+                        if isle:FindFirstChild("LotuxIslandESP") then isle.LotuxIslandESP:Destroy() end
+                    end)
+                end
+            end
+        end
+        Notify({ Title = v and "ESP Ilhas Ativado" or "ESP Ilhas Desativado", Image = IMG, Type = v and "Success" or "Info", Duration = 2 })
+    end,
+})
+Esp:AddToggle({
+    Title    = "ESP Frutas do Diabo",
+    Default  = false,
+    Callback = function(v)
+        Config.ESPFruits = v
+        if not v then
+            for _, obj in ipairs(workspace:GetChildren()) do
+                pcall(function()
+                    if obj:FindFirstChild("Handle") then
+                        for _, child in ipairs(obj.Handle:GetChildren()) do
+                            if child.Name:find("LotuxFruitESP") then child:Destroy() end
+                        end
+                    end
+                end)
+            end
+        end
+        Notify({ Title = v and "ESP Frutas Ativado" or "ESP Frutas Desativado", Image = IMG, Type = v and "Success" or "Info", Duration = 2 })
+    end,
+})
+Esp:AddToggle({
+    Title    = "ESP Baus (Chests)",
+    Default  = false,
+    Callback = function(v)
+        Config.ESPChests = v
+        if not v then
+            for _, chest in ipairs(game:GetService("CollectionService"):GetTagged("_ChestTagged")) do
+                pcall(function()
+                    if chest:FindFirstChild("LotuxChestESP") then chest.LotuxChestESP:Destroy() end
+                end)
+            end
+        end
+        Notify({ Title = v and "ESP Baus Ativado" or "ESP Baus Desativado", Image = IMG, Type = v and "Success" or "Info", Duration = 2 })
+    end,
+})
+Esp:AddToggle({
+    Title    = "ESP Berries",
+    Default  = false,
+    Callback = function(v)
+        Config.ESPBerries = v
+        Notify({ Title = v and "ESP Berries Ativado" or "ESP Berries Desativado", Image = IMG, Type = v and "Success" or "Info", Duration = 2 })
+    end,
+})
+Esp:AddToggle({
+    Title    = "ESP Mirage Island",
+    Default  = false,
+    Callback = function(v)
+        Config.ESPMirage = v
+        Notify({ Title = v and "ESP Mirage Ativado" or "ESP Mirage Desativado", Image = IMG, Type = v and "Success" or "Info", Duration = 2 })
+    end,
+})
+
+-- Loop de update de todos os ESPs (Heartbeat)
+RunService.Heartbeat:Connect(function()
+    -- Players
+    pcall(function() Functions.UpdatePlayerESP(Config.ESPTeammates, false) end)
+    -- Sea Beasts
+    pcall(function() Functions.UpdateSeaBeastESP(Config.ESPSeaBeasts) end)
+    -- NPCs
+    pcall(function() Functions.UpdateNpcESP(Config.ESPNpcs) end)
+    -- Ilhas
+    pcall(function() Functions.UpdateIslandESP(Config.ESPIslands) end)
+    -- Frutas do Diabo
+    pcall(function() Functions.UpdateDevilFruitESP(Config.ESPFruits) end)
+    -- Baus
+    pcall(function() Functions.UpdateChestESP(Config.ESPChests) end)
+    -- Berries
+    pcall(function() Functions.UpdateBerriesESP(Config.ESPBerries) end)
+    -- Mirage Island
+    pcall(function() Functions.UpdateMirageESP(Config.ESPMirage) end)
+end)
 
 -- =====================================================
 -- TAB: LOCAL PLAYER
@@ -960,11 +1152,144 @@ Teleport:AddButton({ Title = "Ir ao Mob da Quest",
     end })
 
 -- =====================================================
--- TAB: MISC
+-- TAB: VISUAL (NOVO - Funcoes do Tiroreal integradas)
 -- =====================================================
-local Misc = Window:MakeTab({ Title = T("tab_misc"), Icon = "calendarsearch" })
-Misc:AddSection(T("sec_utility"))
-Misc:AddToggle({ Title = T("ui_fullbright"), Default = false,
+local Visual = Window:MakeTab({ Title = "Visual", Icon = "sparkles" })
+
+Visual:AddSection("Efeitos no Personagem")
+
+-- Aqua Aura
+Visual:AddToggle({
+    Title    = "Aqua Aura (flutuar)",
+    Default  = false,
+    Callback = function(v)
+        Config.AquaAura = v
+        if v then
+            Functions.StartAquaAura()
+            Notify({ Title = "Aqua Aura Ativado", Description = "Aparece ao flutuar por 3s", Image = IMG, Type = "Success", Duration = 3 })
+        else
+            -- Remove aura do personagem atual
+            pcall(function()
+                local char = Player.Character
+                if char and char:FindFirstChild("LotuxAquaAura") then
+                    char.LotuxAquaAura:Destroy()
+                end
+            end)
+            Notify({ Title = "Aqua Aura Desativado", Image = IMG, Type = "Info", Duration = 2 })
+        end
+    end,
+})
+
+-- Rainbow Skills
+Visual:AddToggle({
+    Title    = "Rainbow Skills (particulas arco-iris)",
+    Default  = false,
+    Callback = function(v)
+        Config.RainbowSkills = v
+        if v then
+            Functions.StartRainbowSkills()
+            Notify({ Title = "Rainbow Skills Ativado", Image = IMG, Type = "Success", Duration = 3 })
+        else
+            Notify({ Title = "Rainbow Skills Desativado", Description = "Recarregue para resetar as cores", Image = IMG, Type = "Info", Duration = 3 })
+        end
+    end,
+})
+
+-- Rainbow Billboard
+Visual:AddToggle({
+    Title    = "Rainbow Billboard (nome arco-iris)",
+    Default  = false,
+    Callback = function(v)
+        Config.RainbowBillboard = v
+        if v then
+            Functions.StartRainbowBillboard("Lotux Hub")
+            Notify({ Title = "Rainbow Billboard Ativado", Image = IMG, Type = "Success", Duration = 3 })
+        else
+            -- Remove label do personagem atual
+            pcall(function()
+                local char = Player.Character
+                if char then
+                    local head = char:FindFirstChild("Head")
+                    if head and head:FindFirstChild("Lotux_Label") then
+                        head.Lotux_Label:Destroy()
+                    end
+                end
+            end)
+            Notify({ Title = "Rainbow Billboard Desativado", Image = IMG, Type = "Info", Duration = 2 })
+        end
+    end,
+})
+
+-- Self Highlight
+Visual:AddToggle({
+    Title    = "Self Highlight (brilho branco)",
+    Default  = false,
+    Callback = function(v)
+        Config.SelfHighlight = v
+        if v then
+            Functions.StartSelfHighlight()
+            Notify({ Title = "Self Highlight Ativado", Image = IMG, Type = "Success", Duration = 3 })
+        else
+            -- Remove highlight folder
+            pcall(function()
+                local folder = game.CoreGui:FindFirstChild("LotuxHighlight_Folder")
+                if folder then folder:Destroy() end
+            end)
+            Notify({ Title = "Self Highlight Desativado", Image = IMG, Type = "Info", Duration = 2 })
+        end
+    end,
+})
+
+Visual:AddSection("Interface e Performance")
+
+-- FPS Counter
+Visual:AddToggle({
+    Title    = "FPS Counter (canto superior esq.)",
+    Default  = false,
+    Callback = function(v)
+        Config.FPSCounter = v
+        if v then
+            Functions.StartFPSCounter()
+            Notify({ Title = "FPS Counter Ativado", Image = IMG, Type = "Success", Duration = 3 })
+        else
+            -- Remove ScreenGui do FPS
+            pcall(function()
+                for _, gui in ipairs(game.CoreGui:GetChildren()) do
+                    if gui:IsA("ScreenGui") and gui:FindFirstChildOfClass("TextLabel") then
+                        -- identifica pelo TextLabel na raiz
+                        local lbl = gui:FindFirstChildOfClass("TextLabel")
+                        if lbl and lbl.Text:find("FPS") then
+                            gui:Destroy()
+                        end
+                    end
+                end
+            end)
+            Notify({ Title = "FPS Counter Desativado", Image = IMG, Type = "Info", Duration = 2 })
+        end
+    end,
+})
+
+-- Render on Focus (pausa render quando janela perde foco)
+Visual:AddToggle({
+    Title    = "Render on Focus (economiza CPU)",
+    Default  = true,
+    Callback = function(v)
+        Config.RenderOnFocus = v
+        if v then
+            Functions.StartFocusRenderControl()
+            Notify({ Title = "Render on Focus Ativado", Description = "3D pausa quando janela perde foco", Image = IMG, Type = "Success", Duration = 3 })
+        else
+            -- Garante que o render esta ligado ao desativar
+            pcall(function() RunService:Set3dRenderingEnabled(true) end)
+            Notify({ Title = "Render on Focus Desativado", Image = IMG, Type = "Info", Duration = 2 })
+        end
+    end,
+})
+
+Visual:AddSection("Visuais do Mapa")
+
+-- Fullbright
+Visual:AddToggle({ Title = T("ui_fullbright"), Default = false,
     Callback = function(v)
         if v then
             Lighting.Brightness     = 10
@@ -979,9 +1304,11 @@ Misc:AddToggle({ Title = T("ui_fullbright"), Default = false,
         end
         Notify({ Title = T(v and "fullbright_on" or "fullbright_off"), Image = IMG, Type = v and "Success" or "Info", Duration = 2 })
     end })
-Misc:AddSlider({ Title = T("ui_fov"), Min = 30, Max = 120, Default = 70,
+
+Visual:AddSlider({ Title = T("ui_fov"), Min = 30, Max = 120, Default = 70,
     Callback = function(v) Camera.FieldOfView = v end })
-Misc:AddButton({ Title = T("ui_reset_visual"),
+
+Visual:AddButton({ Title = T("ui_reset_visual"),
     Callback = function()
         Camera.FieldOfView      = 70
         Lighting.Brightness     = 2
@@ -990,16 +1317,44 @@ Misc:AddButton({ Title = T("ui_reset_visual"),
         Lighting.OutdoorAmbient = Color3.fromRGB(128, 128, 128)
         Notify({ Title = T("visual_reset"), Image = IMG, Type = "Info", Duration = 3 })
     end })
+
+-- =====================================================
+-- TAB: MISC
+-- =====================================================
+local Misc = Window:MakeTab({ Title = T("tab_misc"), Icon = "calendarsearch" })
+Misc:AddSection(T("sec_utility"))
+Misc:AddSection("Server")
+Misc:AddButton({
+    Title    = "Server Hop (trocar de servidor)",
+    Callback = function()
+        Notify({ Title = "Server Hop", Description = "Procurando servidor...", Image = IMG, Type = "Info", Duration = 3 })
+        task.spawn(function()
+            Functions.ServerHop()
+        end)
+    end,
+})
+
 Misc:AddSection(T("sec_script_info"))
-Misc:AddParagraph({ Title = "Redux Hub v2.3 - Modular", Text =
-    "by Redux Studio.\n" ..
-    "[>] Fixed Attempt call Nil Value Erro\n" ..
-    "[>] Fixed Auto Click\n" ..
-    "[>] Fixed Sea 2 Detecting\n" ..
-    "[>] Fixed Tween Fly Speed\n" ..
-    "[>] Fixed Auto Farm not get quest"
+Misc:AddParagraph({ Title = "Lotux Hub v3.0 - Modular", Text =
+    "by LoadFlint/lucas\n" ..
+    "[>] Auto Farm com Quest Fix\n" ..
+    "[>] ESP Circulo Verde + SelectionBox\n" ..
+    "[>] Aqua Aura, Rainbow Skills, Billboard\n" ..
+    "[>] Self Highlight + FPS Counter\n" ..
+    "[>] Render on Focus (economiza CPU)\n" ..
+    "[>] Sea 1, 2 e 3 detectado automaticamente"
 })
 Misc:AddButton({ Title = T("ui_close_ui"), Callback = function() Window:CloseBtn() end })
+
+-- =====================================================
+-- INICIA FEATURES ATIVAS POR PADRAO
+-- =====================================================
+
+-- Render on Focus ativo por padrao (Config.RenderOnFocus = true)
+Functions.StartFocusRenderControl()
+
+-- Sem neblina por padrao
+Lighting.FogEnd = Config.NoFog and 100000 or 1000
 
 -- =====================================================
 -- FINALIZACAO
@@ -1007,13 +1362,13 @@ Misc:AddButton({ Title = T("ui_close_ui"), Callback = function() Window:CloseBtn
 uiReady = true
 
 Notify({
-    Title       = "Redux Hub v1.2 Carregado!",
+    Title       = "Lotux Hub v3.0 Carregado!",
     Description = "Sea " .. CurrentSea .. " | PlaceId: " .. game.PlaceId,
     Image       = IMG,
     Duration    = 5,
     Type        = "Success",
 })
 
-print("[Redux Hub] Sea detectado:", CurrentSea)
-print("[Redux Hub] PlaceId:", game.PlaceId)
-print("[Redux Hub] World1:", World1, "| World2:", World2, "| World3:", World3)
+print("[Lotux Hub] Sea detectado:", CurrentSea)
+print("[Lotux Hub] PlaceId:", game.PlaceId)
+print("[Lotux Hub] World1:", World1, "| World2:", World2, "| World3:", World3)
