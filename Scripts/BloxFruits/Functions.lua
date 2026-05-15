@@ -25,34 +25,58 @@ end
 -- =====================================================
 function Functions.DetectCurrentSea()
     local placeId = game.PlaceId
-    local level   = 0
-    pcall(function()
-        level = game:GetService("Players").LocalPlayer.Data.Level.Value
-    end)
-
+    local player = game:GetService("Players").LocalPlayer
+    local placeIdToSea = {
+        [2753915549] = 1, -- Sea 1 privado
+        [4442272183] = 2, -- Sea 2 privado
+        [79091703265657] = 2, -- Sea 2 publico
+        [7449423635] = 3, -- Sea 3 privado
+    }
+    local sea = placeIdToSea[placeId]
+    if sea then return sea end
+    local placeIdPublic = {
+        [] = 1,
+        [79091703265657] = 2,
+        [] = 3
+    }
+    local placeIdPrivate = {
+        [2753915549] = 1,
+        [4442272183] = 2,
+        [7449423635] = 3
+    }
     -- Sea 3: PlaceId unico, sempre confiavel
-    if placeId == 7449423635 then
+    if placeIdPrivate[placeId] == 3 or placeIdPublic[placeId] == 3 then
         return 3
     end
 
     -- Sea 2: privado OU publico
-    if placeId == 4442272183 or placeId == 79091703265657 then
+    if placeIdPrivate[placeId] == 2 or placeIdPublic[placeId] == 2 then
         return 2
     end
 
     -- Sea 1: PlaceId padrao
+    if placeIdPrivate[placeId] == 1 or placeIdPublic[placeId] == 1 then
+        return 1
+    end
+
+    if placeIdToSea[placeId] then
+        return placeIdToSea[placeId]
+    end
+
+    -- order fallback: tenta detecta pelo place ID normal sem precisa de usa "local" pra achar
+
     if placeId == 2753915549 then
         return 1
     end
 
-    -- PlaceId desconhecido (novo servidor publico nao mapeado) -> usa level
-    if level >= 1500 then
-        return 3
-    elseif level >= 700 then
+    if placeId == 4442272183 or placeId == 79091703265657 then
         return 2
-    else
-        return 1
     end
+
+    if placeId == 7449423635 then
+        return 3
+    end
+
 end
 
 -- =====================================================
