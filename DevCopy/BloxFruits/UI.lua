@@ -549,7 +549,7 @@ end)
 -- =====================================================
 -- NOTIFICACOES
 -- =====================================================
-local IMG     = "rbxassetid://135350717440671"
+local IMG     = "rbxassetid://93533571632029"
 local uiReady = false
 local function Notify(cfg)
     if not uiReady then return end
