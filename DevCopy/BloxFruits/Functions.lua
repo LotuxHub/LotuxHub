@@ -71,9 +71,16 @@ function Functions.StartWeaponResolver(config)
                 local tooltip = tipo
                 if tipo == "BloxFruits" then tooltip = "Blox Fruit" end
 
+                -- ✅ FIX: se a arma já resolvida ainda existe (backpack ou char), mantém
+                if config.SelectedWeaponName ~= "" then
+                    local existing = Player.Backpack:FindFirstChild(config.SelectedWeaponName)
+                                  or (Player.Character and Player.Character:FindFirstChild(config.SelectedWeaponName))
+                    if existing then return end -- arma ainda válida, não muda
+                end
+
                 local found = false
 
-                -- Procura no backpack
+                -- 1. Procura no backpack pelo ToolTip exato
                 for _, tool in pairs(Player.Backpack:GetChildren()) do
                     if tool:IsA("Tool") and tool.ToolTip == tooltip then
                         config.SelectedWeaponName = tool.Name
@@ -81,7 +88,7 @@ function Functions.StartWeaponResolver(config)
                     end
                 end
 
-                -- Procura no personagem (ja equipada)
+                -- 2. Procura no personagem (já equipada)
                 if not found and Player.Character then
                     for _, tool in pairs(Player.Character:GetChildren()) do
                         if tool:IsA("Tool") and tool.ToolTip == tooltip then
@@ -91,7 +98,7 @@ function Functions.StartWeaponResolver(config)
                     end
                 end
 
-                -- Fallback por nome
+                -- 3. Fallback por nome (caso ToolTip esteja diferente)
                 if not found then
                     for _, tool in pairs(Player.Backpack:GetChildren()) do
                         if tool:IsA("Tool") and tool.Name:lower():find(tooltip:lower()) then
@@ -122,10 +129,30 @@ function Functions.EquipWeapon(weaponName, notAutoEquipRef)
     local notAuto = notAutoEquipRef and notAutoEquipRef.value or _NotAutoEquip
     if notAuto then return end
 
+    local char = Player.Character
+    if not char then return end
+
+    -- ✅ FIX: se a arma já está equipada no personagem, nao faz nada
+    -- Isso evita que o jogo vire o personagem para o NPC toda vez
+    if char:FindFirstChild(weaponName) then return end
+
+    -- ✅ FIX: se qualquer tool com o mesmo ToolTip já está equipada, nao re-equipa
+    local config_tooltip = nil
+    local tool_in_backpack = Player.Backpack:FindFirstChild(weaponName)
+    if tool_in_backpack then
+        config_tooltip = tool_in_backpack.ToolTip
+    end
+    if config_tooltip then
+        for _, t in pairs(char:GetChildren()) do
+            if t:IsA("Tool") and t.ToolTip == config_tooltip then return end
+        end
+    end
+
     local tool = Player.Backpack:FindFirstChild(weaponName)
-    if tool and Player.Character and Player.Character:FindFirstChild("Humanoid") then
-        Player.Character.Humanoid:EquipTool(tool)
-        task.wait(0.1)
+    local hum  = char:FindFirstChildOfClass("Humanoid")
+    if tool and hum then
+        hum:EquipTool(tool)
+        task.wait(0.05) -- delay menor para nao travar o farm
     end
 end
 
@@ -162,23 +189,46 @@ end
 -- HAKI
 -- =====================================================
 
+-- Cooldown global para nao ficar ativando/desativando todo frame
+local _hakiLastTime = 0
+local _HAKI_COOLDOWN = 4 -- segundos entre cada invoke
+
 function Functions.AutoHaki()
     local character = Player.Character
     if not character then return end
+
+    -- Verifica se ja esta ativo por qualquer indicador do jogo
     local hasBuso = character:FindFirstChild("HasBuso")
                  or character:FindFirstChild("Buso")
                  or character:FindFirstChild("HakiActive")
+                 or character:GetAttribute("HasBuso")
+                 or character:GetAttribute("BusoActive")
     if hasBuso then return end
+
+    -- Cooldown: so chama de X em X segundos
+    local now = tick()
+    if now - _hakiLastTime < _HAKI_COOLDOWN then return end
+    _hakiLastTime = now
+
     pcall(function()
         ReplicatedStorage.Remotes.CommF_:InvokeServer("Buso")
     end)
 end
 
+-- ActivateBuso: alias unico, sem chamar duas vezes
 function Functions.ActivateBuso(commF_)
-    pcall(function() Functions.AutoHaki() end)
-    if commF_ then
-        pcall(function() commF_:InvokeServer("Buso") end)
-    end
+    Functions.AutoHaki()
+end
+
+-- Loop de haki em background (chame uma vez no init)
+function Functions.StartHakiLoop(config, commF_)
+    task.spawn(function()
+        while task.wait(2) do
+            if config.AutoBusoHaki then
+                Functions.AutoHaki()
+            end
+        end
+    end)
 end
 
 -- =====================================================
@@ -247,7 +297,10 @@ function Functions.FlyToPosition(targetCF, tweenSvc, config, isTeleportingRef, n
             task.wait()
             local c = Player.Character
             if c and c:FindFirstChild("HumanoidRootPart") and c:FindFirstChild("PartTele") then
-                c.HumanoidRootPart.CFrame = c.PartTele.CFrame
+                -- ✅ FIX: só copia a posição, preserva rotação Y atual do player
+                local cHrp = c.HumanoidRootPart
+                local _, yaw, _ = cHrp.CFrame:ToOrientation()
+                cHrp.CFrame = CFrame.new(c.PartTele.CFrame.Position) * CFrame.Angles(0, yaw, 0)
             end
         end)
     end
@@ -272,7 +325,10 @@ function Functions.FlyToPosition(targetCF, tweenSvc, config, isTeleportingRef, n
         local cHrp = c and c:FindFirstChild("HumanoidRootPart")
         local pt   = c and c:FindFirstChild("PartTele")
         if cHrp and pt then
-            cHrp.CFrame = pt.CFrame
+            -- ✅ FIX: preserva a rotação Y atual do player, só muda a posição
+            -- Isso evita que o personagem vire para o NPC durante o voo
+            local _, currentYaw, _ = cHrp.CFrame:ToOrientation()
+            cHrp.CFrame = CFrame.new(pt.CFrame.Position) * CFrame.Angles(0, currentYaw, 0)
         else
             conn:Disconnect()
         end

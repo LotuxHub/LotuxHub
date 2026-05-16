@@ -152,6 +152,9 @@ World3 = (CurrentSea == 3)
 -- =====================================================
 Functions.StartWeaponResolver(Config)
 
+-- Inicia loop de haki (substitui o ActivateBuso por frame)
+Functions.StartHakiLoop(Config, CommF_)
+
 -- =====================================================
 -- NOCLIP LOOP
 -- =====================================================
@@ -209,10 +212,8 @@ task.spawn(function()
         local hrpTarget = bestTarget:FindFirstChild("HumanoidRootPart")
         if not hrpTarget then continue end
 
-        pcall(function()
-            HumanoidRootPart.CFrame = CFrame.lookAt(HumanoidRootPart.Position, hrpTarget.Position)
-        end)
-
+        -- FIX: NÃO rotaciona o personagem para o alvo (removido CFrame.lookAt)
+        -- O ataque funciona sem precisar virar o personagem
         local dist = (hrpTarget.Position - HumanoidRootPart.Position).Magnitude
         if dist > 25 then continue end
 
@@ -836,19 +837,628 @@ Settings:AddDropdown({
 Settings:AddParagraph({ Title = T("tab_language"), Text = T("ui_lang_list") })
 
 -- =====================================================
--- TABS "EM BREVE"
+-- TAB: ITEMS QUEST (espadas lendárias, boss itens)
 -- =====================================================
-local function SoonTab(title, icon)
-    local tab = Window:MakeTab({ Title = T(title), Icon = icon })
-    tab:AddParagraph({ Title = T(title), Text = T("soon_coming") })
+local ItemsQuest = Window:MakeTab({ Title = T("tab_itemquest"), Icon = "swords" })
+
+if World3 then
+    ItemsQuest:AddSection("Espadas Lendárias - Sea 3")
+    ItemsQuest:AddToggle({ Title = "Auto Pegar Tushita (Farm Longma)", Default = false,
+        Callback = function(v) Config.AutoGetTushita = v
+            Notify({ Title = v and "Auto Tushita ON" or "Auto Tushita OFF", Image = IMG, Type = v and "Success" or "Info", Duration = 2 }) end })
+    ItemsQuest:AddToggle({ Title = "Auto Holy Torch (Tochas Tushita)", Default = false,
+        Callback = function(v) Config.AutoHolyTorch = v end })
+    ItemsQuest:AddToggle({ Title = "Auto Pegar Yama (30 Elite Hunter kills)", Default = false,
+        Callback = function(v) Config.AutoYama = v end })
+    ItemsQuest:AddToggle({ Title = "Auto Pegar Rengoku (Ice Admiral)", Default = false,
+        Callback = function(v) Config.AutoRengoku = v end })
+    ItemsQuest:AddSection("Elite Hunter")
+    ItemsQuest:AddToggle({ Title = "Auto Farm Elite Hunter (Diablo/Deandre/Urban)", Default = false,
+        Callback = function(v) Config.AutoEliteHunter = v end })
+    ItemsQuest:AddToggle({ Title = "Server Hop se sem Elite Hunter", Default = false,
+        Callback = function(v) Config.AutoEliteHunterHop = v end })
 end
-SoonTab("tab_fishing",   "anchor")
-SoonTab("tab_itemquest", "swords")
-SoonTab("tab_race",      "flag")
-SoonTab("tab_vulcano",   "flame")
-SoonTab("tab_seaevent",  "waves")
-SoonTab("tab_fruitraid", "apple")
-SoonTab("tab_shopping",  "shoppingbag")
+
+if World2 then
+    ItemsQuest:AddSection("Espadas Lendárias - Sea 2")
+    ItemsQuest:AddToggle({ Title = "Auto Pegar Dark Blade V2", Default = false,
+        Callback = function(v) Config.AutoDarkBladeV2 = v end })
+    ItemsQuest:AddToggle({ Title = "Auto Pegar Saber (True Triple Katana)", Default = false,
+        Callback = function(v) Config.AutoSaber = v end })
+    ItemsQuest:AddToggle({ Title = "Auto Comprar Espada Lendária", Default = false,
+        Callback = function(v) Config.AutoBuyLegendarySword = v end })
+    ItemsQuest:AddToggle({ Title = "Auto Comprar Cor de Haki (Enhancement)", Default = false,
+        Callback = function(v) Config.AutoBuyEnhancementColour = v end })
+end
+
+if World1 then
+    ItemsQuest:AddSection("Itens - Sea 1")
+    ItemsQuest:AddToggle({ Title = "Auto Pegar Saber V2", Default = false,
+        Callback = function(v) Config.AutoSaber = v end })
+    ItemsQuest:AddToggle({ Title = "Auto Dark Blade V2", Default = false,
+        Callback = function(v) Config.AutoDarkBladeV2 = v end })
+end
+
+ItemsQuest:AddSection("Geral")
+ItemsQuest:AddToggle({ Title = "Auto Coletar Baus (Farm Chest)", Default = false,
+    Callback = function(v) Config.FarmChest = v end })
+ItemsQuest:AddToggle({ Title = "Auto Guardar Frutas no Storage", Default = false,
+    Callback = function(v)
+        Config.AutoStoreFruit = v
+        if v then
+            task.spawn(function()
+                while Config.AutoStoreFruit do
+                    Functions.StoreFruit()
+                    task.wait(2)
+                end
+            end)
+        end
+        Notify({ Title = v and "Auto Store Fruit ON" or "Auto Store Fruit OFF", Image = IMG, Type = v and "Success" or "Info", Duration = 2 })
+    end })
+ItemsQuest:AddToggle({ Title = "Auto Dungeon (avançar ilhas)", Default = false,
+    Callback = function(v) Config.AutoDungeon = v end })
+
+-- =====================================================
+-- TAB: RACE V4
+-- =====================================================
+local RaceTab = Window:MakeTab({ Title = T("tab_race"), Icon = "flag" })
+RaceTab:AddSection("Raça e Evolução")
+RaceTab:AddToggle({ Title = "Auto Quest Race (completar trial de raça)", Default = false,
+    Callback = function(v)
+        Config.AutoQuestRace = v
+        Notify({ Title = v and "Auto Quest Race ON" or "Auto Quest Race OFF", Image = IMG, Type = v and "Success" or "Info", Duration = 2 })
+    end })
+RaceTab:AddToggle({ Title = "Auto Race V3 (ativar habilidade V3)", Default = false,
+    Callback = function(v) Config.AutoRaceV3 = v end })
+RaceTab:AddToggle({ Title = "Auto Race V4 (pressionar Y)", Default = false,
+    Callback = function(v)
+        Config.AutoRaceV4 = v
+        if v then
+            task.spawn(function()
+                while Config.AutoRaceV4 do
+                    pcall(function()
+                        local hrp = Player.Character and Player.Character:FindFirstChild("HumanoidRootPart")
+                        if hrp then
+                            game:GetService("VirtualInputManager"):SendKeyEvent(true, Enum.KeyCode.Y.Value, false, hrp)
+                            task.wait(0.1)
+                            game:GetService("VirtualInputManager"):SendKeyEvent(false, Enum.KeyCode.Y.Value, false, hrp)
+                        end
+                    end)
+                    task.wait(0.5)
+                end
+            end)
+        end
+        Notify({ Title = v and "Auto Race V4 ON" or "Auto Race V4 OFF", Image = IMG, Type = v and "Success" or "Info", Duration = 2 })
+    end })
+RaceTab:AddToggle({ Title = "Auto Doo Hee (olhar lua + T para V3 Moon)", Default = false,
+    Callback = function(v)
+        Config.AutoDooHee = v
+        if v then
+            task.spawn(function()
+                while Config.AutoDooHee do
+                    pcall(function()
+                        local hrp = Player.Character and Player.Character:FindFirstChild("HumanoidRootPart")
+                        if hrp then
+                            game:GetService("VirtualInputManager"):SendKeyEvent(true, Enum.KeyCode.T.Value, false, hrp)
+                            task.wait(0.1)
+                            game:GetService("VirtualInputManager"):SendKeyEvent(false, Enum.KeyCode.T.Value, false, hrp)
+                        end
+                    end)
+                    task.wait(1)
+                end
+            end)
+        end
+    end })
+RaceTab:AddSection("Skills Automáticas")
+RaceTab:AddToggle({ Title = "Auto Skill Z", Default = false,
+    Callback = function(v)
+        Config.AutoSkill = v
+        if v then
+            task.spawn(function()
+                while Config.AutoSkill do
+                    pcall(function()
+                        local hrp = Player.Character and Player.Character:FindFirstChild("HumanoidRootPart")
+                        if not hrp then return end
+                        local VIM = game:GetService("VirtualInputManager")
+                        VIM:SendKeyEvent(true, 122, false, hrp)
+                        VIM:SendKeyEvent(false, 122, false, hrp)
+                    end)
+                    task.wait(0.2)
+                end
+            end)
+        end
+    end })
+RaceTab:AddToggle({ Title = "Auto Skill X", Default = false,
+    Callback = function(v)
+        if v then
+            task.spawn(function()
+                while v do
+                    pcall(function()
+                        local hrp = Player.Character and Player.Character:FindFirstChild("HumanoidRootPart")
+                        if not hrp then return end
+                        game:GetService("VirtualInputManager"):SendKeyEvent(true, 120, false, hrp)
+                        game:GetService("VirtualInputManager"):SendKeyEvent(false, 120, false, hrp)
+                    end)
+                    task.wait(0.2)
+                end
+            end)
+        end
+    end })
+RaceTab:AddToggle({ Title = "Auto Skill C", Default = false,
+    Callback = function(v)
+        if v then
+            task.spawn(function()
+                while v do
+                    pcall(function()
+                        local hrp = Player.Character and Player.Character:FindFirstChild("HumanoidRootPart")
+                        if not hrp then return end
+                        game:GetService("VirtualInputManager"):SendKeyEvent(true, 99, false, hrp)
+                        game:GetService("VirtualInputManager"):SendKeyEvent(false, 99, false, hrp)
+                    end)
+                    task.wait(0.2)
+                end
+            end)
+        end
+    end })
+RaceTab:AddSection("Temple of Time")
+RaceTab:AddButton({ Title = "TP Temple of Time", Callback = function()
+    pcall(function()
+        ReplicatedStorage.Remotes.CommF_:InvokeServer("requestEntrance",
+            Vector3.new(28286.35546875, 14895.3017578125, 102.62469482421875))
+    end)
+    Notify({ Title = "Teleportando para Temple of Time", Image = IMG, Type = "Info", Duration = 3 })
+end })
+RaceTab:AddButton({ Title = "TP Lever Pull", Callback = function()
+    if HumanoidRootPart then
+        HumanoidRootPart.CFrame = CFrame.new(28575.181640625, 14936.6279296875, 72.31636810302734)
+    end
+end })
+RaceTab:AddButton({ Title = "TP The Clock", Callback = function()
+    if HumanoidRootPart then
+        HumanoidRootPart.CFrame = CFrame.new(29553.7812, 15066.6133, -88.2750015)
+    end
+end })
+RaceTab:AddButton({ Title = "Comprar Ancient One Quest", Callback = function()
+    pcall(function()
+        ReplicatedStorage.Remotes.CommF_:InvokeServer("UpgradeRace", "Buy")
+    end)
+    Notify({ Title = "Comprando Ancient One Quest", Image = IMG, Type = "Success", Duration = 3 })
+end })
+
+-- =====================================================
+-- TAB: VULCAO / PREHISTORIC
+-- =====================================================
+local VulcaoTab = Window:MakeTab({ Title = T("tab_vulcano"), Icon = "flame" })
+VulcaoTab:AddSection("Prehistoric Island")
+VulcaoTab:AddToggle({ Title = "Auto Defender Vulcão (Prehistoric)", Default = false,
+    Callback = function(v)
+        Config.DefendVolcano = v
+        Notify({ Title = v and "Defend Vulcão ON" or "Defend Vulcão OFF", Image = IMG, Type = v and "Success" or "Info", Duration = 2 })
+    end })
+VulcaoTab:AddToggle({ Title = "Tween para o Vulcão", Default = false,
+    Callback = function(v)
+        Config.TweenVolcano = v
+        if v then
+            task.spawn(function()
+                while Config.TweenVolcano do
+                    pcall(function()
+                        for _, obj in pairs(workspace:GetDescendants()) do
+                            if obj.Name == "Volcano" and obj:IsA("BasePart") then
+                                Functions.FlyToPosition(obj.CFrame, TweenService, Config, isTeleporting, NotAutoEquip)
+                            end
+                        end
+                    end)
+                    task.wait(2)
+                end
+            end)
+        end
+    end })
+VulcaoTab:AddToggle({ Title = "Auto Encontrar Prehistoric Island", Default = false,
+    Callback = function(v)
+        Config.AutoFindPrehistoric = v
+        if v then
+            task.spawn(function()
+                while Config.AutoFindPrehistoric do
+                    pcall(function()
+                        local pre = workspace.Map:FindFirstChild("PrehistoricIsland")
+                        if pre then
+                            Functions.FlyToPosition(pre:GetPivot(), TweenService, Config, isTeleporting, NotAutoEquip)
+                        end
+                    end)
+                    task.wait(3)
+                end
+            end)
+        end
+    end })
+VulcaoTab:AddToggle({ Title = "Auto Coletar Ossos (DinoBone)", Default = false,
+    Callback = function(v)
+        Config.AutoCollectBone = v
+        if v then
+            task.spawn(function()
+                while Config.AutoCollectBone do
+                    pcall(function()
+                        for _, obj in pairs(workspace:GetDescendants()) do
+                            if obj.Name == "DinoBone" or obj.Name == "Bone" then
+                                if HumanoidRootPart then
+                                    HumanoidRootPart.CFrame = obj.CFrame
+                                end
+                            end
+                        end
+                    end)
+                    task.wait(1)
+                end
+            end)
+        end
+    end })
+VulcaoTab:AddSection("Dragon Quest")
+VulcaoTab:AddToggle({ Title = "Auto Farm Mob Dragon (Floating Turtle)", Default = false,
+    Callback = function(v) Config.AutoMobDragon = v end })
+VulcaoTab:AddToggle({ Title = "Auto Coletar Ovo de Dragão", Default = false,
+    Callback = function(v)
+        Config.CollectEgg = v
+        if v then
+            task.spawn(function()
+                while Config.CollectEgg do
+                    pcall(function()
+                        CommF_:InvokeServer("CollectEgg")
+                    end)
+                    task.wait(2)
+                end
+            end)
+        end
+    end })
+
+-- =====================================================
+-- TAB: SEA EVENT
+-- =====================================================
+local SeaEventTab = Window:MakeTab({ Title = T("tab_seaevent"), Icon = "waves" })
+SeaEventTab:AddSection("Ilhas Especiais")
+SeaEventTab:AddToggle({ Title = "Auto Tween para Mirage Island", Default = false,
+    Callback = function(v)
+        Config.AutoMysticIsland = v
+        if v then
+            task.spawn(function()
+                while Config.AutoMysticIsland do
+                    pcall(function()
+                        local locs = workspace["_WorldOrigin"].Locations
+                        local mirage = locs:FindFirstChild("Mirage Island")
+                        if mirage and HumanoidRootPart then
+                            Functions.FlyToPosition(mirage.CFrame, TweenService, Config, isTeleporting, NotAutoEquip)
+                        end
+                    end)
+                    task.wait(3)
+                end
+            end)
+        end
+        Notify({ Title = v and "Auto Mirage Island ON" or "Auto Mirage Island OFF", Image = IMG, Type = v and "Success" or "Info", Duration = 2 })
+    end })
+SeaEventTab:AddToggle({ Title = "Tween para Kitsune Island", Default = false,
+    Callback = function(v)
+        Config.TweenToKitsune = v
+        if v then
+            task.spawn(function()
+                while Config.TweenToKitsune do
+                    pcall(function()
+                        local kit = workspace.Map:FindFirstChild("KitsuneIsland")
+                        if kit and HumanoidRootPart then
+                            Functions.FlyToPosition(kit:GetPivot(), TweenService, Config, isTeleporting, NotAutoEquip)
+                        end
+                    end)
+                    task.wait(3)
+                end
+            end)
+        end
+    end })
+SeaEventTab:AddToggle({ Title = "Auto Azure Ember (TP quando aparecer)", Default = false,
+    Callback = function(v)
+        Config.AutoAzuerEmber = v
+        if v then
+            task.spawn(function()
+                while Config.AutoAzuerEmber do
+                    pcall(function()
+                        for _, obj in pairs(workspace:GetDescendants()) do
+                            if obj.Name == "AzureEmber" or obj.Name == "Azure Ember" then
+                                if HumanoidRootPart then HumanoidRootPart.CFrame = obj.CFrame end
+                            end
+                        end
+                    end)
+                    task.wait(2)
+                end
+            end)
+        end
+    end })
+SeaEventTab:AddToggle({ Title = "Auto Blaze Ember (TP quando aparecer)", Default = false,
+    Callback = function(v)
+        Config.AutoBlazeEmber = v
+        if v then
+            task.spawn(function()
+                while Config.AutoBlazeEmber do
+                    pcall(function()
+                        for _, obj in pairs(workspace:GetDescendants()) do
+                            if obj.Name == "BlazeEmber" or obj.Name == "Blaze Ember" then
+                                if HumanoidRootPart then HumanoidRootPart.CFrame = obj.CFrame end
+                            end
+                        end
+                    end)
+                    task.wait(2)
+                end
+            end)
+        end
+    end })
+SeaEventTab:AddSection("Farm Especial Sea 3")
+SeaEventTab:AddToggle({ Title = "Auto Farm Hydra Tree (Hydra Island)", Default = false,
+    Callback = function(v) Config.AutoHydraTree = v end })
+SeaEventTab:AddToggle({ Title = "Auto Navegar Barco (Sea 3)", Default = false,
+    Callback = function(v)
+        Config.SailBoat = v
+        Notify({ Title = v and "Sail Boat ON" or "Sail Boat OFF", Image = IMG, Type = v and "Success" or "Info", Duration = 2 })
+    end })
+SeaEventTab:AddToggle({ Title = "Auto Farm Terrorshark", Default = false,
+    Callback = function(v) Config.AutoTerrorshark = v end })
+SeaEventTab:AddToggle({ Title = "Walk on Water (aumentar base)", Default = false,
+    Callback = function(v)
+        Config.WalkWater = v
+        if v then
+            task.spawn(function()
+                while Config.WalkWater do
+                    pcall(function()
+                        local char = Player.Character
+                        local hrp  = char and char:FindFirstChild("HumanoidRootPart")
+                        if hrp then hrp.Size = Vector3.new(hrp.Size.X, hrp.Size.Y, 20) end
+                    end)
+                    task.wait(0.1)
+                end
+            end)
+        end
+    end })
+SeaEventTab:AddSection("M-Gear (Mystic Island)")
+SeaEventTab:AddToggle({ Title = "Auto Tween para M-Gear (partes Neon)", Default = false,
+    Callback = function(v)
+        Config.TweenMGear = v
+        if v then
+            task.spawn(function()
+                while Config.TweenMGear do
+                    pcall(function()
+                        for _, obj in pairs(workspace.Map.MysticIsland:GetChildren()) do
+                            if obj.Name == "MeshPart" then
+                                Functions.FlyToPosition(obj.CFrame, TweenService, Config, isTeleporting, NotAutoEquip)
+                                task.wait(0.5)
+                            end
+                        end
+                    end)
+                    task.wait(1)
+                end
+            end)
+        end
+    end })
+
+-- =====================================================
+-- TAB: FRUTAS / RAID
+-- =====================================================
+local FruitRaidTab = Window:MakeTab({ Title = T("tab_fruitraid"), Icon = "apple" })
+FruitRaidTab:AddSection("Frutas")
+FruitRaidTab:AddToggle({ Title = "Tween para Frutas no Mapa", Default = false,
+    Callback = function(v)
+        Config.TweenFruit = v
+        if v then
+            task.spawn(function()
+                while Config.TweenFruit do
+                    pcall(function()
+                        for _, obj in pairs(workspace:GetChildren()) do
+                            if obj:IsA("Tool") and obj.Name:find("Fruit") then
+                                local h = obj:FindFirstChild("Handle")
+                                if h and HumanoidRootPart then
+                                    Functions.FlyToPosition(h.CFrame, TweenService, Config, isTeleporting, NotAutoEquip)
+                                end
+                            end
+                        end
+                    end)
+                    task.wait(2)
+                end
+            end)
+        end
+        Notify({ Title = v and "Tween Fruit ON" or "Tween Fruit OFF", Image = IMG, Type = v and "Success" or "Info", Duration = 2 })
+    end })
+FruitRaidTab:AddToggle({ Title = "Grab Fruit (TP até a fruta)", Default = false,
+    Callback = function(v)
+        Config.GrabFruit = v
+        if v then
+            task.spawn(function()
+                while Config.GrabFruit do
+                    pcall(function()
+                        for _, obj in pairs(workspace:GetChildren()) do
+                            if obj:IsA("Tool") and obj.Name:find("Fruit") then
+                                local h = obj:FindFirstChild("Handle")
+                                if h and HumanoidRootPart then
+                                    HumanoidRootPart.CFrame = h.CFrame
+                                end
+                            end
+                        end
+                    end)
+                    task.wait(1)
+                end
+            end)
+        end
+    end })
+FruitRaidTab:AddToggle({ Title = "Auto Store Fruit (guardar no storage)", Default = false,
+    Callback = function(v)
+        Config.AutoStoreFruit = v
+        if v then
+            task.spawn(function()
+                while Config.AutoStoreFruit do
+                    pcall(function()
+                        for _, tool in pairs(Player.Backpack:GetChildren()) do
+                            if tool:IsA("Tool") and tool.Name:find("Fruit") then
+                                CommF_:InvokeServer("StoreFruit", tool:GetAttribute("OriginalName"), tool)
+                            end
+                        end
+                    end)
+                    task.wait(3)
+                end
+            end)
+        end
+        Notify({ Title = v and "Auto Store Fruit ON" or "Auto Store Fruit OFF", Image = IMG, Type = v and "Success" or "Info", Duration = 2 })
+    end })
+FruitRaidTab:AddSection("Raid")
+FruitRaidTab:AddToggle({ Title = "Auto Raid (Law - Sea 2)", Default = false,
+    Callback = function(v) Config.AutoRaidLaw = v end })
+FruitRaidTab:AddToggle({ Title = "Auto Comprar Chip Raid Law", Default = false,
+    Callback = function(v) Config.AutoBuyChipRaidLaw = v end })
+FruitRaidTab:AddToggle({ Title = "Auto Start Raid Law", Default = false,
+    Callback = function(v) Config.AutoStartRaidLaw = v end })
+FruitRaidTab:AddToggle({ Title = "Auto Pirate Raid (Sea 3)", Default = false,
+    Callback = function(v) Config.AutoPirateRaid = v end })
+FruitRaidTab:AddSection("Barista e Berry")
+FruitRaidTab:AddToggle({ Title = "Auto Coletar Berry", Default = false,
+    Callback = function(v)
+        Config.AutoCollectBerry = v
+        if v then Functions.StartAutoCollectBerry(Config) end
+        Notify({ Title = v and "Auto Berry ON" or "Auto Berry OFF", Image = IMG, Type = v and "Success" or "Info", Duration = 2 })
+    end })
+FruitRaidTab:AddToggle({ Title = "Server Hop se sem Berry", Default = false,
+    Callback = function(v) Config.AutoCollectBerryHop = v end })
+FruitRaidTab:AddToggle({ Title = "Auto Barista (cor de Haki)", Default = false,
+    Callback = function(v)
+        Config.AutoBarista = v
+        if v then Functions.StartAutoBarista(Config) end
+    end })
+FruitRaidTab:AddDropdown({ Title = "Cor do Haki (Barista)",
+    Options = { "White","Black","Red","Blue","Green","Yellow","Purple","Pink" }, Default = "White",
+    Callback = function(v) Config.HakiColor = tostring(v) end })
+
+-- =====================================================
+-- TAB: PVP / PLAYER HUNTER
+-- =====================================================
+local PvpTab = Window:MakeTab({ Title = T("tab_fishing"), Icon = "anchor" })
+PvpTab:AddSection("Player Hunter")
+PvpTab:AddToggle({ Title = "Auto Player Hunter (TP para alvo)", Default = false,
+    Callback = function(v)
+        Config.AutoPlayerHunter = v
+        if v then
+            task.spawn(function()
+                while Config.AutoPlayerHunter do
+                    pcall(function()
+                        local target = Players:FindFirstChild(Config.SelectedPlayer or "")
+                        if not target then return end
+                        local tChar = target.Character
+                        local tHrp  = tChar and tChar:FindFirstChild("HumanoidRootPart")
+                        local tHum  = tChar and tChar:FindFirstChildOfClass("Humanoid")
+                        if not tHrp or not tHum or tHum.Health <= 0 then return end
+                        if HumanoidRootPart then
+                            -- só move a posição, não vira o personagem
+                            HumanoidRootPart.CFrame = CFrame.new(tHrp.Position + Vector3.new(0, 5, 5))
+                        end
+                        Functions.EquipWeapon(Config.SelectedWeaponName, NotAutoEquip)
+                        tHrp.CanCollide = false
+                    end)
+                    task.wait(0.1)
+                end
+            end)
+        end
+        Notify({ Title = v and "Player Hunter ON" or "Player Hunter OFF", Image = IMG, Type = v and "Success" or "Info", Duration = 2 })
+    end })
+PvpTab:AddTextBox({ Title = "Nome do Player Alvo", Default = "", PlaceholderText = "Digite o nome...", ClearText = true,
+    Callback = function(v) Config.SelectedPlayer = tostring(v) end })
+PvpTab:AddSection("Kill Aura")
+PvpTab:AddToggle({ Title = "Kill Aura (matar mobs no raio de 1000)", Default = false,
+    Callback = function(v)
+        Config.KillAura = v
+        if v then
+            task.spawn(function()
+                while Config.KillAura do
+                    pcall(function()
+                        local char  = Player.Character
+                        local myHrp = char and char:FindFirstChild("HumanoidRootPart")
+                        if not myHrp then return end
+                        local ef = workspace:FindFirstChild("Enemies")
+                        if ef then
+                            for _, mob in pairs(ef:GetChildren()) do
+                                local hum = mob:FindFirstChildOfClass("Humanoid")
+                                local hrp = mob:FindFirstChild("HumanoidRootPart")
+                                if hum and hrp and hum.Health > 0
+                                and (hrp.Position - myHrp.Position).Magnitude <= 1000 then
+                                    hum.Health = 0
+                                    hrp.CanCollide = false
+                                    pcall(function() sethiddenproperty(Player, "SimulationRadius", math.huge) end)
+                                end
+                            end
+                        end
+                    end)
+                    task.wait(0.05)
+                end
+            end)
+        end
+        Notify({ Title = v and "Kill Aura ON" or "Kill Aura OFF", Image = IMG, Type = v and "Success" or "Info", Duration = 2 })
+    end })
+PvpTab:AddSection("Safe Mode")
+PvpTab:AddToggle({ Title = "Safe Mode (sobe se HP < 20%)", Default = false,
+    Callback = function(v)
+        Config.SafeMode = v
+        if v then
+            task.spawn(function()
+                while Config.SafeMode do
+                    pcall(function()
+                        local hum = Humanoid
+                        local hrp = HumanoidRootPart
+                        if hum and hrp and hum.MaxHealth > 0 then
+                            if hum.Health / hum.MaxHealth < 0.2 then
+                                hrp.CFrame = hrp.CFrame * CFrame.new(0, 100, 0)
+                            end
+                        end
+                    end)
+                    task.wait(0.5)
+                end
+            end)
+        end
+        Notify({ Title = v and "Safe Mode ON" or "Safe Mode OFF", Image = IMG, Type = v and "Success" or "Info", Duration = 2 })
+    end })
+
+-- =====================================================
+-- TAB: SHOP / MISC
+-- =====================================================
+local ShopTab = Window:MakeTab({ Title = T("tab_shopping"), Icon = "shoppingbag" })
+ShopTab:AddSection("Server")
+ShopTab:AddButton({ Title = "Server Hop (trocar de servidor)", Callback = function()
+    Notify({ Title = "Server Hop", Description = "Procurando servidor...", Image = IMG, Type = "Info", Duration = 3 })
+    task.spawn(function() Functions.ServerHop() end)
+end })
+ShopTab:AddSection("Haki de Armamento")
+ShopTab:AddToggle({ Title = "Auto Haki V2 (Desbloquear Haki V2)", Default = false,
+    Callback = function(v) Config.AutoHakiV2 = v end })
+ShopTab:AddToggle({ Title = "Auto Farm Observação Haki", Default = false,
+    Callback = function(v) Config.AutoFarmObsHaki = v end })
+ShopTab:AddSection("Factory e Misc Sea 2")
+ShopTab:AddToggle({ Title = "Auto Factory (Sea 2)", Default = false,
+    Callback = function(v) Config.AutoFactory = v end })
+ShopTab:AddToggle({ Title = "Auto Dark Beard (Sea 2)", Default = false,
+    Callback = function(v) Config.AutoDarkBeard = v end })
+ShopTab:AddToggle({ Title = "Auto Sharkman V2 (Sea 2)", Default = false,
+    Callback = function(v) Config.AutoSharkmanV2 = v end })
+ShopTab:AddToggle({ Title = "Auto Death Step (Sea 2)", Default = false,
+    Callback = function(v) Config.AutoDeathStep = v end })
+ShopTab:AddSection("Sea 3 Especiais")
+ShopTab:AddToggle({ Title = "Auto God Human (Sea 3)", Default = false,
+    Callback = function(v) Config.AutoGodHuman = v end })
+ShopTab:AddToggle({ Title = "Auto Electric Claw (Sea 3)", Default = false,
+    Callback = function(v) Config.AutoElectricClaw = v end })
+ShopTab:AddToggle({ Title = "Auto Dough King (Sea 3)", Default = false,
+    Callback = function(v) Config.AutoDoughKing = v end })
+ShopTab:AddToggle({ Title = "Auto Cake Prince (Sea 3)", Default = false,
+    Callback = function(v) Config.AutoCakePrince = v end })
+ShopTab:AddToggle({ Title = "Auto Bartilo Quest (acesso Sea 3)", Default = false,
+    Callback = function(v) Config.AutoBartilo = v end })
+ShopTab:AddSection("Info do Script")
+ShopTab:AddParagraph({ Title = "Lotux Hub", Text =
+    "by LoadFlint/lucas\n" ..
+    "[>] Auto Farm Level + Quest Fix\n" ..
+    "[>] Auto Farm Nearest\n" ..
+    "[>] ESP completo (mobs, players, ilhas, frutas, baus, berries)\n" ..
+    "[>] Aura Aqua, Rainbow Skills, Billboard\n" ..
+    "[>] Self Highlight + FPS Counter\n" ..
+    "[>] Race V4, Items Quest, Sea Events\n" ..
+    "[>] PVP: Kill Aura, Player Hunter\n" ..
+    "[>] Sea 1/2/3 detectado automaticamente"
+})
 
 -- =====================================================
 -- TAB: ESP
