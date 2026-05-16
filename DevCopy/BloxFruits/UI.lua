@@ -865,10 +865,18 @@ if World2 then
         Callback = function(v) Config.AutoDarkBladeV2 = v end })
     ItemsQuest:AddToggle({ Title = "Auto Pegar Saber (True Triple Katana)", Default = false,
         Callback = function(v) Config.AutoSaber = v end })
-    ItemsQuest:AddToggle({ Title = "Auto Comprar Espada Lendária", Default = false,
-        Callback = function(v) Config.AutoBuyLegendarySword = v end })
-    ItemsQuest:AddToggle({ Title = "Auto Comprar Cor de Haki (Enhancement)", Default = false,
-        Callback = function(v) Config.AutoBuyEnhancementColour = v end })
+    ItemsQuest:AddToggle({ Title = "Auto Pegar Thunder Pole (Thunder God)", Default = false,
+        Callback = function(v)
+            Config.AutoGetPole = v
+            if v then task.spawn(function() Functions.StartAutoGetPole(Config) end) end
+            Notify({ Title = v and "Auto Pole ON" or "Auto Pole OFF", Image = IMG, Type = v and "Success" or "Info", Duration = 2 })
+        end })
+    ItemsQuest:AddToggle({ Title = "Auto Pegar The Saw (Espada)", Default = false,
+        Callback = function(v)
+            Config.AutoGetSaw = v
+            if v then task.spawn(function() Functions.StartAutoGetSaw(Config) end) end
+            Notify({ Title = v and "Auto Saw ON" or "Auto Saw OFF", Image = IMG, Type = v and "Success" or "Info", Duration = 2 })
+        end })
 end
 
 if World1 then
@@ -1108,6 +1116,14 @@ VulcaoTab:AddToggle({ Title = "Auto Coletar Ovo de Dragão", Default = false,
         end
     end })
 
+VulcaoTab:AddSection("Lava Golem")
+VulcaoTab:AddToggle({ Title = "Auto Kill Lava Golem (Prehistoric Island)", Default = false,
+    Callback = function(v)
+        Config.AutoKillGolem = v
+        if v then task.spawn(function() Functions.StartAutoKillGolem(Config) end) end
+        Notify({ Title = v and "Kill Golem ON" or "Kill Golem OFF", Image = IMG, Type = v and "Success" or "Info", Duration = 2 })
+    end })
+
 -- =====================================================
 -- TAB: SEA EVENT
 -- =====================================================
@@ -1329,7 +1345,7 @@ FruitRaidTab:AddDropdown({ Title = "Cor do Haki (Barista)",
 -- =====================================================
 -- TAB: PVP / PLAYER HUNTER
 -- =====================================================
-local PvpTab = Window:MakeTab({ Title = T("tab_fishing"), Icon = "anchor" })
+local PvpTab = Window:MakeTab({ Title = "PvP", Icon = "shield" })
 PvpTab:AddSection("Player Hunter")
 PvpTab:AddToggle({ Title = "Auto Player Hunter (TP para alvo)", Default = false,
     Callback = function(v)
@@ -1413,40 +1429,74 @@ PvpTab:AddToggle({ Title = "Safe Mode (sobe se HP < 20%)", Default = false,
         Notify({ Title = v and "Safe Mode ON" or "Safe Mode OFF", Image = IMG, Type = v and "Success" or "Info", Duration = 2 })
     end })
 
+PvpTab:AddSection("Auto Kill Player")
+PvpTab:AddToggle({ Title = "Auto Kill Player (matar player alvo)", Default = false,
+    Callback = function(v)
+        Config.AutoKillPlayer = v
+        Notify({ Title = v and "Auto Kill ON" or "Auto Kill OFF", Image = IMG, Type = v and "Success" or "Info", Duration = 2 })
+    end })
+
+PvpTab:AddSection("Aimbot")
+PvpTab:AddToggle({ Title = "Aimbot Gun (mira automática com arma)", Default = false,
+    Callback = function(v)
+        Config.AimbotGun = v
+        if v then task.spawn(function() Functions.StartAimbotGun(Config) end) end
+        Notify({ Title = v and "Aimbot Gun ON" or "Aimbot Gun OFF", Image = IMG, Type = v and "Success" or "Info", Duration = 2 })
+    end })
+PvpTab:AddToggle({ Title = "Aimbot Skill (mira automática com skill)", Default = false,
+    Callback = function(v)
+        Config.AimbotSkill = v
+        if v then task.spawn(function() Functions.StartAimbotSkill(Config) end) end
+        Notify({ Title = v and "Aimbot Skill ON" or "Aimbot Skill OFF", Image = IMG, Type = v and "Success" or "Info", Duration = 2 })
+    end })
+
+PvpTab:AddSection("Criaturas do Mar")
+PvpTab:AddToggle({ Title = "Auto Matar Shark (mar)", Default = false,
+    Callback = function(v) Config.AutoKillShark = v end })
+PvpTab:AddToggle({ Title = "Auto Matar Piranha (mar)", Default = false,
+    Callback = function(v) Config.AutoKillPiranha = v end })
+PvpTab:AddToggle({ Title = "Auto Matar Fish Crew (mar)", Default = false,
+    Callback = function(v) Config.AutoKillFishCrew = v end })
+
 -- =====================================================
--- TAB: SHOP / MISC
+-- TAB: SHOP / COMPRAS
 -- =====================================================
-local ShopTab = Window:MakeTab({ Title = T("tab_shopping"), Icon = "shoppingbag" })
-ShopTab:AddSection("Server")
-ShopTab:AddButton({ Title = "Server Hop (trocar de servidor)", Callback = function()
-    Notify({ Title = "Server Hop", Description = "Procurando servidor...", Image = IMG, Type = "Info", Duration = 3 })
-    task.spawn(function() Functions.ServerHop() end)
-end })
-ShopTab:AddSection("Haki de Armamento")
-ShopTab:AddToggle({ Title = "Auto Haki V2 (Desbloquear Haki V2)", Default = false,
+local ShopTab = Window:MakeTab({ Title = "Compras", Icon = "shoppingbag" })
+ShopTab:AddSection("Compras Automáticas")
+ShopTab:AddToggle({ Title = "Auto Comprar Espada Lendária", Default = false,
+    Callback = function(v)
+        Config.AutoBuyLegendarySword = v
+        if v then task.spawn(function() Functions.StartAutoBuyLegendarySword(Config) end) end
+    end })
+ShopTab:AddToggle({ Title = "Auto Comprar Cor de Haki (Enhancement)", Default = false,
+    Callback = function(v)
+        Config.AutoBuyEnhancementColour = v
+        if v then task.spawn(function() Functions.StartAutoBuyEnhancement(Config) end) end
+    end })
+ShopTab:AddToggle({ Title = "Auto Comprar Chip de Raid (Law)", Default = false,
+    Callback = function(v) Config.AutoBuyChipRaidLaw = v end })
+ShopTab:AddSection("Haki e Combate")
+ShopTab:AddToggle({ Title = "Auto Haki V2 (Desbloquear Haki Armamento V2)", Default = false,
     Callback = function(v) Config.AutoHakiV2 = v end })
 ShopTab:AddToggle({ Title = "Auto Farm Observação Haki", Default = false,
     Callback = function(v) Config.AutoFarmObsHaki = v end })
-ShopTab:AddSection("Factory e Misc Sea 2")
-ShopTab:AddToggle({ Title = "Auto Factory (Sea 2)", Default = false,
-    Callback = function(v) Config.AutoFactory = v end })
-ShopTab:AddToggle({ Title = "Auto Dark Beard (Sea 2)", Default = false,
-    Callback = function(v) Config.AutoDarkBeard = v end })
+ShopTab:AddSection("Estilos de Luta - Sea 2")
 ShopTab:AddToggle({ Title = "Auto Sharkman V2 (Sea 2)", Default = false,
     Callback = function(v) Config.AutoSharkmanV2 = v end })
 ShopTab:AddToggle({ Title = "Auto Death Step (Sea 2)", Default = false,
     Callback = function(v) Config.AutoDeathStep = v end })
-ShopTab:AddSection("Sea 3 Especiais")
+ShopTab:AddSection("Estilos de Luta - Sea 3")
 ShopTab:AddToggle({ Title = "Auto God Human (Sea 3)", Default = false,
     Callback = function(v) Config.AutoGodHuman = v end })
 ShopTab:AddToggle({ Title = "Auto Electric Claw (Sea 3)", Default = false,
     Callback = function(v) Config.AutoElectricClaw = v end })
-ShopTab:AddToggle({ Title = "Auto Dough King (Sea 3)", Default = false,
-    Callback = function(v) Config.AutoDoughKing = v end })
-ShopTab:AddToggle({ Title = "Auto Cake Prince (Sea 3)", Default = false,
-    Callback = function(v) Config.AutoCakePrince = v end })
-ShopTab:AddToggle({ Title = "Auto Bartilo Quest (acesso Sea 3)", Default = false,
-    Callback = function(v) Config.AutoBartilo = v end })
+ShopTab:AddToggle({ Title = "Auto Dragon Taylor (Sea 3)", Default = false,
+    Callback = function(v) Config.AutoDragonTaylor = v end })
+ShopTab:AddSection("Resgatar Códigos")
+ShopTab:AddButton({ Title = "Resgatar Todos os Códigos", Callback = function()
+    Notify({ Title = "Códigos", Description = "Resgatando códigos...", Image = IMG, Type = "Info", Duration = 3 })
+    task.spawn(function() Functions.RedeemAllCodes() end)
+end })
 ShopTab:AddSection("Info do Script")
 ShopTab:AddParagraph({ Title = "Lotux Hub", Text =
     "by LoadFlint/lucas\n" ..
@@ -1931,8 +1981,7 @@ Visual:AddButton({ Title = T("ui_reset_visual"),
 -- =====================================================
 -- TAB: MISC
 -- =====================================================
-local Misc = Window:MakeTab({ Title = T("tab_misc"), Icon = "calendarsearch" })
-Misc:AddSection(T("sec_utility"))
+local Misc = Window:MakeTab({ Title = "Misc", Icon = "calendarsearch" })
 Misc:AddSection("Server")
 Misc:AddButton({
     Title    = "Server Hop (trocar de servidor)",
@@ -1943,6 +1992,60 @@ Misc:AddButton({
         end)
     end,
 })
+Misc:AddButton({ Title = "Hop (sair e re-entrar servidor)", Callback = function()
+    task.spawn(function() Functions.Hop() end)
+end })
+
+Misc:AddSection("Factory e Bosses (Sea 2)")
+Misc:AddToggle({ Title = "Auto Factory (Sea 2)", Default = false,
+    Callback = function(v) Config.AutoFactory = v end })
+Misc:AddToggle({ Title = "Auto Dark Beard (Sea 2)", Default = false,
+    Callback = function(v) Config.AutoDarkBeard = v end })
+Misc:AddToggle({ Title = "Auto Bartilo Quest (acesso Sea 3)", Default = false,
+    Callback = function(v) Config.AutoBartilo = v end })
+
+Misc:AddSection("Bosses Especiais (Sea 3)")
+Misc:AddToggle({ Title = "Auto Dough King (Sea 3)", Default = false,
+    Callback = function(v) Config.AutoDoughKing = v end })
+Misc:AddToggle({ Title = "Auto Cake Prince (Sea 3)", Default = false,
+    Callback = function(v) Config.AutoCakePrince = v end })
+
+Misc:AddSection("Auto Farm Frutas (Mastery)")
+Misc:AddDropdown({ Title = "Tipo de Farm de Frutas",
+    Options = { "Farm Level Mastery", "Farm Level Mastery No Quest", "Farm Bone Mastery", "Farm Cake Mastery" },
+    Default = "Farm Level Mastery",
+    Callback = function(v) Config.SelectFruitFarm = v end })
+Misc:AddToggle({ Title = "Auto Farm com Frutas (Mastery)", Default = false,
+    Callback = function(v)
+        Config.AutoFarmFruits = v
+        if v then task.spawn(function() Functions.StartAutoFarmFruits(Config) end) end
+        Notify({ Title = v and "Farm Frutas ON" or "Farm Frutas OFF", Image = IMG, Type = v and "Success" or "Info", Duration = 2 })
+    end })
+
+Misc:AddSection("Pray / Luck")
+Misc:AddToggle({ Title = "Auto Pray (Altar/Shrine)", Default = false,
+    Callback = function(v)
+        Config.AutoPray = v
+        if v then task.spawn(function() Functions.StartAutoPray(Config) end) end
+    end })
+Misc:AddToggle({ Title = "Auto Try Luck", Default = false,
+    Callback = function(v)
+        Config.AutoTryLuck = v
+        if v then task.spawn(function() Functions.StartAutoTryLuck(Config) end) end
+    end })
+Misc:AddToggle({ Title = "Auto Trade Bone (DinoBone)", Default = false,
+    Callback = function(v)
+        Config.AutoTradeBone = v
+        if v then task.spawn(function() Functions.StartAutoTradeBone(Config) end) end
+    end })
+
+Misc:AddSection("Skills Individuais")
+Misc:AddToggle({ Title = "Auto Skill Z", Default = false,
+    Callback = function(v) Config.AutoSkillZ = v end })
+Misc:AddToggle({ Title = "Auto Skill X", Default = false,
+    Callback = function(v) Config.AutoSkillX = v end })
+Misc:AddToggle({ Title = "Auto Skill C", Default = false,
+    Callback = function(v) Config.AutoSkillC = v end })
 
 Misc:AddSection(T("sec_script_info"))
 Misc:AddParagraph({ Title = "Lotux Hub v3.0 - Modular", Text =

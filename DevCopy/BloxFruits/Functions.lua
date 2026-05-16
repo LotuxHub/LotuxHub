@@ -1,20 +1,21 @@
 -- Functions.lua
 -- Lotux Hub by LoadFlint/lucas
--- Todas as funcoes: Farm, Voo, ESP, Visual, Quest, Utilitarios
+-- COMPLETO: Farm, Voo, ESP, Visual, Quest, Boss, Sea, PvP, Shop, Misc
 
 local Functions = {}
 
 -- =====================================================
 -- SERVICES
 -- =====================================================
-local Players           = game:GetService("Players")
-local RunService        = game:GetService("RunService")
-local TweenService      = game:GetService("TweenService")
-local VirtualUser       = game:GetService("VirtualUser")
+local Players             = game:GetService("Players")
+local RunService          = game:GetService("RunService")
+local TweenService        = game:GetService("TweenService")
+local VirtualUser         = game:GetService("VirtualUser")
 local VirtualInputManager = game:GetService("VirtualInputManager")
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local CollectionService = game:GetService("CollectionService")
-local UserInputService  = game:GetService("UserInputService")
+local ReplicatedStorage   = game:GetService("ReplicatedStorage")
+local CollectionService   = game:GetService("CollectionService")
+local UserInputService    = game:GetService("UserInputService")
+local StarterGui          = game:GetService("StarterGui")
 
 local Player = Players.LocalPlayer
 
@@ -58,9 +59,6 @@ end
 
 -- =====================================================
 -- WEAPON RESOLVER
--- Loop em background: atualiza Config.SelectedWeaponName
--- com o nome real da tool que bate com o tipo selecionado.
--- Chame Functions.StartWeaponResolver(Config) uma unica vez no init.
 -- =====================================================
 
 function Functions.StartWeaponResolver(config)
@@ -71,16 +69,13 @@ function Functions.StartWeaponResolver(config)
                 local tooltip = tipo
                 if tipo == "BloxFruits" then tooltip = "Blox Fruit" end
 
-                -- ✅ FIX: se a arma já resolvida ainda existe (backpack ou char), mantém
                 if config.SelectedWeaponName ~= "" then
                     local existing = Player.Backpack:FindFirstChild(config.SelectedWeaponName)
                                   or (Player.Character and Player.Character:FindFirstChild(config.SelectedWeaponName))
-                    if existing then return end -- arma ainda válida, não muda
+                    if existing then return end
                 end
 
                 local found = false
-
-                -- 1. Procura no backpack pelo ToolTip exato
                 for _, tool in pairs(Player.Backpack:GetChildren()) do
                     if tool:IsA("Tool") and tool.ToolTip == tooltip then
                         config.SelectedWeaponName = tool.Name
@@ -88,7 +83,6 @@ function Functions.StartWeaponResolver(config)
                     end
                 end
 
-                -- 2. Procura no personagem (já equipada)
                 if not found and Player.Character then
                     for _, tool in pairs(Player.Character:GetChildren()) do
                         if tool:IsA("Tool") and tool.ToolTip == tooltip then
@@ -98,7 +92,6 @@ function Functions.StartWeaponResolver(config)
                     end
                 end
 
-                -- 3. Fallback por nome (caso ToolTip esteja diferente)
                 if not found then
                     for _, tool in pairs(Player.Backpack:GetChildren()) do
                         if tool:IsA("Tool") and tool.Name:lower():find(tooltip:lower()) then
@@ -132,11 +125,8 @@ function Functions.EquipWeapon(weaponName, notAutoEquipRef)
     local char = Player.Character
     if not char then return end
 
-    -- ✅ FIX: se a arma já está equipada no personagem, nao faz nada
-    -- Isso evita que o jogo vire o personagem para o NPC toda vez
     if char:FindFirstChild(weaponName) then return end
 
-    -- ✅ FIX: se qualquer tool com o mesmo ToolTip já está equipada, nao re-equipa
     local config_tooltip = nil
     local tool_in_backpack = Player.Backpack:FindFirstChild(weaponName)
     if tool_in_backpack then
@@ -152,7 +142,7 @@ function Functions.EquipWeapon(weaponName, notAutoEquipRef)
     local hum  = char:FindFirstChildOfClass("Humanoid")
     if tool and hum then
         hum:EquipTool(tool)
-        task.wait(0.05) -- delay menor para nao travar o farm
+        task.wait(0.05)
     end
 end
 
@@ -189,15 +179,13 @@ end
 -- HAKI
 -- =====================================================
 
--- Cooldown global para nao ficar ativando/desativando todo frame
 local _hakiLastTime = 0
-local _HAKI_COOLDOWN = 4 -- segundos entre cada invoke
+local _HAKI_COOLDOWN = 4
 
 function Functions.AutoHaki()
     local character = Player.Character
     if not character then return end
 
-    -- Verifica se ja esta ativo por qualquer indicador do jogo
     local hasBuso = character:FindFirstChild("HasBuso")
                  or character:FindFirstChild("Buso")
                  or character:FindFirstChild("HakiActive")
@@ -205,7 +193,6 @@ function Functions.AutoHaki()
                  or character:GetAttribute("BusoActive")
     if hasBuso then return end
 
-    -- Cooldown: so chama de X em X segundos
     local now = tick()
     if now - _hakiLastTime < _HAKI_COOLDOWN then return end
     _hakiLastTime = now
@@ -215,12 +202,10 @@ function Functions.AutoHaki()
     end)
 end
 
--- ActivateBuso: alias unico, sem chamar duas vezes
 function Functions.ActivateBuso(commF_)
     Functions.AutoHaki()
 end
 
--- Loop de haki em background (chame uma vez no init)
 function Functions.StartHakiLoop(config, commF_)
     task.spawn(function()
         while task.wait(2) do
@@ -268,7 +253,7 @@ function Functions.GetNearestEnemy(character, humanoidRootPart, filterName)
 end
 
 -- =====================================================
--- FLY (PartTele - metodo suave com tween)
+-- FLY / TELEPORT
 -- =====================================================
 
 local _isTeleporting = false
@@ -297,7 +282,6 @@ function Functions.FlyToPosition(targetCF, tweenSvc, config, isTeleportingRef, n
             task.wait()
             local c = Player.Character
             if c and c:FindFirstChild("HumanoidRootPart") and c:FindFirstChild("PartTele") then
-                -- ✅ FIX: só copia a posição, preserva rotação Y atual do player
                 local cHrp = c.HumanoidRootPart
                 local _, yaw, _ = cHrp.CFrame:ToOrientation()
                 cHrp.CFrame = CFrame.new(c.PartTele.CFrame.Position) * CFrame.Angles(0, yaw, 0)
@@ -325,8 +309,6 @@ function Functions.FlyToPosition(targetCF, tweenSvc, config, isTeleportingRef, n
         local cHrp = c and c:FindFirstChild("HumanoidRootPart")
         local pt   = c and c:FindFirstChild("PartTele")
         if cHrp and pt then
-            -- ✅ FIX: preserva a rotação Y atual do player, só muda a posição
-            -- Isso evita que o personagem vire para o NPC durante o voo
             local _, currentYaw, _ = cHrp.CFrame:ToOrientation()
             cHrp.CFrame = CFrame.new(pt.CFrame.Position) * CFrame.Angles(0, currentYaw, 0)
         else
@@ -345,14 +327,12 @@ function Functions.FlyToPosition(targetCF, tweenSvc, config, isTeleportingRef, n
     end
 end
 
--- Teleporte instantaneo
 function Functions.TeleportTo(pos)
     local char = Player.Character
     local hrp  = char and char:FindFirstChild("HumanoidRootPart")
     if hrp then hrp.CFrame = pos end
 end
 
--- Teleporte suave direto no HRP (sem PartTele)
 function Functions.TPP(targetCF)
     local hum = Player.Character and Player.Character:FindFirstChild("Humanoid")
     if hum and hum.Health <= 0 then return end
@@ -377,7 +357,7 @@ function Functions.StopTeleport()
 end
 
 -- =====================================================
--- TELEPORTADOR DE ILHA (verifica se precisa passar por portal)
+-- TELEPORTADOR DE ILHA
 -- =====================================================
 
 function Functions.CheckNearestTeleporter(pos)
@@ -438,7 +418,6 @@ function Functions.RequestEntrance(teleportPos)
     end)
 end
 
--- ToPos: voa com verificacao de portal de ilha
 function Functions.ToPos(targetCF, config, isTeleportingRef, notAutoEquipRef)
     local char = Player.Character
     local hrp  = char and char:FindFirstChild("HumanoidRootPart")
@@ -454,7 +433,7 @@ function Functions.ToPos(targetCF, config, isTeleportingRef, notAutoEquipRef)
 end
 
 -- =====================================================
--- BRING MOB (BodyVelocity Lock)
+-- BRING MOB
 -- =====================================================
 
 function Functions.BringMob(mobName, targetPosition, maxDist)
@@ -499,10 +478,8 @@ function Functions.BringMob(mobName, targetPosition, maxDist)
     end
 end
 
--- Alias para compatibilidade com farm loop
 Functions.BringMobFunc = Functions.BringMob
 
--- Loop separado de bring (mantém mobs presos durante o farm)
 function Functions.StartBringMobLoop(config, stateRef)
     task.spawn(function()
         while task.wait() do
@@ -597,7 +574,6 @@ function Functions.FastAttack(targetMob, config, notAutoEquipRef)
         if not tool then return end
     end
 
-    -- Blox Fruit (LeftClickRemote)
     if tool and tool:FindFirstChild("LeftClickRemote") then
         local hrp = targetMob:FindFirstChild("HumanoidRootPart")
         if hrp then
@@ -607,7 +583,6 @@ function Functions.FastAttack(targetMob, config, notAutoEquipRef)
         return
     end
 
-    -- Net Modules (RegisterAttack / RegisterHit)
     local Net = ReplicatedStorage:FindFirstChild("Modules") and ReplicatedStorage.Modules:FindFirstChild("Net")
     if Net then
         local RegisterAttack = Net:FindFirstChild("RE/RegisterAttack")
@@ -628,7 +603,6 @@ function Functions.FastAttack(targetMob, config, notAutoEquipRef)
         end
     end
 
-    -- Gun (RemoteFunctionShoot)
     if tool and tool:FindFirstChild("RemoteFunctionShoot") then
         local hrp = targetMob:FindFirstChild("HumanoidRootPart")
         if hrp then
@@ -639,14 +613,12 @@ function Functions.FastAttack(targetMob, config, notAutoEquipRef)
         return
     end
 
-    -- Fallback VirtualUser
     pcall(function()
         VirtualUser:CaptureController()
         VirtualUser:Button1Down(Vector2.new(1280, 672))
     end)
 end
 
--- FastAttack avancado com seed (para armas corpo a corpo)
 function Functions.FastAttackAdvanced()
     task.spawn(function()
         local remote, idremote
@@ -719,7 +691,7 @@ function Functions.FastAttackAdvanced()
 end
 
 -- =====================================================
--- AUTO SKILL (usar Z/X/C automaticamente)
+-- AUTO SKILL (Z / X / C)
 -- =====================================================
 
 function Functions.StartAutoSkill(config)
@@ -759,11 +731,10 @@ function Functions.StartAutoSkill(config)
 end
 
 -- =====================================================
--- RACE V3 / V4
+-- RACE V3 / V4 / DOO HEE / QUEST RACE
 -- =====================================================
 
 function Functions.StartAutoRace(config)
-    -- Race V3: ativar habilidade de raca
     task.spawn(function()
         while task.wait(0.1) do
             if not config.AutoRaceV3 then continue end
@@ -773,7 +744,6 @@ function Functions.StartAutoRace(config)
         end
     end)
 
-    -- Race V4: pressionar Y
     task.spawn(function()
         while task.wait(0.1) do
             if not config.AutoRaceV4 then continue end
@@ -785,10 +755,6 @@ function Functions.StartAutoRace(config)
         end
     end)
 end
-
--- =====================================================
--- AUTO QUEST RACE (completar quest de evolucao de raca)
--- =====================================================
 
 function Functions.StartAutoQuestRace(config)
     task.spawn(function()
@@ -802,7 +768,6 @@ function Functions.StartAutoQuestRace(config)
                 local race = Player.Data.Race.Value
 
                 if race == "Human" then
-                    -- Matar todos os inimigos no raio
                     for _, v in pairs(workspace.Enemies:GetDescendants()) do
                         if v:FindFirstChild("Humanoid") and v:FindFirstChild("HumanoidRootPart")
                            and v.Humanoid.Health > 0 then
@@ -829,7 +794,6 @@ function Functions.StartAutoQuestRace(config)
                         local hrp = seaBeast:FindFirstChild("HumanoidRootPart")
                         if hrp then
                             Functions.TeleportTo(hrp.CFrame)
-                            -- Usar skills: Z X C com melee e fruta
                             for _, toolType in ipairs({"Melee", "Blox Fruit", "Sword"}) do
                                 for _, tool in ipairs(Player.Backpack:GetChildren()) do
                                     if tool:IsA("Tool") and tool.ToolTip == toolType then
@@ -841,8 +805,8 @@ function Functions.StartAutoQuestRace(config)
                                         VirtualInputManager:SendKeyEvent(true,  120, false, Player.Character.HumanoidRootPart)
                                         VirtualInputManager:SendKeyEvent(false, 120, false, Player.Character.HumanoidRootPart)
                                         task.wait(0.2)
-                                        VirtualInputManager:SendKeyEvent(true,  99, false,  Player.Character.HumanoidRootPart)
-                                        VirtualInputManager:SendKeyEvent(false, 99, false,  Player.Character.HumanoidRootPart)
+                                        VirtualInputManager:SendKeyEvent(true,  99,  false, Player.Character.HumanoidRootPart)
+                                        VirtualInputManager:SendKeyEvent(false, 99,  false, Player.Character.HumanoidRootPart)
                                         task.wait(0.5)
                                     end
                                 end
@@ -854,10 +818,6 @@ function Functions.StartAutoQuestRace(config)
         end
     end)
 end
-
--- =====================================================
--- AUTO DOO HEE (olhar lua + pressionar T para V3)
--- =====================================================
 
 function Functions.StartAutoDooHee(config)
     task.spawn(function()
@@ -877,7 +837,7 @@ function Functions.StartAutoDooHee(config)
 end
 
 -- =====================================================
--- AUTO BARTILO (quest para desbloquear Sea 3)
+-- AUTO BARTILO
 -- =====================================================
 
 function Functions.StartAutoBartilo(config)
@@ -895,7 +855,6 @@ function Functions.StartAutoBartilo(config)
                     local questTitle = questGui.Container.QuestTitle.Title.Text
                     if questGui.Visible
                        and questTitle:find("Swan Pirates") and questTitle:find("50") then
-                        -- Matar Swan Pirates
                         local enemies = workspace.Enemies
                         if enemies:FindFirstChild("Swan Pirate") then
                             for _, v in ipairs(enemies:GetChildren()) do
@@ -922,14 +881,12 @@ function Functions.StartAutoBartilo(config)
                             Functions.TeleportTo(CFrame.new(932.624451, 156.106079, 1180.27466))
                         end
                     else
-                        -- Pegar quest do Bartilo
                         Functions.TeleportTo(CFrame.new(-456.28952, 73.0200958, 299.895966))
                         task.wait(1.1)
                         ReplicatedStorage.Remotes.CommF_:InvokeServer("StartQuest", "BartiloQuest", 1)
                     end
 
                 elseif progress == 1 then
-                    -- Matar Jeremy
                     if workspace.Enemies:FindFirstChild("Jeremy") then
                         for _, v in ipairs(workspace.Enemies:GetChildren()) do
                             if v.Name == "Jeremy" and v:FindFirstChild("Humanoid")
@@ -949,15 +906,9 @@ function Functions.StartAutoBartilo(config)
                                 until not v.Parent or v.Humanoid.Health <= 0 or not config.AutoBartilo
                             end
                         end
-                    elseif ReplicatedStorage:FindFirstChild("Jeremy") then
-                        Functions.TeleportTo(CFrame.new(-456.28952, 73.0200958, 299.895966))
-                        task.wait(1.1)
-                        ReplicatedStorage.Remotes.CommF_:InvokeServer("BartiloQuestProgress", "Bartilo")
-                        task.wait(1)
-                        Functions.TeleportTo(CFrame.new(2099.88159, 448.931, 648.997375))
-                        task.wait(2)
                     else
                         Functions.TeleportTo(CFrame.new(2099.88159, 448.931, 648.997375))
+                        task.wait(2)
                     end
 
                 elseif progress == 2 then
@@ -982,7 +933,6 @@ function Functions.StartAutoEliteHunter(config)
                 if questGui.Visible then
                     local title = questGui.Container.QuestTitle.Title.Text
                     if title:find("Diablo") or title:find("Deandre") or title:find("Urban") then
-                        -- Tem quest ativa, atacar o mob
                         local targets = {"Diablo", "Deandre", "Urban"}
                         for _, name in ipairs(targets) do
                             if workspace.Enemies:FindFirstChild(name) then
@@ -1002,7 +952,6 @@ function Functions.StartAutoEliteHunter(config)
                                     end
                                 end
                             else
-                                -- Tentar teleportar para o mob via ReplicatedStorage
                                 local rs = ReplicatedStorage:FindFirstChild(name)
                                 if rs and rs:FindFirstChild("HumanoidRootPart") then
                                     Functions.TeleportTo(rs.HumanoidRootPart.CFrame * CFrame.new(2, 20, 2))
@@ -1011,7 +960,6 @@ function Functions.StartAutoEliteHunter(config)
                         end
                     end
                 else
-                    -- Sem quest, ir pegar
                     local response = ReplicatedStorage.Remotes.CommF_:InvokeServer("EliteHunter")
                     if config.AutoEliteHunterHop
                        and response == "I don't have anything for you right now. Come back later." then
@@ -1026,7 +974,7 @@ function Functions.StartAutoEliteHunter(config)
 end
 
 -- =====================================================
--- AUTO GET YAMA
+-- AUTO YAMA / HOLY TORCH / TUSHITA / RENGOKU
 -- =====================================================
 
 function Functions.StartAutoYama(config)
@@ -1046,16 +994,11 @@ function Functions.StartAutoYama(config)
     end)
 end
 
--- =====================================================
--- AUTO HOLY TORCH (quest pre-Tushita)
--- =====================================================
-
 function Functions.StartAutoHolyTorch(config)
     task.spawn(function()
         while task.wait(0.5) do
             if not config.AutoHolyTorch then continue end
             pcall(function()
-                -- Entrar na Hydra Island
                 ReplicatedStorage.Remotes.CommF_:InvokeServer("requestEntrance",
                     Vector3.new(5657.88623046875, 1013.0790405273438, -335.4996337890625))
                 task.wait(1)
@@ -1063,7 +1006,6 @@ function Functions.StartAutoHolyTorch(config)
                 task.wait(15)
                 Functions.EquipWeapon("Holy Torch")
 
-                -- Percorrer as tochas
                 local torches = {
                     CFrame.new(-10752, 417, -9366),
                     CFrame.new(-11672, 334, -9474),
@@ -1084,10 +1026,6 @@ function Functions.StartAutoHolyTorch(config)
         end
     end)
 end
-
--- =====================================================
--- AUTO GET TUSHITA (farm Longma)
--- =====================================================
 
 function Functions.StartAutoGetTushita(config)
     task.spawn(function()
@@ -1119,10 +1057,6 @@ function Functions.StartAutoGetTushita(config)
         end
     end)
 end
-
--- =====================================================
--- AUTO RENGOKU (Hidden Key → Awakened Ice Admiral)
--- =====================================================
 
 function Functions.StartAutoRengoku(config)
     task.spawn(function()
@@ -1164,7 +1098,735 @@ function Functions.StartAutoRengoku(config)
 end
 
 -- =====================================================
--- KILL AURA
+-- AUTO SEA 3 BOSSES ESPECIAIS
+-- =====================================================
+
+-- Soul Reaper (Hallow Essence)
+function Functions.StartAutoSoulReaper(config)
+    task.spawn(function()
+        while task.wait() do
+            if not config.AutoSoulReaper then continue end
+            pcall(function()
+                if workspace.Enemies:FindFirstChild("Soul Reaper") then
+                    for _, v in ipairs(workspace.Enemies:GetChildren()) do
+                        if v.Name:find("Soul Reaper") then
+                            repeat task.wait()
+                                Functions.EquipWeapon(config.SelectedWeaponName)
+                                Functions.AutoHaki()
+                                v.HumanoidRootPart.Size = Vector3.new(50, 50, 50)
+                                Functions.TeleportTo(v.HumanoidRootPart.CFrame * CFrame.new(0, 30, 0))
+                                VirtualUser:CaptureController()
+                                VirtualUser:Button1Down(Vector2.new(1280, 670))
+                                v.HumanoidRootPart.Transparency = 1
+                            until v.Humanoid.Health <= 0 or not config.AutoSoulReaper
+                        end
+                    end
+                elseif Player.Backpack:FindFirstChild("Hallow Essence") or
+                       (Player.Character and Player.Character:FindFirstChild("Hallow Essence")) then
+                    repeat
+                        Functions.TeleportTo(CFrame.new(-8932.322265625, 146.83154296875, 6062.55078125))
+                        task.wait()
+                    until (CFrame.new(-8932.322265625, 146.83154296875, 6062.55078125).Position
+                         - Player.Character.HumanoidRootPart.Position).Magnitude <= 8
+                    Functions.EquipWeapon("Hallow Essence")
+                else
+                    if ReplicatedStorage:FindFirstChild("Soul Reaper") then
+                        Functions.TeleportTo(ReplicatedStorage:FindFirstChild("Soul Reaper").HumanoidRootPart.CFrame * CFrame.new(2, 20, 2))
+                    end
+                end
+            end)
+        end
+    end)
+end
+
+-- Tyrant of the Skies
+function Functions.StartAutoTyrantSpawn(config)
+    local TyrantPos = CFrame.new(-16194.0048828125, 155.21844482421875, 1420.719970703125)
+
+    task.spawn(function()
+        while task.wait() do
+            if not config.AutoTyrantSpawn then continue end
+            pcall(function()
+                if workspace.Enemies:FindFirstChild("Tyrant of the Skies") then
+                    for _, v in ipairs(workspace.Enemies:GetChildren()) do
+                        if v.Name == "Tyrant of the Skies" and v:FindFirstChild("Humanoid")
+                           and v:FindFirstChild("HumanoidRootPart") and v.Humanoid.Health > 0 then
+                            repeat task.wait()
+                                Functions.AutoHaki()
+                                Functions.EquipWeapon(config.SelectedWeaponName)
+                                v.HumanoidRootPart.CanCollide = false
+                                v.Humanoid.WalkSpeed = 0
+                                v.HumanoidRootPart.Size = Vector3.new(50, 50, 50)
+                                Functions.TeleportTo(v.HumanoidRootPart.CFrame * CFrame.new(0, 40, 0))
+                                VirtualUser:CaptureController()
+                                VirtualUser:Button1Down(Vector2.new(1280, 672))
+                                pcall(function() sethiddenproperty(Player, "SimulationRadius", math.huge) end)
+                            until not config.AutoTyrantSpawn or not v.Parent or v.Humanoid.Health <= 0
+                        end
+                    end
+                else
+                    Functions.TeleportTo(TyrantPos)
+                end
+            end)
+        end
+    end)
+end
+
+-- Cake Prince / Fullykatakuri V2
+function Functions.StartAutoCakePrince(config)
+    local CakePos = CFrame.new(-2130.80712890625, 69.95634460449219, -12327.83984375)
+
+    task.spawn(function()
+        while task.wait() do
+            if not config.AutoCakePrince then continue end
+            pcall(function()
+                if workspace.Enemies:FindFirstChild("Cake Prince") then
+                    for _, v in ipairs(workspace.Enemies:GetChildren()) do
+                        if v.Name == "Cake Prince" and v:FindFirstChild("Humanoid")
+                           and v:FindFirstChild("HumanoidRootPart") and v.Humanoid.Health > 0 then
+                            repeat task.wait()
+                                Functions.AutoHaki()
+                                Functions.EquipWeapon(config.SelectedWeaponName)
+                                v.HumanoidRootPart.CanCollide = false
+                                v.Humanoid.WalkSpeed = 0
+                                v.HumanoidRootPart.Size = Vector3.new(50, 50, 50)
+                                Functions.TeleportTo(v.HumanoidRootPart.CFrame * CFrame.new(4, 10, 10))
+                                VirtualUser:CaptureController()
+                                VirtualUser:Button1Down(Vector2.new(1280, 672))
+                                pcall(function() sethiddenproperty(Player, "SimulationRadius", math.huge) end)
+                            until not config.AutoCakePrince or not v.Parent or v.Humanoid.Health <= 0
+                        end
+                    end
+                else
+                    -- Farm mobs pre-Cake Prince
+                    local preMobs = {"Cookie Crafter", "Cake Guard", "Baking Staff", "Head Baker"}
+                    local bringPositions = {
+                        ["Cookie Crafter"] = CFrame.new(-2212.88965, 37.0051041, -11969.2568),
+                        ["Cake Guard"]     = CFrame.new(-1693.98047, 35.2188225, -12436.8438),
+                        ["Baking Staff"]   = CFrame.new(-1980.4375, 34.6653099, -12983.8408),
+                        ["Head Baker"]     = CFrame.new(-2151.37793, 51.0095749, -13033.3975),
+                    }
+                    local found = false
+                    for _, mobName in ipairs(preMobs) do
+                        if workspace.Enemies:FindFirstChild(mobName) then
+                            found = true
+                            for _, v in ipairs(workspace.Enemies:GetChildren()) do
+                                if v.Name == mobName and v:FindFirstChild("Humanoid")
+                                   and v:FindFirstChild("HumanoidRootPart") and v.Humanoid.Health > 0 then
+                                    local bPos = bringPositions[mobName]
+                                    repeat task.wait()
+                                        Functions.AutoHaki()
+                                        Functions.EquipWeapon(config.SelectedWeaponName)
+                                        v.HumanoidRootPart.CanCollide = false
+                                        v.Humanoid.WalkSpeed = 0
+                                        v.HumanoidRootPart.Size = Vector3.new(50, 50, 50)
+                                        if bPos then v.HumanoidRootPart.CFrame = bPos end
+                                        Functions.TeleportTo(v.HumanoidRootPart.CFrame * CFrame.new(0, 30, 0))
+                                        VirtualUser:CaptureController()
+                                        VirtualUser:Button1Down(Vector2.new(1280, 672))
+                                        pcall(function() sethiddenproperty(Player, "SimulationRadius", math.huge) end)
+                                    until not config.AutoCakePrince or not v.Parent or v.Humanoid.Health <= 0
+                                end
+                            end
+                        end
+                    end
+                    if not found then
+                        Functions.TeleportTo(CakePos)
+                    end
+                end
+            end)
+        end
+    end)
+end
+
+-- Dough King
+function Functions.StartAutoDoughKing(config)
+    task.spawn(function()
+        while task.wait() do
+            if not config.AutoDoughKing then continue end
+            pcall(function()
+                if workspace.Enemies:FindFirstChild("Dough King") or ReplicatedStorage:FindFirstChild("Dough King") then
+                    if workspace.Enemies:FindFirstChild("Dough King") then
+                        for _, v in ipairs(workspace.Enemies:GetChildren()) do
+                            if v.Name == "Dough King" and v:FindFirstChild("Humanoid")
+                               and v:FindFirstChild("HumanoidRootPart") and v.Humanoid.Health > 0 then
+                                repeat task.wait()
+                                    Functions.AutoHaki()
+                                    Functions.EquipWeapon(config.SelectedWeaponName)
+                                    v.HumanoidRootPart.Size = Vector3.new(70, 70, 70)
+                                    v.HumanoidRootPart.CanCollide = false
+                                    Functions.TeleportTo(v.HumanoidRootPart.CFrame * CFrame.new(0, -40, 0))
+                                    VirtualUser:CaptureController()
+                                    VirtualUser:Button1Down(Vector2.new(1280, 672))
+                                    pcall(function() sethiddenproperty(Player, "SimulationRadius", math.huge) end)
+                                until not config.AutoDoughKing or not v.Parent or v.Humanoid.Health <= 0
+                            end
+                        end
+                    else
+                        Functions.TeleportTo(CFrame.new(-2130.80712890625, 69.95634460449219, -12327.83984375))
+                    end
+                else
+                    -- Verificar Sweet Chalice / Katakuri V2
+                    if Player.Backpack:FindFirstChild("Sweet Chalice") or
+                       (Player.Character and Player.Character:FindFirstChild("Sweet Chalice")) then
+                        if string.find(ReplicatedStorage.Remotes.CommF_:InvokeServer("CakePrinceSpawner"), "Do you want to open the portal now?") then
+                            ReplicatedStorage.Remotes.CommF_:InvokeServer("CakePrinceSpawner")
+                        end
+                    elseif Player.Backpack:FindFirstChild("God's Chalice") or
+                           (Player.Character and Player.Character:FindFirstChild("God's Chalice")) then
+                        if string.find(ReplicatedStorage.Remotes.CommF_:InvokeServer("SweetChaliceNpc"), "Where") then
+                            ReplicatedStorage.Remotes.CommF_:InvokeServer("SweetChaliceNpc")
+                        end
+                    else
+                        Functions.TeleportTo(CFrame.new(-1820.0634765625, 210.74781799316406, -12297.49609375))
+                    end
+                end
+            end)
+        end
+    end)
+end
+
+-- rip_indra (Big Mom equivalente)
+function Functions.StartAutoRipIndra(config)
+    task.spawn(function()
+        while task.wait() do
+            if not config.AutoRipIndra then continue end
+            pcall(function()
+                local indra = workspace.Enemies:FindFirstChild("rip_indra True Form")
+                           or workspace.Enemies:FindFirstChild("rip_indra")
+                if indra and indra:FindFirstChild("Humanoid") and indra:FindFirstChild("HumanoidRootPart")
+                   and indra.Humanoid.Health > 0 then
+                    local oldCF = indra.HumanoidRootPart.CFrame
+                    repeat task.wait()
+                        Functions.AutoHaki()
+                        Functions.EquipWeapon(config.SelectedWeaponName)
+                        indra.HumanoidRootPart.Size = Vector3.new(50, 50, 50)
+                        indra.HumanoidRootPart.CanCollide = false
+                        indra.HumanoidRootPart.CFrame = oldCF
+                        Functions.TeleportTo(indra.HumanoidRootPart.CFrame * CFrame.new(0, 30, 0))
+                        VirtualUser:CaptureController()
+                        VirtualUser:Button1Down(Vector2.new(1280, 672))
+                        pcall(function() sethiddenproperty(Player, "SimulationRadius", math.huge) end)
+                    until not config.AutoRipIndra or indra.Humanoid.Health <= 0 or not indra.Parent
+                elseif ReplicatedStorage:FindFirstChild("rip_indra True Form") then
+                    local rindra = ReplicatedStorage:FindFirstChild("rip_indra True Form")
+                    if rindra:FindFirstChild("HumanoidRootPart") then
+                        Functions.TeleportTo(rindra.HumanoidRootPart.CFrame * CFrame.new(2, 20, 2))
+                    end
+                else
+                    Functions.TeleportTo(CFrame.new(-26880.93359375, 22.848554611206, 473.18951416016))
+                end
+            end)
+        end
+    end)
+end
+
+-- Auto Big Mom (alias)
+function Functions.StartAutoBigMom(config)
+    task.spawn(function()
+        while task.wait() do
+            if not config.AutoBigMom then continue end
+            pcall(function()
+                local bigmom = workspace.Enemies:FindFirstChild("Big Mom")
+                if bigmom and bigmom:FindFirstChild("Humanoid") and bigmom:FindFirstChild("HumanoidRootPart")
+                   and bigmom.Humanoid.Health > 0 then
+                    repeat task.wait()
+                        Functions.AutoHaki()
+                        Functions.EquipWeapon(config.SelectedWeaponName)
+                        bigmom.HumanoidRootPart.Size = Vector3.new(50, 50, 50)
+                        bigmom.HumanoidRootPart.CanCollide = false
+                        Functions.TeleportTo(bigmom.HumanoidRootPart.CFrame * CFrame.new(0, 30, 0))
+                        VirtualUser:CaptureController()
+                        VirtualUser:Button1Down(Vector2.new(1280, 672))
+                        pcall(function() sethiddenproperty(Player, "SimulationRadius", math.huge) end)
+                    until not config.AutoBigMom or bigmom.Humanoid.Health <= 0 or not bigmom.Parent
+                elseif ReplicatedStorage:FindFirstChild("Big Mom") then
+                    local bm = ReplicatedStorage:FindFirstChild("Big Mom")
+                    if bm:FindFirstChild("HumanoidRootPart") then
+                        Functions.TeleportTo(bm.HumanoidRootPart.CFrame * CFrame.new(2, 20, 2))
+                    end
+                end
+            end)
+        end
+    end)
+end
+
+-- Auto Farm Bone (Bone Island - Sea 3)
+function Functions.StartAutoFarmBone(config)
+    task.spawn(function()
+        while task.wait() do
+            if not config.AutoFarmBone then continue end
+            pcall(function()
+                local boneIslandMobs = {"Island Empress", "Bone Crusher", "Skeleton Warrior"}
+                for _, mobName in ipairs(boneIslandMobs) do
+                    if workspace.Enemies:FindFirstChild(mobName) then
+                        for _, v in ipairs(workspace.Enemies:GetChildren()) do
+                            if v.Name == mobName and v:FindFirstChild("Humanoid")
+                               and v:FindFirstChild("HumanoidRootPart") and v.Humanoid.Health > 0 then
+                                repeat task.wait()
+                                    Functions.AutoHaki()
+                                    Functions.EquipWeapon(config.SelectedWeaponName)
+                                    v.HumanoidRootPart.CanCollide = false
+                                    v.Humanoid.WalkSpeed = 0
+                                    v.HumanoidRootPart.Size = Vector3.new(50, 50, 50)
+                                    Functions.TeleportTo(v.HumanoidRootPart.CFrame * CFrame.new(0, 30, 0))
+                                    VirtualUser:CaptureController()
+                                    VirtualUser:Button1Down(Vector2.new(1280, 672))
+                                    pcall(function() sethiddenproperty(Player, "SimulationRadius", math.huge) end)
+                                until not config.AutoFarmBone or not v.Parent or v.Humanoid.Health <= 0
+                            end
+                        end
+                    end
+                end
+            end)
+        end
+    end)
+end
+
+-- Auto Pray / Try Luck (Bone Island rituals)
+function Functions.StartAutoPray(config)
+    task.spawn(function()
+        while task.wait(0.1) do
+            if not config.AutoPray then continue end
+            pcall(function()
+                Functions.TeleportTo(CFrame.new(-8652.99707, 143.450119, 6170.50879))
+                task.wait()
+                ReplicatedStorage.Remotes.CommF_:InvokeServer("gravestoneEvent", 1)
+            end)
+        end
+    end)
+end
+
+function Functions.StartAutoTryLuck(config)
+    task.spawn(function()
+        while task.wait(0.1) do
+            if not config.AutoTryLuck then continue end
+            pcall(function()
+                Functions.TeleportTo(CFrame.new(-8652.99707, 143.450119, 6170.50879))
+                task.wait()
+                ReplicatedStorage.Remotes.CommF_:InvokeServer("gravestoneEvent", 2)
+            end)
+        end
+    end)
+end
+
+-- Auto Trade Bone
+function Functions.StartAutoTradeBone(config)
+    task.spawn(function()
+        while task.wait(0.1) do
+            if not config.AutoTradeBone then continue end
+            pcall(function()
+                ReplicatedStorage.Remotes.CommF_:InvokeServer("Bones", "Buy", 1, 1)
+            end)
+        end
+    end)
+end
+
+-- Auto Haki V2 (Desbloquear)
+function Functions.StartAutoHakiV2(config)
+    task.spawn(function()
+        while task.wait(0.1) do
+            if not config.AutoHakiV2 then continue end
+            pcall(function()
+                -- Ir ate o NPC de Haki V2 e interagir
+                local hakiNPCPos = CFrame.new(-1830, 10, -1700) -- posicao aproximada
+                Functions.TeleportTo(hakiNPCPos)
+                task.wait(0.5)
+                ReplicatedStorage.Remotes.CommF_:InvokeServer("UnlockHaki")
+            end)
+        end
+    end)
+end
+
+-- Auto Unlock Temple of Time
+function Functions.StartAutoUnlockTemple(config)
+    task.spawn(function()
+        while task.wait(0.1) do
+            if not config.AutoUnlockTemple then continue end
+            pcall(function()
+                -- Comprar Ancient One Quest
+                ReplicatedStorage.Remotes.CommF_:InvokeServer("AncientOneQuest", "StartQuest")
+                task.wait(1)
+                -- TP para o Temple
+                Functions.TeleportTo(CFrame.new(28286, 14897, 103))
+            end)
+        end
+    end)
+end
+
+-- Auto God Human (Sea 3)
+function Functions.StartAutoGodHuman(config)
+    task.spawn(function()
+        while task.wait(0.5) do
+            if not config.AutoGodHuman then continue end
+            pcall(function()
+                ReplicatedStorage.Remotes.CommF_:InvokeServer("BuyGodhuman")
+            end)
+        end
+    end)
+end
+
+-- Auto Dragon Taylor (Dragon Talon)
+function Functions.StartAutoDragonTaylor(config)
+    task.spawn(function()
+        while task.wait(0.5) do
+            if not config.AutoDragonTaylor then continue end
+            pcall(function()
+                ReplicatedStorage.Remotes.CommF_:InvokeServer("BuyDragonTalon")
+            end)
+        end
+    end)
+end
+
+-- Auto Electric Claw
+function Functions.StartAutoElectricClaw(config)
+    task.spawn(function()
+        while task.wait(0.5) do
+            if not config.AutoElectricClaw then continue end
+            pcall(function()
+                ReplicatedStorage.Remotes.CommF_:InvokeServer("BuyElectricClaw")
+            end)
+        end
+    end)
+end
+
+-- =====================================================
+-- SEA 2 ESPECIAIS
+-- =====================================================
+
+-- Auto Dark Beard
+function Functions.StartAutoDarkBeard(config)
+    task.spawn(function()
+        while task.wait() do
+            if not config.AutoDarkBeard then continue end
+            pcall(function()
+                local darkbeard = workspace.Enemies:FindFirstChild("Dark Beard")
+                if darkbeard and darkbeard:FindFirstChild("Humanoid") and darkbeard:FindFirstChild("HumanoidRootPart")
+                   and darkbeard.Humanoid.Health > 0 then
+                    repeat task.wait()
+                        Functions.AutoHaki()
+                        Functions.EquipWeapon(config.SelectedWeaponName)
+                        darkbeard.HumanoidRootPart.Size = Vector3.new(50, 50, 50)
+                        darkbeard.HumanoidRootPart.CanCollide = false
+                        Functions.TeleportTo(darkbeard.HumanoidRootPart.CFrame * CFrame.new(0, 30, 0))
+                        VirtualUser:CaptureController()
+                        VirtualUser:Button1Down(Vector2.new(1280, 672))
+                        pcall(function() sethiddenproperty(Player, "SimulationRadius", math.huge) end)
+                    until not config.AutoDarkBeard or darkbeard.Humanoid.Health <= 0 or not darkbeard.Parent
+                elseif ReplicatedStorage:FindFirstChild("Dark Beard") then
+                    Functions.TeleportTo(ReplicatedStorage.DarkBeard.HumanoidRootPart.CFrame * CFrame.new(2, 20, 2))
+                else
+                    Functions.TeleportTo(CFrame.new(-16204.21875, 90.44, -100.03))
+                end
+            end)
+        end
+    end)
+end
+
+-- Auto Gray Beard (Greybeard)
+function Functions.StartAutoGrayBeard(config)
+    task.spawn(function()
+        while task.wait() do
+            if not config.AutoGrayBeard then continue end
+            pcall(function()
+                if workspace.Enemies:FindFirstChild("Greybeard") then
+                    for _, v in ipairs(workspace.Enemies:GetChildren()) do
+                        if v.Name == "Greybeard" and v:FindFirstChild("Humanoid")
+                           and v:FindFirstChild("HumanoidRootPart") and v.Humanoid.Health > 0 then
+                            repeat task.wait()
+                                Functions.AutoHaki()
+                                Functions.EquipWeapon(config.SelectedWeaponName)
+                                v.HumanoidRootPart.Size = Vector3.new(50, 50, 50)
+                                v.HumanoidRootPart.CanCollide = false
+                                Functions.TeleportTo(v.HumanoidRootPart.CFrame * CFrame.new(0, 30, 0))
+                                VirtualUser:CaptureController()
+                                VirtualUser:Button1Down(Vector2.new(1280, 672))
+                                pcall(function() sethiddenproperty(Player, "SimulationRadius", math.huge) end)
+                            until not config.AutoGrayBeard or v.Humanoid.Health <= 0 or not v.Parent
+                        end
+                    end
+                elseif ReplicatedStorage:FindFirstChild("Greybeard") then
+                    Functions.TeleportTo(ReplicatedStorage.Greybeard.HumanoidRootPart.CFrame * CFrame.new(2, 20, 2))
+                else
+                    if config.AutoGrayBeardHop then Functions.Hop() end
+                end
+            end)
+        end
+    end)
+end
+
+-- Auto Sharkman V2
+function Functions.StartAutoSharkmanV2(config)
+    task.spawn(function()
+        while task.wait(0.5) do
+            if not config.AutoSharkmanV2 then continue end
+            pcall(function()
+                ReplicatedStorage.Remotes.CommF_:InvokeServer("BuySharkmanKarate", true)
+                ReplicatedStorage.Remotes.CommF_:InvokeServer("BuySharkmanKarate")
+            end)
+        end
+    end)
+end
+
+-- Auto Death Step
+function Functions.StartAutoDeathStep(config)
+    task.spawn(function()
+        while task.wait(0.5) do
+            if not config.AutoDeathStep then continue end
+            pcall(function()
+                ReplicatedStorage.Remotes.CommF_:InvokeServer("BuyDeathStep")
+            end)
+        end
+    end)
+end
+
+-- Auto Factory (Sea 2)
+function Functions.StartAutoFactory(config)
+    task.spawn(function()
+        while task.wait() do
+            if not config.AutoFactory then continue end
+            pcall(function()
+                if workspace.Enemies:FindFirstChild("Core") then
+                    for _, v in ipairs(workspace.Enemies:GetChildren()) do
+                        if v.Name == "Core" and v:FindFirstChild("Humanoid") and v.Humanoid.Health > 0 then
+                            repeat task.wait()
+                                Functions.AutoHaki()
+                                Functions.EquipWeapon(config.SelectedWeaponName)
+                                Functions.TeleportTo(CFrame.new(448.46756, 199.356781, -441.389252))
+                                VirtualUser:CaptureController()
+                                VirtualUser:Button1Down(Vector2.new(1280, 672))
+                            until v.Humanoid.Health <= 0 or not config.AutoFactory
+                        end
+                    end
+                else
+                    Functions.TeleportTo(CFrame.new(448.46756, 199.356781, -441.389252))
+                end
+            end)
+        end
+    end)
+end
+
+-- Auto Raid Law (Sea 2)
+function Functions.StartAutoRaidLaw(config)
+    task.spawn(function()
+        while task.wait() do
+            if not config.AutoRaidLaw then continue end
+            pcall(function()
+                if config.AutoBuyChipRaidLaw then
+                    ReplicatedStorage.Remotes.CommF_:InvokeServer("BuyRaidChip", "LawRaid")
+                end
+                if config.AutoStartRaidLaw then
+                    ReplicatedStorage.Remotes.CommF_:InvokeServer("StartRaid", "LawRaid")
+                end
+                -- Atacar bosses do raid
+                for _, v in ipairs(workspace.Enemies:GetChildren()) do
+                    if v:FindFirstChild("Humanoid") and v:FindFirstChild("HumanoidRootPart")
+                       and v.Humanoid.Health > 0 then
+                        repeat task.wait()
+                            Functions.AutoHaki()
+                            Functions.EquipWeapon(config.SelectedWeaponName)
+                            v.HumanoidRootPart.CanCollide = false
+                            v.HumanoidRootPart.Size = Vector3.new(50, 50, 50)
+                            Functions.TeleportTo(v.HumanoidRootPart.CFrame * CFrame.new(0, 30, 0))
+                            VirtualUser:CaptureController()
+                            VirtualUser:Button1Down(Vector2.new(1280, 672))
+                            pcall(function() sethiddenproperty(Player, "SimulationRadius", math.huge) end)
+                        until not config.AutoRaidLaw or v.Humanoid.Health <= 0 or not v.Parent
+                    end
+                end
+            end)
+        end
+    end)
+end
+
+-- Auto Saber (Sea 1 & 2)
+function Functions.StartAutoSaber(config)
+    task.spawn(function()
+        while task.wait() do
+            if not config.AutoSaber then continue end
+            pcall(function()
+                local level = Player.Data.Level.Value
+                if level < 200 then return end
+
+                local hasSaber = Player.Backpack:FindFirstChild("True Triple Katana")
+                              or (Player.Character and Player.Character:FindFirstChild("True Triple Katana"))
+                if hasSaber then config.AutoSaber = false; return end
+
+                if workspace.Enemies:FindFirstChild("Saber Expert") then
+                    for _, v in ipairs(workspace.Enemies:GetChildren()) do
+                        if v.Name == "Saber Expert" and v:FindFirstChild("Humanoid")
+                           and v:FindFirstChild("HumanoidRootPart") and v.Humanoid.Health > 0 then
+                            repeat task.wait()
+                                Functions.AutoHaki()
+                                Functions.EquipWeapon(config.SelectedWeaponName)
+                                v.HumanoidRootPart.Size = Vector3.new(50, 50, 50)
+                                v.HumanoidRootPart.CanCollide = false
+                                Functions.TeleportTo(v.HumanoidRootPart.CFrame * CFrame.new(0, 30, 0))
+                                VirtualUser:CaptureController()
+                                VirtualUser:Button1Down(Vector2.new(1280, 672))
+                                pcall(function() sethiddenproperty(Player, "SimulationRadius", math.huge) end)
+                            until not config.AutoSaber or v.Humanoid.Health <= 0 or not v.Parent
+                        end
+                    end
+                elseif ReplicatedStorage:FindFirstChild("Saber Expert") then
+                    local se = ReplicatedStorage:FindFirstChild("Saber Expert")
+                    if se:FindFirstChild("HumanoidRootPart") then
+                        Functions.TeleportTo(se.HumanoidRootPart.CFrame * CFrame.new(2, 20, 2))
+                    end
+                else
+                    -- Ir ao NPC da quest Saber
+                    Functions.TeleportTo(CFrame.new(-6763.52734375, 6.72978878, -5890.28515625))
+                    task.wait(1)
+                    ReplicatedStorage.Remotes.CommF_:InvokeServer("StartQuest", "SaberQuest", 1)
+                end
+            end)
+        end
+    end)
+end
+
+-- Auto Dark Blade V2
+function Functions.StartAutoDarkBladeV2(config)
+    task.spawn(function()
+        while task.wait(0.5) do
+            if not config.AutoDarkBladeV2 then continue end
+            pcall(function()
+                -- Verificar se tem Yoru
+                if Player.Backpack:FindFirstChild("Dark Blade") or
+                   (Player.Character and Player.Character:FindFirstChild("Dark Blade")) then
+                    -- Ir ao NPC para upgrade
+                    Functions.TeleportTo(CFrame.new(-1830.2, 10.5, -1713.4))
+                    task.wait(0.5)
+                    ReplicatedStorage.Remotes.CommF_:InvokeServer("UpgradeDarkBlade")
+                end
+            end)
+        end
+    end)
+end
+
+-- Auto Sea 2 (navegar de Sea 1 para Sea 2)
+function Functions.StartAutoSea2(config)
+    task.spawn(function()
+        while task.wait() do
+            if not config.AutoSea2 then continue end
+            pcall(function()
+                local level = Player.Data.Level.Value
+                if level < 700 then return end
+                -- Navegar ate o portal do Sea 2
+                local pos1 = CFrame.new(4851.8720703125, 5.6514348983765, 718.47094726563)
+                repeat task.wait()
+                    Functions.TeleportTo(pos1)
+                until (pos1.Position - Player.Character.HumanoidRootPart.Position).Magnitude <= 3 or not config.AutoSea2
+                task.wait(0.5)
+                ReplicatedStorage.Remotes.CommF_:InvokeServer("TravelToSea", 2)
+            end)
+        end
+    end)
+end
+
+-- Auto Sea 3 (navegar para Sea 3 via rip_indra)
+function Functions.StartAutoSea3(config)
+    task.spawn(function()
+        while task.wait() do
+            if not config.AutoSea3 then continue end
+            pcall(function()
+                local level = Player.Data.Level.Value
+                if level < 1500 then return end
+
+                if workspace.Enemies:FindFirstChild("rip_indra") then
+                    for _, v in ipairs(workspace.Enemies:GetChildren()) do
+                        if v.Name == "rip_indra" and v:FindFirstChild("Humanoid")
+                           and v:FindFirstChild("HumanoidRootPart") and v.Humanoid.Health > 0 then
+                            repeat task.wait()
+                                Functions.AutoHaki()
+                                Functions.EquipWeapon(config.SelectedWeaponName)
+                                v.HumanoidRootPart.CanCollide = false
+                                v.HumanoidRootPart.Size = Vector3.new(50, 50, 50)
+                                Functions.TeleportTo(v.HumanoidRootPart.CFrame * CFrame.new(0, 30, 0))
+                                ReplicatedStorage.Remotes.CommF_:InvokeServer("TravelZou")
+                                pcall(function() sethiddenproperty(Player, "SimulationRadius", math.huge) end)
+                            until not config.AutoSea3 or v.Humanoid.Health <= 0 or not v.Parent
+                        end
+                    end
+                else
+                    Functions.TeleportTo(CFrame.new(-26880.93359375, 22.848554611206, 473.18951416016))
+                end
+            end)
+        end
+    end)
+end
+
+-- Auto Pirate Raid (Sea 3)
+function Functions.StartAutoPirateRaid(config)
+    local CFrameBoss = CFrame.new(-5496.17432, 313.768921, -2841.53027)
+
+    task.spawn(function()
+        while task.wait() do
+            if not config.AutoPirateRaid then continue end
+            pcall(function()
+                local char = Player.Character
+                local hrp  = char and char:FindFirstChild("HumanoidRootPart")
+                if not hrp then return end
+
+                local raidCenter = CFrame.new(-5539.3115234375, 313.800537109375, -2972.372314453125)
+                if (raidCenter.Position - hrp.Position).Magnitude <= 500 then
+                    for _, v in ipairs(workspace.Enemies:GetChildren()) do
+                        if v:FindFirstChild("HumanoidRootPart") and v:FindFirstChild("Humanoid")
+                           and v.Humanoid.Health > 0
+                           and (v.HumanoidRootPart.Position - hrp.Position).Magnitude < 2000 then
+                            repeat task.wait()
+                                Functions.AutoHaki()
+                                Functions.EquipWeapon(config.SelectedWeaponName)
+                                v.HumanoidRootPart.CanCollide = false
+                                v.HumanoidRootPart.Size = Vector3.new(60, 60, 60)
+                                Functions.TeleportTo(v.HumanoidRootPart.CFrame * CFrame.new(0, 30, 0))
+                                VirtualUser:CaptureController()
+                                VirtualUser:Button1Down(Vector2.new(1280, 672))
+                                pcall(function() sethiddenproperty(Player, "SimulationRadius", math.huge) end)
+                            until v.Humanoid.Health <= 0 or not v.Parent or not config.AutoPirateRaid
+                        end
+                    end
+                else
+                    Functions.TeleportTo(CFrameBoss)
+                end
+            end)
+        end
+    end)
+end
+
+-- Auto Farm Chocola Island
+function Functions.StartAutoFarmChocola(config)
+    task.spawn(function()
+        while task.wait() do
+            if not config.FarmChocola then continue end
+            pcall(function()
+                local chocoMobs = {"Chocolate Bar Battler", "Sweet Chef", "Cocoa Warrior"}
+                for _, mobName in ipairs(chocoMobs) do
+                    if workspace.Enemies:FindFirstChild(mobName) then
+                        for _, v in ipairs(workspace.Enemies:GetChildren()) do
+                            if v.Name == mobName and v:FindFirstChild("Humanoid")
+                               and v:FindFirstChild("HumanoidRootPart") and v.Humanoid.Health > 0 then
+                                repeat task.wait()
+                                    Functions.AutoHaki()
+                                    Functions.EquipWeapon(config.SelectedWeaponName)
+                                    v.HumanoidRootPart.CanCollide = false
+                                    v.Humanoid.WalkSpeed = 0
+                                    v.HumanoidRootPart.Size = Vector3.new(50, 50, 50)
+                                    Functions.TeleportTo(v.HumanoidRootPart.CFrame * CFrame.new(0, 30, 0))
+                                    VirtualUser:CaptureController()
+                                    VirtualUser:Button1Down(Vector2.new(1280, 672))
+                                    pcall(function() sethiddenproperty(Player, "SimulationRadius", math.huge) end)
+                                until not config.FarmChocola or not v.Parent or v.Humanoid.Health <= 0
+                            end
+                        end
+                    end
+                end
+            end)
+        end
+    end)
+end
+
+-- =====================================================
+-- KILL AURA / PVP
 -- =====================================================
 
 function Functions.StartKillAura(config)
@@ -1195,10 +1857,6 @@ function Functions.StartKillAura(config)
     end)
 end
 
--- =====================================================
--- AUTO PLAYER HUNTER / AUTO KILL PLAYER
--- =====================================================
-
 function Functions.StartAutoPlayerHunter(config)
     task.spawn(function()
         while task.wait(0.5) do
@@ -1226,11 +1884,10 @@ function Functions.StartAutoPlayerHunter(config)
 end
 
 -- =====================================================
--- SAIL BOAT (auto navegar barco - Sea 3)
+-- SAIL BOAT / TERRORSHARK / WALK WATER
 -- =====================================================
 
 function Functions.StartSailBoat(config)
-    -- Waypoints do barco entre ilhas do Sea 3
     local waypoints = {
         CFrame.new(-37813.6953, -0.3221744, 6105.16895),
         CFrame.new(-42250.2227, -0.3221744, 9247.07715),
@@ -1243,7 +1900,6 @@ function Functions.StartSailBoat(config)
                 local boats = workspace:FindFirstChild("Boats")
                 if not boats then return end
 
-                -- Comprar barco se nao tiver
                 if not boats:FindFirstChild("PirateBrigade") then
                     Functions.TPP(CFrame.new(-16927.451171875, 9.0863618850708, 433.8642883300781))
                     local char = Player.Character
@@ -1261,13 +1917,11 @@ function Functions.StartSailBoat(config)
                 local char = Player.Character
                 if not char then return end
 
-                -- Sentar no barco se nao estiver sentado
                 if not char.Humanoid.Sit then
                     Functions.TPP(seat.CFrame * CFrame.new(0, 1, 0))
                     return
                 end
 
-                -- Verificar inimigos perto (sair do barco para lutar)
                 local enemyNames = {"Shark", "Terrorshark", "Piranha", "Fish Crew Member"}
                 for _, name in ipairs(enemyNames) do
                     if workspace.Enemies:FindFirstChild(name) then
@@ -1275,23 +1929,10 @@ function Functions.StartSailBoat(config)
                         return
                     end
                 end
-
-                -- Navegar pelos waypoints
-                local hrp = char:FindFirstChild("HumanoidRootPart")
-                if not hrp then return end
-                for _, wp in ipairs(waypoints) do
-                    if (wp.Position - hrp.Position).Magnitude <= 10 then
-                        -- chegou nesse waypoint, ir para o proximo
-                    end
-                end
             end)
         end
     end)
 end
-
--- =====================================================
--- AUTO TERRORSHARK (matar criaturas do mar - Sea 3)
--- =====================================================
 
 function Functions.StartAutoTerrorshark(config)
     task.spawn(function()
@@ -1307,7 +1948,6 @@ function Functions.StartAutoTerrorshark(config)
                         for _, v in ipairs(workspace.Enemies:GetChildren()) do
                             if v.Name == name and v:FindFirstChild("Humanoid")
                                and v:FindFirstChild("HumanoidRootPart") and v.Humanoid.Health > 0 then
-                                -- Sair do barco
                                 local char = Player.Character
                                 if char and char.Humanoid then
                                     char.Humanoid.Sit = false
@@ -1319,7 +1959,6 @@ function Functions.StartAutoTerrorshark(config)
                                     v.Humanoid.WalkSpeed = 0
                                     v.Head.CanCollide = false
                                     config.MonFarm = v.Name
-                                    -- Verificar Typhoon
                                     local hasTyphoon = workspace._WorldOrigin:FindFirstChild("Typhoon Splash")
                                     local offset = hasTyphoon and CFrame.new(0, 300, 0) or CFrame.new(0, 60, 0)
                                     Functions.TeleportTo(v.HumanoidRootPart.CFrame * offset)
@@ -1330,7 +1969,6 @@ function Functions.StartAutoTerrorshark(config)
                 end
 
                 if not found then
-                    -- Voltar para o barco
                     local brigade = workspace.Boats:FindFirstChild("PirateBrigade")
                     if brigade then
                         local seat = brigade:FindFirstChild("VehicleSeat")
@@ -1344,10 +1982,6 @@ function Functions.StartAutoTerrorshark(config)
     end)
 end
 
--- =====================================================
--- WALK ON WATER
--- =====================================================
-
 function Functions.SetWalkWater(enabled)
     pcall(function()
         local waterBase = workspace.Map:FindFirstChild("WaterBase-Plane")
@@ -1360,7 +1994,7 @@ function Functions.SetWalkWater(enabled)
 end
 
 -- =====================================================
--- MYSTIC ISLAND / TWEEN KITSUNE
+-- EVENTOS E ILHAS ESPECIAIS
 -- =====================================================
 
 function Functions.StartAutoMysticIsland(config)
@@ -1399,10 +2033,6 @@ function Functions.StartTweenToKitsune(config)
     end)
 end
 
--- =====================================================
--- TWEEN GEAR (Mystic Island M-Gear)
--- =====================================================
-
 function Functions.StartTweenMGear(config)
     task.spawn(function()
         while task.wait(0.1) do
@@ -1419,10 +2049,6 @@ function Functions.StartTweenMGear(config)
         end
     end)
 end
-
--- =====================================================
--- AUTO AZURE / BLAZE EMBER
--- =====================================================
 
 function Functions.StartAutoEmber(config)
     task.spawn(function()
@@ -1452,10 +2078,6 @@ function Functions.StartAutoEmber(config)
     end)
 end
 
--- =====================================================
--- AUTO HYDRA TREE
--- =====================================================
-
 function Functions.StartAutoHydraTree(config)
     local positions = {
         CFrame.new(5500, 100, -400),
@@ -1471,15 +2093,12 @@ function Functions.StartAutoHydraTree(config)
                 Functions.AutoHaki()
                 for _, cf in ipairs(positions) do
                     if not config.AutoHydraTree then break end
-                    -- Tween suave ate a posicao
                     local hrp = Player.Character and Player.Character:FindFirstChild("HumanoidRootPart")
                     if not hrp then break end
                     local dist = (hrp.Position - cf.Position).Magnitude
                     local tween = TweenService:Create(hrp, TweenInfo.new(dist / 200, Enum.EasingStyle.Linear), {CFrame = cf})
                     tween:Play()
                     tween.Completed:Wait()
-
-                    -- Usar skills por 3 segundos na posicao
                     local char = Player.Character
                     if char and char:FindFirstChild("HumanoidRootPart") then
                         local arrived = (char.HumanoidRootPart.Position - cf.Position).Magnitude <= 5
@@ -1494,10 +2113,6 @@ function Functions.StartAutoHydraTree(config)
         end
     end)
 end
-
--- =====================================================
--- AUTO MOB DRAGON (Floating Turtle - Sea 3)
--- =====================================================
 
 function Functions.StartAutoMobDragon(config)
     task.spawn(function()
@@ -1528,7 +2143,83 @@ function Functions.StartAutoMobDragon(config)
 end
 
 -- =====================================================
--- AUTO COLLECT BONE / COLLECT EGG
+-- VULCAO (Prehistoric Island)
+-- =====================================================
+
+function Functions.StartDefendVolcano(config)
+    task.spawn(function()
+        while task.wait(0.1) do
+            if not config.DefendVolcano then continue end
+            pcall(function()
+                -- Ficar perto do vulcao e matar inimigos
+                local volcanoPos = CFrame.new(-14000, 300, -14000)
+                local hrp = Player.Character and Player.Character:FindFirstChild("HumanoidRootPart")
+                if not hrp then return end
+
+                if (volcanoPos.Position - hrp.Position).Magnitude > 500 then
+                    Functions.TeleportTo(volcanoPos)
+                end
+
+                for _, v in ipairs(workspace.Enemies:GetChildren()) do
+                    if v:FindFirstChild("Humanoid") and v:FindFirstChild("HumanoidRootPart")
+                       and v.Humanoid.Health > 0
+                       and (v.HumanoidRootPart.Position - volcanoPos.Position).Magnitude <= 1000 then
+                        pcall(function()
+                            v.Humanoid.Health = 0
+                            v.HumanoidRootPart.CanCollide = false
+                            pcall(function() sethiddenproperty(Player, "SimulationRadius", math.huge) end)
+                        end)
+                    end
+                end
+            end)
+        end
+    end)
+end
+
+function Functions.StartTweenVolcano(config)
+    task.spawn(function()
+        while task.wait(0.5) do
+            if not config.TweenVolcano then continue end
+            pcall(function()
+                local volcano = workspace:FindFirstChild("Volcano")
+                           or workspace.Map:FindFirstChild("Volcano")
+                if volcano then
+                    local top = volcano:FindFirstChild("VulcanoTop") or volcano:FindFirstChild("Top")
+                    if top then
+                        Functions.TPP(top.CFrame * CFrame.new(0, 10, 0))
+                    end
+                end
+            end)
+        end
+    end)
+end
+
+function Functions.StartAutoFindPrehistoric(config)
+    task.spawn(function()
+        while task.wait(1) do
+            if not config.AutoFindPrehistoric then continue end
+            pcall(function()
+                -- Procurar Prehistoric Island nos Locations
+                local locations = workspace._WorldOrigin and workspace._WorldOrigin:FindFirstChild("Locations")
+                if locations then
+                    for _, v in ipairs(locations:GetChildren()) do
+                        if v.Name:find("Prehistoric") then
+                            Functions.TPP(v.CFrame * CFrame.new(0, 100, 0))
+                            return
+                        end
+                    end
+                end
+                -- Hop para encontrar o servidor com a ilha
+                if config.AutoFindPrehistoricHop then
+                    Functions.Hop()
+                end
+            end)
+        end
+    end)
+end
+
+-- =====================================================
+-- BONE / EGG / CHEST
 -- =====================================================
 
 function Functions.StartAutoCollectBone(config)
@@ -1558,10 +2249,6 @@ function Functions.StartAutoCollectEgg(config)
     end)
 end
 
--- =====================================================
--- FARM CHEST
--- =====================================================
-
 function Functions.StartFarmChest(config)
     task.spawn(function()
         while task.wait(0.5) do
@@ -1582,7 +2269,7 @@ function Functions.StartFarmChest(config)
 end
 
 -- =====================================================
--- AUTO STORE FRUIT / TWEEN FRUIT / GRAB FRUIT
+-- FRUTAS
 -- =====================================================
 
 function Functions.StartAutoStoreFruit(config)
@@ -1636,8 +2323,19 @@ function Functions.StartGrabFruit(config)
     end)
 end
 
+function Functions.StartAutoFruit(config)
+    task.spawn(function()
+        while task.wait(1) do
+            if not config.AutoFruit then continue end
+            pcall(function()
+                ReplicatedStorage.Remotes.CommF_:InvokeServer("LoadFruit")
+            end)
+        end
+    end)
+end
+
 -- =====================================================
--- AUTO BUY ENHANCEMENT COLOUR / LEGENDARY SWORD
+-- SHOP / COMPRAS
 -- =====================================================
 
 function Functions.StartAutoBuyEnhancement(config)
@@ -1662,12 +2360,134 @@ function Functions.StartAutoBuyLegendarySword(config)
     end)
 end
 
+-- Comprar itens da loja (botao direto)
+function Functions.BuyItem(itemName)
+    pcall(function()
+        ReplicatedStorage.Remotes.CommF_:InvokeServer("BuyItem", itemName)
+    end)
+end
+
+function Functions.BuyFightingStyle(style)
+    local styleMap = {
+        ["Superhuman"]      = "BuySuperhuman",
+        ["Death Step"]      = "BuyDeathStep",
+        ["Electric Claw"]   = "BuyElectricClaw",
+        ["Dragon Talon"]    = "BuyDragonTalon",
+        ["God Human"]       = "BuyGodhuman",
+        ["Sharkman Karate"] = "BuySharkmanKarate",
+        ["Water Kung Fu"]   = "BuyFishmanKarate",
+        ["Sanguine Art"]    = "BuySanguineArt",
+    }
+    local remote = styleMap[style]
+    if remote then
+        pcall(function()
+            ReplicatedStorage.Remotes.CommF_:InvokeServer(remote)
+        end)
+    end
+end
+
+function Functions.BuyBlackbeardItem(itemType, slot)
+    pcall(function()
+        ReplicatedStorage.Remotes.CommF_:InvokeServer("BlackbeardReward", itemType, slot or "1")
+    end)
+end
+
+-- =====================================================
+-- AUTO BARISTA / BERRY / OBS HAKI
+-- =====================================================
+
+function Functions.StartAutoBarista(config)
+    local hakiColors = {
+        ["White"]  = 1, ["Black"]  = 2, ["Red"]    = 3,
+        ["Blue"]   = 4, ["Green"]  = 5, ["Yellow"] = 6,
+        ["Purple"] = 7, ["Pink"]   = 8,
+    }
+
+    task.spawn(function()
+        while task.wait(1) do
+            if not config.AutoBarista then continue end
+            pcall(function()
+                local colorIndex = hakiColors[config.HakiColor] or 1
+                ReplicatedStorage.Remotes.CommF_:InvokeServer("Barista", colorIndex)
+            end)
+        end
+    end)
+end
+
+function Functions.StartAutoFarmObsHaki(config)
+    task.spawn(function()
+        while task.wait(0.1) do
+            if not config.AutoFarmObsHaki then continue end
+            pcall(function()
+                -- Ativar Observacao (pressionar F)
+                VirtualInputManager:SendKeyEvent(true,  Enum.KeyCode.F, false, game)
+                task.wait(0.05)
+                VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.F, false, game)
+                task.wait(0.1)
+                -- Lutar para acumular exp de observacao
+                local hrp = Player.Character and Player.Character:FindFirstChild("HumanoidRootPart")
+                if not hrp then return end
+                for _, enemy in ipairs(workspace.Enemies:GetChildren()) do
+                    if enemy:FindFirstChild("Humanoid") and enemy:FindFirstChild("HumanoidRootPart")
+                       and enemy.Humanoid.Health > 0
+                       and (enemy.HumanoidRootPart.Position - hrp.Position).Magnitude <= 50 then
+                        Functions.FastAttack(enemy, config)
+                    end
+                end
+            end)
+        end
+    end)
+end
+
+function Functions.CollectBerry(config, hopFunc)
+    task.spawn(function()
+        while task.wait() do
+            if not config.AutoCollectBerry then continue end
+            local char = Player.Character
+            local pos  = char and char:GetPivot().Position
+            if not pos then continue end
+
+            local bushes = CollectionService:GetTagged("BerryBush")
+            local nearest, nearestName, nearestDist = nil, nil, math.huge
+
+            for _, bush in ipairs(bushes) do
+                for attrName, _ in pairs(bush:GetAttributes()) do
+                    local mag = (bush.Parent:GetPivot().Position - pos).Magnitude
+                    if mag < nearestDist then
+                        nearestDist = mag
+                        nearest     = bush
+                        nearestName = attrName
+                    end
+                end
+            end
+
+            if nearest and nearestName then
+                local model  = nearest.Parent
+                local center = model:GetPivot().Position
+                Functions.TeleportTo(CFrame.new(center + Vector3.new(0, 2, 0)))
+                task.wait(0.5)
+                local berryPart = model:FindFirstChild(nearestName)
+                if berryPart and berryPart:IsA("BasePart") then
+                    Functions.TeleportTo(berryPart.CFrame + Vector3.new(0, 1, 0))
+                    task.wait(0.3)
+                    VirtualInputManager:SendKeyEvent(true,  Enum.KeyCode.E, false, game)
+                    task.wait(0.1)
+                    VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.E, false, game)
+                end
+            else
+                if config.AutoCollectBerryHop and hopFunc then
+                    hopFunc()
+                end
+            end
+        end
+    end)
+end
+
 -- =====================================================
 -- AUTO DUNGEON
 -- =====================================================
 
 function Functions.StartAutoDungeon(config)
-    -- Funcao auxiliar para encontrar proxima ilha no dungeon
     local function getNextIsland()
         local islands = workspace:FindFirstChild("DungeonIslands")
         if not islands then return nil end
@@ -1686,7 +2506,6 @@ function Functions.StartAutoDungeon(config)
         return nearest
     end
 
-    -- Funcao auxiliar para atacar inimigos proximos
     local function attackNearby()
         local hrp = Player.Character and Player.Character:FindFirstChild("HumanoidRootPart")
         if not hrp then return end
@@ -1721,146 +2540,7 @@ function Functions.StartAutoDungeon(config)
 end
 
 -- =====================================================
--- QUEST HELPERS
--- =====================================================
-
-function Functions.GetQuestForLevel(questList, currentSea, player)
-    local level = 0
-    pcall(function() level = player.Data.Level.Value end)
-    local best = nil
-    for _, q in ipairs(questList) do
-        if q.Sea == currentSea and level >= q.Level then
-            if not best or q.Level > best.Level then best = q end
-        end
-    end
-    return best
-end
-
-function Functions.GetQuestGuiTitle(player)
-    local title = ""
-    pcall(function()
-        title = player.PlayerGui.Main.Quest.Container.QuestTitle.Title.Text
-    end)
-    return title
-end
-
-function Functions.IsQuestVisible(player)
-    local ok, result = pcall(function()
-        return player.PlayerGui.Main.Quest.Visible
-    end)
-    return ok and result or false
-end
-
-function Functions.HasActiveQuest(player, mobName)
-    local questGui = player.PlayerGui:FindFirstChild("Main")
-                  and player.PlayerGui.Main:FindFirstChild("Quest")
-    if not questGui or not questGui.Visible then return false end
-    local title = ""
-    pcall(function()
-        title = player.PlayerGui.Main.Quest.Container.QuestTitle.Title.Text
-    end)
-    return string.find(title, mobName, 1, true) ~= nil
-end
-
--- =====================================================
--- INVENTARIO / ITENS
--- =====================================================
-
-function Functions.CheckItem(name)
-    for _, v in pairs(ReplicatedStorage.Remotes.CommF_:InvokeServer("getInventory")) do
-        if v.Name == name then return v end
-    end
-end
-
-function Functions.CheckItemInCharOrBackpack(name)
-    local containers = { Player.Character, Player.Backpack }
-    for _, cont in ipairs(containers) do
-        if cont and cont:FindFirstChild(name) then
-            return cont:FindFirstChild(name)
-        end
-    end
-end
-
-function Functions.StoreFruit()
-    for _, v in pairs(Player.Backpack:GetChildren()) do
-        if v:IsA("Tool") and string.find(v.Name, "Fruit") then
-            pcall(function()
-                ReplicatedStorage.Remotes.CommF_:InvokeServer(
-                    "StoreFruit",
-                    v:GetAttribute("OriginalName"),
-                    v
-                )
-            end)
-        end
-    end
-end
-
-function Functions.RedeemAllCodes()
-    local codes = {
-        "KITTGAMING","ENYU_IS_PRO","FUDD10","BIGNEWS","THEGREATACE",
-        "SUB2GAMERROBOT_EXP1","STRAWHATMAIME","SUB2OFFICIALNOOBIE",
-        "SUB2NOOBMASTER123","SUB2DAIGROCK","AXIORE","TANTAIGAMIMG",
-        "STRAWHATMAINE","JCWK","FUDD10_V2","SUB2FER999","MAGICBIS",
-        "TY_FOR_WATCHING","STARCODEHEO"
-    }
-    for _, code in ipairs(codes) do
-        pcall(function()
-            ReplicatedStorage.Remotes.Redeem:InvokeServer(code)
-        end)
-    end
-end
-
--- =====================================================
--- COLLECT BERRY
--- =====================================================
-
-function Functions.CollectBerry(config, hopFunc)
-    task.spawn(function()
-        while task.wait() do
-            if not config.AutoCollectBerry then continue end
-            local char = Player.Character
-            local pos  = char and char:GetPivot().Position
-            if not pos then continue end
-
-            local bushes = CollectionService:GetTagged("BerryBush")
-            local nearest, nearestName, nearestDist = nil, nil, math.huge
-
-            for _, bush in ipairs(bushes) do
-                for attrName, _ in pairs(bush:GetAttributes()) do
-                    local mag = (bush.Parent:GetPivot().Position - pos).Magnitude
-                    if mag < nearestDist then
-                        nearestDist = mag
-                        nearest     = bush
-                        nearestName = attrName
-                    end
-                end
-            end
-
-            if nearest and nearestName then
-                local model  = nearest.Parent
-                local center = model:GetPivot().Position
-                Functions.TeleportTo(CFrame.new(center + Vector3.new(0, 2, 0)))
-                task.wait(0.5)
-                local berryPart = model:FindFirstChild(nearestName)
-                if berryPart and berryPart:IsA("BasePart") then
-                    Functions.TeleportTo(berryPart.CFrame + Vector3.new(0, 1, 0))
-                    task.wait(0.3)
-                    local VIM = game:GetService("VirtualInputManager")
-                    VIM:SendKeyEvent(true,  Enum.KeyCode.E, false, game)
-                    task.wait(0.1)
-                    VIM:SendKeyEvent(false, Enum.KeyCode.E, false, game)
-                end
-            else
-                if config.AutoCollectBerryHop and hopFunc then
-                    hopFunc()
-                end
-            end
-        end
-    end)
-end
-
--- =====================================================
--- SAFE MODE (sobe se HP ficar baixo)
+-- SAFE MODE
 -- =====================================================
 
 function Functions.StartSafeMode(config)
@@ -1885,7 +2565,7 @@ function Functions.StartSafeMode(config)
 end
 
 -- =====================================================
--- ANTI-AFK
+-- ANTI-AFK / HOP
 -- =====================================================
 
 function Functions.StartAntiAFK()
@@ -1895,10 +2575,6 @@ function Functions.StartAntiAFK()
         VirtualUser:Button2Up(Vector2.new(0, 0), workspace.CurrentCamera.CFrame)
     end)
 end
-
--- =====================================================
--- HOP (troca de servidor)
--- =====================================================
 
 function Functions.Hop()
     local PlaceID = game.PlaceId
@@ -1952,8 +2628,125 @@ function Functions.Hop()
     end
 end
 
+function Functions.ServerHop()
+    local TeleportService = game:GetService("TeleportService")
+    local HttpService     = game:GetService("HttpService")
+    local placeId         = game.PlaceId
+    local allIDs          = {}
+    local cursor          = ""
+
+    local function fetchServers()
+        local url = "https://games.roblox.com/v1/games/" .. placeId
+                 .. "/servers/Public?sortOrder=Asc&limit=100"
+        if cursor ~= "" then url = url .. "&cursor=" .. cursor end
+
+        local ok, raw = pcall(function() return game:HttpGet(url) end)
+        if not ok then return end
+
+        local ok2, data = pcall(function() return HttpService:JSONDecode(raw) end)
+        if not ok2 or not data or not data.data then return end
+
+        if data.nextPageCursor and data.nextPageCursor ~= "null" then
+            cursor = data.nextPageCursor
+        end
+
+        for _, server in pairs(data.data) do
+            local id = tostring(server.id)
+            if tonumber(server.maxPlayers) > tonumber(server.playing) then
+                local duplicate = false
+                for _, existing in pairs(allIDs) do
+                    if id == existing then duplicate = true; break end
+                end
+                if not duplicate then
+                    table.insert(allIDs, id)
+                    pcall(function()
+                        task.wait(0.1)
+                        TeleportService:TeleportToPlaceInstance(placeId, id, Player)
+                    end)
+                    task.wait(0.1)
+                end
+            end
+        end
+    end
+
+    task.spawn(function()
+        while true do
+            task.wait(0.1)
+            pcall(fetchServers)
+            if cursor ~= "" then
+                pcall(fetchServers)
+            end
+        end
+    end)
+end
+
 -- =====================================================
--- REMOVE FOG / REMOVE LAVA
+-- MISC UI
+-- =====================================================
+
+function Functions.SetHideChat(enabled)
+    pcall(function()
+        StarterGui:SetCoreGuiEnabled(Enum.CoreGuiType.Chat, not enabled)
+    end)
+end
+
+function Functions.SetHideLeaderboard(enabled)
+    pcall(function()
+        StarterGui:SetCoreGuiEnabled(Enum.CoreGuiType.PlayerList, not enabled)
+    end)
+end
+
+function Functions.OpenInventory()
+    pcall(function()
+        ReplicatedStorage.Remotes.CommF_:InvokeServer("getInventoryWeapons")
+        task.wait(1)
+        Player.PlayerGui.Main.Inventory.Visible = true
+    end)
+end
+
+function Functions.OpenFruitInventory()
+    pcall(function()
+        ReplicatedStorage.Remotes.CommF_:InvokeServer("getInventoryFruits")
+        Player.PlayerGui.Main.FruitInventory.Visible = true
+    end)
+end
+
+function Functions.OpenHakiColors()
+    pcall(function()
+        Player.PlayerGui.Main.Colors.Visible = true
+    end)
+end
+
+function Functions.OpenTitles()
+    pcall(function()
+        ReplicatedStorage.Remotes.CommF_:InvokeServer("getTitles")
+        Player.PlayerGui.Main.Titles.Visible = true
+    end)
+end
+
+function Functions.JoinTeam(teamName)
+    pcall(function()
+        ReplicatedStorage.Remotes.CommF_:InvokeServer("SetTeam", teamName)
+    end)
+end
+
+function Functions.RedeemAllCodes()
+    local codes = {
+        "KITTGAMING","ENYU_IS_PRO","FUDD10","BIGNEWS","THEGREATACE",
+        "SUB2GAMERROBOT_EXP1","STRAWHATMAIME","SUB2OFFICIALNOOBIE",
+        "SUB2NOOBMASTER123","SUB2DAIGROCK","AXIORE","TANTAIGAMIMG",
+        "STRAWHATMAINE","JCWK","FUDD10_V2","SUB2FER999","MAGICBIS",
+        "TY_FOR_WATCHING","STARCODEHEO"
+    }
+    for _, code in ipairs(codes) do
+        pcall(function()
+            ReplicatedStorage.Remotes.Redeem:InvokeServer(code)
+        end)
+    end
+end
+
+-- =====================================================
+-- VISUAIS / FOG / LAVA
 -- =====================================================
 
 function Functions.RemoveFog()
@@ -1974,7 +2767,7 @@ function Functions.RemoveLava()
 end
 
 -- =====================================================
--- ESP - MOBS (circulo verde via Drawing)
+-- ESP
 -- =====================================================
 
 local _mobESP = {}
@@ -2038,10 +2831,6 @@ function Functions.StartMobESP()
     end
 end
 
--- =====================================================
--- ESP - PLAYERS
--- =====================================================
-
 local _espNumber = math.random(1, 1000000)
 
 function Functions.UpdatePlayerESP(enabled, showTeammates)
@@ -2090,10 +2879,6 @@ function Functions.UpdatePlayerESP(enabled, showTeammates)
     end
 end
 
--- =====================================================
--- ESP - ILHAS
--- =====================================================
-
 function Functions.UpdateIslandESP(enabled)
     local locations = workspace:FindFirstChild("_WorldOrigin")
                    and workspace._WorldOrigin:FindFirstChild("Locations")
@@ -2109,7 +2894,7 @@ function Functions.UpdateIslandESP(enabled)
                     bill.Adornee       = v
                     bill.AlwaysOnTop   = true
                     local lbl = Instance.new("TextLabel", bill)
-                    lbl.Font               = "GothamSemibold"
+                    lbl.Font               = Enum.Font.GothamSemibold
                     lbl.TextSize           = 14
                     lbl.TextWrapped        = true
                     lbl.Size               = UDim2.new(1, 0, 1, 0)
@@ -2131,10 +2916,6 @@ function Functions.UpdateIslandESP(enabled)
     end
 end
 
--- =====================================================
--- ESP - FRUTAS DO DIABO
--- =====================================================
-
 function Functions.UpdateDevilFruitESP(enabled)
     for _, v in ipairs(workspace:GetChildren()) do
         pcall(function()
@@ -2155,14 +2936,9 @@ function Functions.UpdateDevilFruitESP(enabled)
                     lbl.BackgroundTransparency = 1
                     lbl.TextStrokeTransparency = 0.5
                     lbl.TextColor3         = Color3.fromRGB(255, 255, 255)
-                    local dist = math.floor(
-                        (Player.Character.Head.Position - v.Handle.Position).Magnitude / 3)
-                    lbl.Text = v.Name .. "\n" .. dist .. "m"
-                else
-                    local dist = math.floor(
-                        (Player.Character.Head.Position - v.Handle.Position).Magnitude / 3)
-                    v.Handle["LotuxFruitESP".. _espNumber].TextLabel.Text = v.Name .. "\n" .. dist .. "m"
                 end
+                local dist = math.floor((Player.Character.Head.Position - v.Handle.Position).Magnitude / 3)
+                v.Handle["LotuxFruitESP".. _espNumber].TextLabel.Text = v.Name .. "\n" .. dist .. "m"
             else
                 if v:FindFirstChild("Handle") then
                     local tag = "LotuxFruitESP" .. _espNumber
@@ -2174,10 +2950,6 @@ function Functions.UpdateDevilFruitESP(enabled)
         end)
     end
 end
-
--- =====================================================
--- ESP - BAUS
--- =====================================================
 
 function Functions.UpdateChestESP(enabled)
     for _, chest in pairs(CollectionService:GetTagged("_ChestTagged")) do
@@ -2199,11 +2971,9 @@ function Functions.UpdateChestESP(enabled)
                     lbl.BackgroundTransparency = 1
                     lbl.TextStrokeTransparency = 0.5
                     lbl.TextColor3         = Color3.fromRGB(255, 215, 0)
-                else
-                    local dist = math.floor(
-                        (Player.Character.Head.Position - chest:GetPivot().Position).Magnitude / 3)
-                    chest.LotuxChestESP.TextLabel.Text = "Chest\n" .. dist .. "m"
                 end
+                local dist = math.floor((Player.Character.Head.Position - chest:GetPivot().Position).Magnitude / 3)
+                chest.LotuxChestESP.TextLabel.Text = "Chest\n" .. dist .. "m"
             else
                 if chest:FindFirstChild("LotuxChestESP") then
                     chest.LotuxChestESP:Destroy()
@@ -2212,10 +2982,6 @@ function Functions.UpdateChestESP(enabled)
         end)
     end
 end
-
--- =====================================================
--- ESP - BERRIES
--- =====================================================
 
 function Functions.UpdateBerriesESP(enabled)
     for _, bush in pairs(CollectionService:GetTagged("BerryBush")) do
@@ -2239,11 +3005,9 @@ function Functions.UpdateBerriesESP(enabled)
                             lbl.BackgroundTransparency = 1
                             lbl.TextStrokeTransparency = 0.5
                             lbl.TextColor3         = Color3.fromRGB(0, 200, 100)
-                        else
-                            local dist = math.floor(
-                                (Player.Character.Head.Position - bush.Parent:GetPivot().Position).Magnitude / 3)
-                            bush.Parent.LotuxBerryESP.TextLabel.Text = attrName .. "\n" .. dist .. "m"
                         end
+                        local dist = math.floor((Player.Character.Head.Position - bush.Parent:GetPivot().Position).Magnitude / 3)
+                        bush.Parent.LotuxBerryESP.TextLabel.Text = attrName .. "\n" .. dist .. "m"
                     else
                         if bush.Parent:FindFirstChild("LotuxBerryESP") then
                             bush.Parent.LotuxBerryESP:Destroy()
@@ -2254,10 +3018,6 @@ function Functions.UpdateBerriesESP(enabled)
         end)
     end
 end
-
--- =====================================================
--- ESP - MIRAGE ISLAND
--- =====================================================
 
 function Functions.UpdateMirageESP(enabled)
     local locations = workspace:FindFirstChild("_WorldOrigin")
@@ -2281,11 +3041,9 @@ function Functions.UpdateMirageESP(enabled)
                         lbl.BackgroundTransparency = 1
                         lbl.TextStrokeTransparency = 0.5
                         lbl.TextColor3         = Color3.fromRGB(80, 245, 245)
-                    else
-                        local dist = math.floor(
-                            (Player.Character.Head.Position - v.Position).Magnitude / 3)
-                        v.LotuxMirageESP.TextLabel.Text = "Mirage Island\n" .. dist .. "m"
                     end
+                    local dist = math.floor((Player.Character.Head.Position - v.Position).Magnitude / 3)
+                    v.LotuxMirageESP.TextLabel.Text = "Mirage Island\n" .. dist .. "m"
                 else
                     if v:FindFirstChild("LotuxMirageESP") then
                         v.LotuxMirageESP:Destroy()
@@ -2296,8 +3054,74 @@ function Functions.UpdateMirageESP(enabled)
     end
 end
 
+function Functions.UpdateSeaBeastESP(enabled)
+    local folder = workspace:FindFirstChild("SeaBeasts")
+    if not folder then return end
+    for _, v in ipairs(folder:GetChildren()) do
+        pcall(function()
+            local hrp = v:FindFirstChild("HumanoidRootPart")
+            if not hrp then return end
+            if enabled then
+                if not v:FindFirstChild("LotuxSeaESP") then
+                    local bill = Instance.new("BillboardGui", v)
+                    bill.Name          = "LotuxSeaESP"
+                    bill.AlwaysOnTop   = true
+                    bill.Size          = UDim2.new(0, 200, 0, 50)
+                    bill.StudsOffset   = Vector3.new(0, 2.5, 0)
+                    local lbl = Instance.new("TextLabel", bill)
+                    lbl.BackgroundTransparency = 1
+                    lbl.Size               = UDim2.new(0, 200, 0, 50)
+                    lbl.Font               = Enum.Font.GothamBold
+                    lbl.TextColor3         = Color3.fromRGB(7, 236, 240)
+                    lbl.TextSize           = 16
+                    lbl.TextWrapped        = true
+                end
+                local dist = math.floor((Player.Character.HumanoidRootPart.Position - hrp.Position).Magnitude)
+                v.LotuxSeaESP.TextLabel.Text = v.Name .. " — " .. dist .. "m"
+            else
+                if v:FindFirstChild("LotuxSeaESP") then
+                    v.LotuxSeaESP:Destroy()
+                end
+            end
+        end)
+    end
+end
+
+function Functions.UpdateNpcESP(enabled)
+    local folder = workspace:FindFirstChild("NPCs")
+    if not folder then return end
+    for _, v in ipairs(folder:GetChildren()) do
+        pcall(function()
+            local hrp = v:FindFirstChild("HumanoidRootPart")
+            if not hrp then return end
+            if enabled then
+                if not v:FindFirstChild("LotuxNpcESP") then
+                    local bill = Instance.new("BillboardGui", v)
+                    bill.Name          = "LotuxNpcESP"
+                    bill.AlwaysOnTop   = true
+                    bill.Size          = UDim2.new(0, 200, 0, 50)
+                    bill.StudsOffset   = Vector3.new(0, 2.5, 0)
+                    local lbl = Instance.new("TextLabel", bill)
+                    lbl.BackgroundTransparency = 1
+                    lbl.Size               = UDim2.new(0, 200, 0, 50)
+                    lbl.Font               = Enum.Font.GothamBold
+                    lbl.TextColor3         = Color3.fromRGB(255, 220, 50)
+                    lbl.TextSize           = 14
+                    lbl.TextWrapped        = true
+                end
+                local dist = math.floor((Player.Character.HumanoidRootPart.Position - hrp.Position).Magnitude)
+                v.LotuxNpcESP.TextLabel.Text = v.Name .. " — " .. dist .. "m"
+            else
+                if v:FindFirstChild("LotuxNpcESP") then
+                    v.LotuxNpcESP:Destroy()
+                end
+            end
+        end)
+    end
+end
+
 -- =====================================================
--- HIGHLIGHT NO PROPRIO PERSONAGEM
+-- VISUAIS DO PERSONAGEM
 -- =====================================================
 
 function Functions.StartSelfHighlight()
@@ -2324,10 +3148,6 @@ function Functions.StartSelfHighlight()
 
     applyHighlight(Player)
 end
-
--- =====================================================
--- AURA AQUA
--- =====================================================
 
 function Functions.StartAquaAura()
     task.delay(25, function()
@@ -2373,10 +3193,6 @@ function Functions.StartAquaAura()
     end)
 end
 
--- =====================================================
--- RAINBOW SKILLS
--- =====================================================
-
 function Functions.StartRainbowSkills()
     local function rainbowSkill(obj)
         if obj:IsA("ParticleEmitter") or obj:IsA("Beam") or obj:IsA("Trail") then
@@ -2393,10 +3209,6 @@ function Functions.StartRainbowSkills()
     for _, obj in ipairs(workspace:GetDescendants()) do rainbowSkill(obj) end
     workspace.DescendantAdded:Connect(rainbowSkill)
 end
-
--- =====================================================
--- RAINBOW BILLBOARD
--- =====================================================
 
 function Functions.StartRainbowBillboard(text)
     text = text or "Lotux Hub"
@@ -2449,10 +3261,6 @@ function Functions.StartRainbowBillboard(text)
     end)
 end
 
--- =====================================================
--- FPS COUNTER
--- =====================================================
-
 function Functions.StartFPSCounter()
     local screenGui = Instance.new("ScreenGui")
     local label     = Instance.new("TextLabel")
@@ -2490,10 +3298,6 @@ function Functions.StartFPSCounter()
     end)
 end
 
--- =====================================================
--- RENDER 3D QUANDO JANELA PERDE FOCO
--- =====================================================
-
 function Functions.StartFocusRenderControl()
     UserInputService.WindowFocused:Connect(function()
         RunService:Set3dRenderingEnabled(true)
@@ -2504,88 +3308,54 @@ function Functions.StartFocusRenderControl()
 end
 
 -- =====================================================
--- ESP - SEA BEASTS
+-- QUEST HELPERS
 -- =====================================================
 
-function Functions.UpdateSeaBeastESP(enabled)
-    local folder = workspace:FindFirstChild("SeaBeasts")
-    if not folder then return end
-    for _, v in ipairs(folder:GetChildren()) do
-        pcall(function()
-            local hrp = v:FindFirstChild("HumanoidRootPart")
-            if not hrp then return end
-            if enabled then
-                if not v:FindFirstChild("LotuxSeaESP") then
-                    local bill = Instance.new("BillboardGui", v)
-                    bill.Name          = "LotuxSeaESP"
-                    bill.AlwaysOnTop   = true
-                    bill.Size          = UDim2.new(0, 200, 0, 50)
-                    bill.StudsOffset   = Vector3.new(0, 2.5, 0)
-                    local lbl = Instance.new("TextLabel", bill)
-                    lbl.BackgroundTransparency = 1
-                    lbl.Size               = UDim2.new(0, 200, 0, 50)
-                    lbl.Font               = Enum.Font.GothamBold
-                    lbl.TextColor3         = Color3.fromRGB(7, 236, 240)
-                    lbl.TextSize           = 16
-                    lbl.TextWrapped        = true
-                end
-                local dist = math.floor(
-                    (Player.Character.HumanoidRootPart.Position - hrp.Position).Magnitude)
-                v.LotuxSeaESP.TextLabel.Text = v.Name .. " — " .. dist .. "m"
-            else
-                if v:FindFirstChild("LotuxSeaESP") then
-                    v.LotuxSeaESP:Destroy()
-                end
-            end
-        end)
+function Functions.GetQuestForLevel(questList, currentSea, player)
+    local level = 0
+    pcall(function() level = player.Data.Level.Value end)
+    local best = nil
+    for _, q in ipairs(questList) do
+        if q.Sea == currentSea and level >= q.Level then
+            if not best or q.Level > best.Level then best = q end
+        end
     end
+    return best
+end
+
+function Functions.GetQuestGuiTitle(player)
+    local title = ""
+    pcall(function()
+        title = player.PlayerGui.Main.Quest.Container.QuestTitle.Title.Text
+    end)
+    return title
+end
+
+function Functions.IsQuestVisible(player)
+    local ok, result = pcall(function()
+        return player.PlayerGui.Main.Quest.Visible
+    end)
+    return ok and result or false
+end
+
+function Functions.HasActiveQuest(player, mobName)
+    local questGui = player.PlayerGui:FindFirstChild("Main")
+                  and player.PlayerGui.Main:FindFirstChild("Quest")
+    if not questGui or not questGui.Visible then return false end
+    local title = ""
+    pcall(function()
+        title = player.PlayerGui.Main.Quest.Container.QuestTitle.Title.Text
+    end)
+    return string.find(title, mobName, 1, true) ~= nil
 end
 
 -- =====================================================
--- ESP - NPCs
--- =====================================================
-
-function Functions.UpdateNpcESP(enabled)
-    local folder = workspace:FindFirstChild("NPCs")
-    if not folder then return end
-    for _, v in ipairs(folder:GetChildren()) do
-        pcall(function()
-            local hrp = v:FindFirstChild("HumanoidRootPart")
-            if not hrp then return end
-            if enabled then
-                if not v:FindFirstChild("LotuxNpcESP") then
-                    local bill = Instance.new("BillboardGui", v)
-                    bill.Name          = "LotuxNpcESP"
-                    bill.AlwaysOnTop   = true
-                    bill.Size          = UDim2.new(0, 200, 0, 50)
-                    bill.StudsOffset   = Vector3.new(0, 2.5, 0)
-                    local lbl = Instance.new("TextLabel", bill)
-                    lbl.BackgroundTransparency = 1
-                    lbl.Size               = UDim2.new(0, 200, 0, 50)
-                    lbl.Font               = Enum.Font.GothamBold
-                    lbl.TextColor3         = Color3.fromRGB(255, 220, 50)
-                    lbl.TextSize           = 14
-                    lbl.TextWrapped        = true
-                end
-                local dist = math.floor(
-                    (Player.Character.HumanoidRootPart.Position - hrp.Position).Magnitude)
-                v.LotuxNpcESP.TextLabel.Text = v.Name .. " — " .. dist .. "m"
-            else
-                if v:FindFirstChild("LotuxNpcESP") then
-                    v.LotuxNpcESP:Destroy()
-                end
-            end
-        end)
-    end
-end
-
--- =====================================================
--- CHECK ITEM NO INVENTARIO
+-- INVENTARIO / ITENS
 -- =====================================================
 
 function Functions.CheckItem(itemName)
     local ok, inventory = pcall(function()
-        return game:GetService("ReplicatedStorage").Remotes.CommF_:InvokeServer("getInventory")
+        return ReplicatedStorage.Remotes.CommF_:InvokeServer("getInventory")
     end)
     if not ok or not inventory then return nil end
     for _, v in pairs(inventory) do
@@ -2596,80 +3366,348 @@ function Functions.CheckItem(itemName)
     return nil
 end
 
--- =====================================================
--- SERVER HOP
--- =====================================================
-
-function Functions.ServerHop()
-    local TeleportService = game:GetService("TeleportService")
-    local HttpService     = game:GetService("HttpService")
-    local placeId         = game.PlaceId
-    local allIDs          = {}
-    local cursor          = ""
-
-    local function fetchServers()
-        local url = "https://games.roblox.com/v1/games/" .. placeId
-                 .. "/servers/Public?sortOrder=Asc&limit=100"
-        if cursor ~= "" then url = url .. "&cursor=" .. cursor end
-
-        local ok, raw = pcall(function() return game:HttpGet(url) end)
-        if not ok then return end
-
-        local ok2, data = pcall(function() return HttpService:JSONDecode(raw) end)
-        if not ok2 or not data or not data.data then return end
-
-        if data.nextPageCursor and data.nextPageCursor ~= "null" then
-            cursor = data.nextPageCursor
-        end
-
-        for _, server in pairs(data.data) do
-            local id = tostring(server.id)
-            if tonumber(server.maxPlayers) > tonumber(server.playing) then
-                local duplicate = false
-                for _, existing in pairs(allIDs) do
-                    if id == existing then duplicate = true; break end
-                end
-                if not duplicate then
-                    table.insert(allIDs, id)
-                    pcall(function()
-                        task.wait(0.1)
-                        TeleportService:TeleportToPlaceInstance(placeId, id, Player)
-                    end)
-                    task.wait(0.1)
-                end
-            end
+function Functions.CheckItemInCharOrBackpack(name)
+    local containers = { Player.Character, Player.Backpack }
+    for _, cont in ipairs(containers) do
+        if cont and cont:FindFirstChild(name) then
+            return cont:FindFirstChild(name)
         end
     end
+end
 
+function Functions.StoreFruit()
+    for _, v in pairs(Player.Backpack:GetChildren()) do
+        if v:IsA("Tool") and string.find(v.Name, "Fruit") then
+            pcall(function()
+                ReplicatedStorage.Remotes.CommF_:InvokeServer(
+                    "StoreFruit",
+                    v:GetAttribute("OriginalName"),
+                    v
+                )
+            end)
+        end
+    end
+end
+
+-- =====================================================
+-- AUTO GET POLE (Thunder God - Sea 2)
+-- =====================================================
+
+function Functions.StartAutoGetPole(config)
     task.spawn(function()
-        while true do
-            task.wait(0.1)
-            pcall(fetchServers)
-            if cursor ~= "" then
-                pcall(fetchServers)
-            end
+        while task.wait(0.5) do
+            if not config.AutoGetPole then continue end
+            pcall(function()
+                local Enemies = workspace:FindFirstChild("Enemies")
+                if Enemies and Enemies:FindFirstChild("Thunder God") then
+                    for _, v in pairs(Enemies:GetChildren()) do
+                        if v.Name == "Thunder God" and v:FindFirstChild("Humanoid")
+                        and v:FindFirstChild("HumanoidRootPart") and v.Humanoid.Health > 0 then
+                            Functions.AutoHaki()
+                            Functions.EquipWeapon(config.SelectedWeaponName)
+                            v.HumanoidRootPart.CanCollide = false
+                            v.Humanoid.WalkSpeed = 0
+                            v.HumanoidRootPart.Size = Vector3.new(80, 80, 80)
+                            Functions.ToPos(v.HumanoidRootPart.CFrame * CFrame.new(0, 30, 0), config)
+                            pcall(function() sethiddenproperty(Player, "SimulationRadius", math.huge) end)
+                        end
+                    end
+                else
+                    local rs = game:GetService("ReplicatedStorage")
+                    if rs:FindFirstChild("Thunder God") then
+                        Functions.ToPos(rs:FindFirstChild("Thunder God").HumanoidRootPart.CFrame * CFrame.new(5, 10, 2), config)
+                    end
+                end
+            end)
         end
     end)
 end
 
 -- =====================================================
--- INICIALIZAR TODOS OS LOOPS (chamado uma vez no init)
--- Passa o Config para ligar/desligar via toggles
+-- AUTO GET SAW (The Saw - Sea 2)
+-- =====================================================
+
+function Functions.StartAutoGetSaw(config)
+    local SawPos = CFrame.new(-690.33, 15.09, 1582.24)
+    task.spawn(function()
+        while task.wait(0.5) do
+            if not config.AutoGetSaw then continue end
+            pcall(function()
+                local Enemies = workspace:FindFirstChild("Enemies")
+                if Enemies and Enemies:FindFirstChild("The Saw") then
+                    for _, v in pairs(Enemies:GetChildren()) do
+                        if v.Name == "The Saw" and v:FindFirstChild("Humanoid")
+                        and v:FindFirstChild("HumanoidRootPart") and v.Humanoid.Health > 0 then
+                            Functions.AutoHaki()
+                            Functions.EquipWeapon(config.SelectedWeaponName)
+                            v.HumanoidRootPart.CanCollide = false
+                            v.Humanoid.WalkSpeed = 0
+                            v.HumanoidRootPart.Size = Vector3.new(50, 50, 50)
+                            Functions.ToPos(v.HumanoidRootPart.CFrame * CFrame.new(0, 30, 0), config)
+                        end
+                    end
+                else
+                    local rs = game:GetService("ReplicatedStorage")
+                    if rs:FindFirstChild("The Saw") then
+                        Functions.ToPos(rs:FindFirstChild("The Saw").HumanoidRootPart.CFrame * CFrame.new(2, 40, 2), config)
+                    else
+                        Functions.ToPos(SawPos, config)
+                    end
+                end
+            end)
+        end
+    end)
+end
+
+-- =====================================================
+-- AUTO KILL GOLEM (Lava Golem - Prehistoric Island)
+-- =====================================================
+
+function Functions.StartAutoKillGolem(config)
+    task.spawn(function()
+        while task.wait(0.5) do
+            if not config.AutoKillGolem then continue end
+            pcall(function()
+                local Enemies = workspace:FindFirstChild("Enemies")
+                if Enemies and Enemies:FindFirstChild("Lava Golem") then
+                    for _, v in pairs(Enemies:GetChildren()) do
+                        if v.Name == "Lava Golem" and v:FindFirstChild("Humanoid")
+                        and v:FindFirstChild("HumanoidRootPart") and v.Humanoid.Health > 0 then
+                            repeat
+                                task.wait(0.1)
+                                Functions.AutoHaki()
+                                Functions.EquipWeapon(config.SelectedWeaponName)
+                                v.HumanoidRootPart.CanCollide = false
+                                v.Humanoid.WalkSpeed = 0
+                                v.HumanoidRootPart.Size = Vector3.new(50, 50, 50)
+                                Functions.ToPos(v.HumanoidRootPart.CFrame * CFrame.new(0, 30, 0), config)
+                                pcall(function() sethiddenproperty(Player, "SimulationRadius", math.huge) end)
+                            until not config.AutoKillGolem or not v.Parent or v.Humanoid.Health <= 0
+                        end
+                    end
+                else
+                    local rs = game:GetService("ReplicatedStorage")
+                    if rs:FindFirstChild("Lava Golem") then
+                        Functions.ToPos(rs:FindFirstChild("Lava Golem").HumanoidRootPart.CFrame * CFrame.new(2, 20, 2), config)
+                    end
+                end
+            end)
+        end
+    end)
+end
+
+-- =====================================================
+-- AUTO KILL SHARK / PIRANHA / FISH CREW (Mar)
+-- =====================================================
+
+function Functions.StartAutoKillSeaCreatures(config)
+    task.spawn(function()
+        while task.wait(0.3) do
+            pcall(function()
+                local Enemies = workspace:FindFirstChild("Enemies")
+                if not Enemies then return end
+                local char = Player.Character
+                local hrp  = char and char:FindFirstChild("HumanoidRootPart")
+                if not hrp then return end
+
+                for _, v in pairs(Enemies:GetChildren()) do
+                    local isShark    = v.Name == "Shark" and config.AutoKillShark
+                    local isPiranha  = v.Name == "Piranha" and config.AutoKillPiranha
+                    local isFishCrew = v.Name == "Fish Crew Member" and config.AutoKillFishCrew
+                    if (isShark or isPiranha or isFishCrew)
+                    and v:FindFirstChild("Humanoid") and v:FindFirstChild("HumanoidRootPart")
+                    and v.Humanoid.Health > 0 then
+                        Functions.AutoHaki()
+                        Functions.EquipWeapon(config.SelectedWeaponName)
+                        v.HumanoidRootPart.CanCollide = false
+                        v.Humanoid.WalkSpeed = 0
+                        Functions.ToPos(v.HumanoidRootPart.CFrame * CFrame.new(0, 10, 0), config)
+                        pcall(function() sethiddenproperty(Player, "SimulationRadius", math.huge) end)
+                    end
+                end
+            end)
+        end
+    end)
+end
+
+-- =====================================================
+-- AUTO FARM FRUITS (Farm com Frutas / Mastery)
+-- =====================================================
+
+function Functions.StartAutoFarmFruits(config)
+    task.spawn(function()
+        while task.wait(0.5) do
+            if not config.AutoFarmFruits then continue end
+            pcall(function()
+                local Enemies = workspace:FindFirstChild("Enemies")
+                if not Enemies then return end
+                local char = Player.Character
+                local hrp  = char and char:FindFirstChild("HumanoidRootPart")
+                if not hrp then return end
+
+                for _, v in pairs(Enemies:GetChildren()) do
+                    if v:FindFirstChild("Humanoid") and v:FindFirstChild("HumanoidRootPart")
+                    and v.Humanoid.Health > 0 then
+                        repeat
+                            task.wait(0.1)
+                            pcall(function()
+                                Functions.AutoHaki()
+                                Functions.EquipWeapon(config.SelectedWeaponName)
+                                v.HumanoidRootPart.CanCollide = false
+                                v.Humanoid.WalkSpeed = 0
+                                Functions.ToPos(v.HumanoidRootPart.CFrame * CFrame.new(0, 5, 0), config)
+                                pcall(function() sethiddenproperty(Player, "SimulationRadius", math.huge) end)
+                            end)
+                        until not config.AutoFarmFruits or not v.Parent or v.Humanoid.Health <= 0
+                        break
+                    end
+                end
+            end)
+        end
+    end)
+end
+
+-- =====================================================
+-- AUTO PRAY (Altar/Shrine)
+-- =====================================================
+
+function Functions.StartAutoPray(config)
+    task.spawn(function()
+        while task.wait(1) do
+            if not config.AutoPray then continue end
+            pcall(function()
+                local CommF_ = game:GetService("ReplicatedStorage"):WaitForChild("Remotes", 5)
+                                    :WaitForChild("CommF_", 5)
+                CommF_:InvokeServer("Pray")
+            end)
+        end
+    end)
+end
+
+-- =====================================================
+-- AUTO TRY LUCK
+-- =====================================================
+
+function Functions.StartAutoTryLuck(config)
+    task.spawn(function()
+        while task.wait(1) do
+            if not config.AutoTryLuck then continue end
+            pcall(function()
+                local CommF_ = game:GetService("ReplicatedStorage"):WaitForChild("Remotes", 5)
+                                    :WaitForChild("CommF_", 5)
+                CommF_:InvokeServer("TryLuck")
+            end)
+        end
+    end)
+end
+
+-- =====================================================
+-- AUTO TRADE BONE
+-- =====================================================
+
+function Functions.StartAutoTradeBone(config)
+    task.spawn(function()
+        while task.wait(1) do
+            if not config.AutoTradeBone then continue end
+            pcall(function()
+                local CommF_ = game:GetService("ReplicatedStorage"):WaitForChild("Remotes", 5)
+                                    :WaitForChild("CommF_", 5)
+                CommF_:InvokeServer("TradeBone", "DinoBone")
+            end)
+        end
+    end)
+end
+
+-- =====================================================
+-- AIMBOT GUN
+-- =====================================================
+
+function Functions.StartAimbotGun(config)
+    task.spawn(function()
+        while task.wait(0.05) do
+            if not config.AimbotGun then continue end
+            pcall(function()
+                local char = Player.Character
+                local hrp  = char and char:FindFirstChild("HumanoidRootPart")
+                if not hrp then return end
+
+                local nearestEnemy = Functions.GetNearestEnemy(char, hrp)
+                if not nearestEnemy then return end
+                local enemyHrp = nearestEnemy:FindFirstChild("HumanoidRootPart")
+                if not enemyHrp then return end
+
+                local gun = Player.Character:FindFirstChildWhichIsA("Tool")
+                if gun and gun.ToolTip == "Gun" then
+                    workspace.CurrentCamera.CFrame = CFrame.new(
+                        workspace.CurrentCamera.CFrame.Position,
+                        enemyHrp.Position
+                    )
+                end
+            end)
+        end
+    end)
+end
+
+-- =====================================================
+-- AIMBOT SKILL
+-- =====================================================
+
+function Functions.StartAimbotSkill(config)
+    task.spawn(function()
+        while task.wait(0.05) do
+            if not config.AimbotSkill then continue end
+            pcall(function()
+                local char = Player.Character
+                local hrp  = char and char:FindFirstChild("HumanoidRootPart")
+                if not hrp then return end
+
+                local nearestEnemy = Functions.GetNearestEnemy(char, hrp)
+                if not nearestEnemy then return end
+                local enemyHrp = nearestEnemy:FindFirstChild("HumanoidRootPart")
+                if not enemyHrp then return end
+
+                workspace.CurrentCamera.CFrame = CFrame.new(
+                    workspace.CurrentCamera.CFrame.Position,
+                    enemyHrp.Position
+                )
+            end)
+        end
+    end)
+end
+
+-- =====================================================
+-- INICIALIZAR TODOS OS LOOPS
 -- =====================================================
 
 function Functions.StartAllLoops(config)
+    -- Race
     Functions.StartAutoRace(config)
     Functions.StartAutoDooHee(config)
+    Functions.StartAutoQuestRace(config)
+
+    -- Sea 3 - Quest/Items
     Functions.StartAutoBartilo(config)
     Functions.StartAutoEliteHunter(config)
     Functions.StartAutoYama(config)
     Functions.StartAutoHolyTorch(config)
     Functions.StartAutoGetTushita(config)
     Functions.StartAutoRengoku(config)
-    Functions.StartKillAura(config)
-    Functions.StartAutoPlayerHunter(config)
-    Functions.StartSailBoat(config)
-    Functions.StartAutoTerrorshark(config)
+
+    -- Sea 3 - Bosses
+    Functions.StartAutoSoulReaper(config)
+    Functions.StartAutoTyrantSpawn(config)
+    Functions.StartAutoCakePrince(config)
+    Functions.StartAutoDoughKing(config)
+    Functions.StartAutoRipIndra(config)
+    Functions.StartAutoBigMom(config)
+    Functions.StartAutoFarmBone(config)
+    Functions.StartAutoPirateRaid(config)
+    Functions.StartAutoFarmChocola(config)
+
+    -- Sea 3 - Especiais
+    Functions.StartAutoGodHuman(config)
+    Functions.StartAutoDragonTaylor(config)
+    Functions.StartAutoElectricClaw(config)
     Functions.StartAutoMysticIsland(config)
     Functions.StartTweenToKitsune(config)
     Functions.StartTweenMGear(config)
@@ -2678,15 +3716,74 @@ function Functions.StartAllLoops(config)
     Functions.StartAutoMobDragon(config)
     Functions.StartAutoCollectBone(config)
     Functions.StartAutoCollectEgg(config)
-    Functions.StartFarmChest(config)
+    Functions.StartDefendVolcano(config)
+    Functions.StartTweenVolcano(config)
+    Functions.StartAutoFindPrehistoric(config)
+
+    -- Sea 3 - Navegacao
+    Functions.StartSailBoat(config)
+    Functions.StartAutoTerrorshark(config)
+
+    -- Sea 2
+    Functions.StartAutoFactory(config)
+    Functions.StartAutoRaidLaw(config)
+    Functions.StartAutoDarkBeard(config)
+    Functions.StartAutoGrayBeard(config)
+    Functions.StartAutoSharkmanV2(config)
+    Functions.StartAutoDeathStep(config)
+    Functions.StartAutoSea3(config)
+
+    -- Sea 1/2
+    Functions.StartAutoSaber(config)
+    Functions.StartAutoDarkBladeV2(config)
+    Functions.StartAutoSea2(config)
+    Functions.StartAutoHakiV2(config)
+    Functions.StartAutoUnlockTemple(config)
+
+    -- Frutas
     Functions.StartAutoStoreFruit(config)
     Functions.StartTweenFruit(config)
     Functions.StartGrabFruit(config)
-    Functions.StartAutoQuestRace(config)
+    Functions.StartAutoFruit(config)
+
+    -- Extras
+    Functions.StartAutoBarista(config)
+    Functions.StartAutoFarmObsHaki(config)
+    Functions.StartFarmChest(config)
     Functions.StartAutoDungeon(config)
     Functions.StartAutoSkill(config)
     Functions.StartAutoBuyEnhancement(config)
     Functions.StartAutoBuyLegendarySword(config)
+    Functions.StartAutoPray(config)
+    Functions.StartAutoTryLuck(config)
+    Functions.StartAutoTradeBone(config)
+
+    -- PvP
+    Functions.StartKillAura(config)
+    Functions.StartAutoPlayerHunter(config)
+    Functions.StartAimbotGun(config)
+    Functions.StartAimbotSkill(config)
+
+    -- Sea Creatures
+    Functions.StartAutoKillSeaCreatures(config)
+
+    -- Volcanic Extra
+    Functions.StartAutoKillGolem(config)
+
+    -- Sea 2 Espadas Extras
+    Functions.StartAutoGetPole(config)
+    Functions.StartAutoGetSaw(config)
+
+    -- Frutas Farm
+    Functions.StartAutoFarmFruits(config)
+
+    -- Extras Misc
+    Functions.StartAutoPray(config)
+    Functions.StartAutoTryLuck(config)
+    Functions.StartAutoTradeBone(config)
+
+    -- Player
+    Functions.StartSafeMode(config)
 end
 
 return Functions

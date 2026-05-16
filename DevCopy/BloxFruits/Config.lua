@@ -64,6 +64,12 @@ local Config = {
     SailBoat            = false,    -- Auto navegar barco (PirateBrigade) para Sea 3
     AutoTerrorshark     = false,    -- Farm Terrorshark / criaturas do mar
     WalkWater           = false,    -- Aumentar base de agua para andar
+    AutoKillShark       = false,    -- Matar Shark (mar)
+    AutoKillPiranha     = false,    -- Matar Piranha (mar)
+    AutoKillFishCrew    = false,    -- Matar Fish Crew Member (mar)
+
+    -- Volcanic / Prehistoric Extras
+    AutoKillGolem       = false,    -- Farm Lava Golem (Prehistoric Island)
 
     -- =====================================================
     -- SEA 2
@@ -78,6 +84,8 @@ local Config = {
     AutoDeathStep       = false,
     AutoBuyEnhancementColour = false, -- Comprar cores de Haki automaticamente
     AutoBuyLegendarySword    = false, -- Comprar espada lendaria automaticamente
+    AutoGetPole         = false,      -- Pegar espada Thunder Pole (Thunder God)
+    AutoGetSaw          = false,      -- Pegar espada The Saw
 
     -- =====================================================
     -- SEA 1
@@ -102,6 +110,8 @@ local Config = {
     TweenFruit          = false,    -- Tween para frutas que spawnam no mapa
     GrabFruit           = false,    -- Teleportar personagem ate frutas no mapa
     AutoFruit           = false,    -- Carregar frutas baratas via LoadFruit remote
+    AutoFarmFruits      = false,    -- Farm mobs usando frutas (mastery)
+    SelectFruitFarm     = "Farm Level Mastery", -- Opcao de farm de frutas
 
     -- =====================================================
     -- EXTRAS
@@ -114,8 +124,14 @@ local Config = {
     FarmChest           = false,    -- Coletar baus no mapa
     FarmChocola         = false,    -- Farm Chocolate Island (mobs)
     AutoSkill           = false,    -- Usar skills automaticamente (Z/X/C)
+    AutoSkillZ          = false,    -- Usar skill Z automaticamente
+    AutoSkillX          = false,    -- Usar skill X automaticamente
+    AutoSkillC          = false,    -- Usar skill C automaticamente
     AutoDungeon         = false,    -- Auto dungeon (atacar inimigos e avancar ilhas)
     TweenMGear          = false,    -- Tween para partes Neon da Mystic Island (M-Gear)
+    AutoTryLuck         = false,    -- Auto Try Luck (frutas/item aleatorio)
+    AutoTradeBone       = false,    -- Auto trocar ossos (DinoBone Trade)
+    AutoPray            = false,    -- Auto Pray (Altar/Shrine)
 
     -- =====================================================
     -- PVP / PLAYER HUNTER
@@ -127,6 +143,8 @@ local Config = {
     AutoKillPlayer      = false,    -- Matar players selecionados automaticamente
     AutoPlayerHunter    = false,    -- Cacar players (teleportar para o alvo)
     SelectedPlayer      = "",       -- Nome do player alvo para hunter/kill
+    FastAttack          = false,    -- Modo de ataque rapido
+    FastAttackDelay     = 0.1,      -- Delay do fast attack
 
     -- =====================================================
     -- BOSS
