@@ -8,9 +8,9 @@
 -- CARREGA MODULOS
 -- =====================================================
 local redzlib   = loadstring(game:HttpGet("https://raw.githubusercontent.com/LotuxHub/LotuxHub/refs/heads/main/Library/LotuxLibrary.lua"))()
-local QuestData = loadstring(game:HttpGet("https://raw.githubusercontent.com/LotuxHub/LotuxHub/refs/heads/main/Scripts/BloxFruits/Quests.lua"))()
-local Config    = loadstring(game:HttpGet("https://raw.githubusercontent.com/LotuxHub/LotuxHub/refs/heads/main/Scripts/BloxFruits/Config.lua"))()
-local Functions = loadstring(game:HttpGet("https://raw.githubusercontent.com/LotuxHub/LotuxHub/refs/heads/main/Scripts/BloxFruits/Functions.lua"))()
+local QuestData = loadstring(game:HttpGet("https://raw.githubusercontent.com/LotuxHub/LotuxHub/refs/heads/main/DevCopy/BloxFruits/Quests.lua"))()
+local Config    = loadstring(game:HttpGet("https://raw.githubusercontent.com/LotuxHub/LotuxHub/refs/heads/main/DevCopy/BloxFruits/Config.lua"))()
+local Functions = loadstring(game:HttpGet("https://raw.githubusercontent.com/LotuxHub/LotuxHub/refs/heads/main/DevCopy/BloxFruits/Functions.lua"))()
 
 -- =====================================================
 -- SERVICES
@@ -72,7 +72,7 @@ local Bosses    = QuestData.Bosses
 local LangData    = {}
 local CurrentLang = "English"
 
-local LANG_URL = "https://raw.githubusercontent.com/LotuxHub/LotuxHub/refs/heads/main/Scripts/BloxFruits/Language.json"
+local LANG_URL = "https://raw.githubusercontent.com/LotuxHub/LotuxHub/refs/heads/main/DevCopy/BloxFruits/Language.json"
 
 local function LoadLanguage()
     local ok, raw = pcall(function() return game:HttpGet(LANG_URL, true) end)
