@@ -8,7 +8,7 @@ local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
 -- ║   ⬇️  COLE A URL DO SEU SCRIPT AQUI     ║
 -- ╚══════════════════════════════════════════╝
 
-local SCRIPT_URL = "https://raw.githubusercontent.com/LotuxHub/LotuxHub/refs/heads/main/DevCopy/BloxFruits/UI.lua"
+local SCRIPT_URL = ""
 
 
 
