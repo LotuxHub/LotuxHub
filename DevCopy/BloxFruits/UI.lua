@@ -917,7 +917,25 @@ RaceTab:AddToggle({ Title = "Auto Quest Race (completar trial de raça)", Defaul
         Notify({ Title = v and "Auto Quest Race ON" or "Auto Quest Race OFF", Image = IMG, Type = v and "Success" or "Info", Duration = 2 })
     end })
 RaceTab:AddToggle({ Title = "Auto Race V3 (ativar habilidade V3)", Default = false,
-    Callback = function(v) Config.AutoRaceV3 = v end })
+    Callback = function(v) 
+        Config.AutoRaceV3 = v 
+        if v then
+            task.spawn(function()
+                while Config.AutoRaceV3 do
+                    pcall(function()
+                        local hrp = Player.Character and Player.Character:FindFirstChild("HumanoidRootPart")
+                        if hrp then
+                            game:GetService("VirtualInputManager"):SendKeyEvent(true, Enum.KeyCode.T.Value, false, hrp)
+                            task.wait(0.1)
+                            game:GetService("VirtualInputManager"):SendKeyEvent(false, Enum.KeyCode.T.Value, false, hrp)
+                        end
+                    end)
+                    task.wait(0.5)
+                end
+            end)
+        end
+        Notify({ Title = v and "Auto active Race V3 ON" or "Auto active Race V3 OFF", Image = IMG, Type = v and "Success" or "Info", Duration = 2 })
+    end })
 RaceTab:AddToggle({ Title = "Auto Race V4 (pressionar Y)", Default = false,
     Callback = function(v)
         Config.AutoRaceV4 = v
@@ -936,7 +954,7 @@ RaceTab:AddToggle({ Title = "Auto Race V4 (pressionar Y)", Default = false,
                 end
             end)
         end
-        Notify({ Title = v and "Auto Race V4 ON" or "Auto Race V4 OFF", Image = IMG, Type = v and "Success" or "Info", Duration = 2 })
+        Notify({ Title = v and "Auto active Race V4 ON" or "Auto active Race V4 OFF", Image = IMG, Type = v and "Success" or "Info", Duration = 2 })
     end })
 RaceTab:AddToggle({ Title = "Auto Doo Hee (olhar lua + T para V3 Moon)", Default = false,
     Callback = function(v)
