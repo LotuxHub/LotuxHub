@@ -549,7 +549,7 @@ end)
 -- =====================================================
 -- NOTIFICACOES
 -- =====================================================
-local IMG     = "rbxassetid://1116721660738080" -- Icone padrao das notificacoes (pode ser trocado por outro link de imagem)
+local IMG     = "rbxassetid://111672166073808" -- Icone padrao das notificacoes (pode ser trocado por outro link de imagem)
 local uiReady = false
 local function Notify(cfg)
     if not uiReady then return end

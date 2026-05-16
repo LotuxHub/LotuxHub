@@ -79,7 +79,7 @@ local function criarPainelErro()
     IconeErro.Size = UDim2.new(0, 30, 0, 30)
     IconeErro.Position = UDim2.new(0, 14, 0.5, -15)
     IconeErro.BackgroundColor3 = Color3.fromRGB(180, 30, 30)
-    IconeErro.Image = "rbxassetid://85585556607656"
+    IconeErro.Image = "rbxassetid://111672166073808"
     IconeErro.ScaleType = Enum.ScaleType.Fit
     IconeErro.ZIndex = 4
     IconeErro.Parent = Header
