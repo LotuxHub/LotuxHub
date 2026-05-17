@@ -4,17 +4,29 @@
 --         v3.0 - Modular + Visual Features
 -- =====================================================
 
--- =====================================================
--- CARREGA MODULOS
--- =====================================================
-local redzlib   = loadstring(game:HttpGet("https://raw.githubusercontent.com/LotuxHub/LotuxHub/refs/heads/main/Library/LotuxLibrary.lua"))()
+
+-- ===============================
+-- PRINTS DE CARREGAMENTO
+-- ===============================
+local function LoadingStep(msg)
+    print("[LotuxHub] Carregando: " .. msg)
+    task.wait(0.15)
+end
+
+LoadingStep("Biblioteca principal (LotuxLibrary)")
+local redzlib = loadstring(game:HttpGet("https://raw.githubusercontent.com/LotuxHub/LotuxHub/refs/heads/main/Library/LotuxLibrary.lua"))()
+LoadingStep("Dados de Quests")
 local QuestData = loadstring(game:HttpGet("https://raw.githubusercontent.com/LotuxHub/LotuxHub/refs/heads/main/DevCopy/BloxFruits/Quests.lua"))()
-local Config    = loadstring(game:HttpGet("https://raw.githubusercontent.com/LotuxHub/LotuxHub/refs/heads/main/DevCopy/BloxFruits/Config.lua"))()
+LoadingStep("Configurações do Script")
+local Config = loadstring(game:HttpGet("https://raw.githubusercontent.com/LotuxHub/LotuxHub/refs/heads/main/DevCopy/BloxFruits/Config.lua"))()
+LoadingStep("Funções Utilitárias")
 local Functions = loadstring(game:HttpGet("https://raw.githubusercontent.com/LotuxHub/LotuxHub/refs/heads/main/DevCopy/BloxFruits/Functions.lua"))()
+LoadingStep("Serviços do Roblox")
 
 -- =====================================================
 -- SERVICES
 -- =====================================================
+print("[LotuxHub] Inicializando serviços...")
 local Players           = game:GetService("Players")
 local RunService        = game:GetService("RunService")
 local TweenService      = game:GetService("TweenService")
@@ -23,12 +35,14 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local HttpService       = game:GetService("HttpService")
 local Lighting          = game:GetService("Lighting")
 local UserInputService  = game:GetService("UserInputService")
+print("[LotuxHub] Serviços carregados com sucesso!")
 
 local Player = Players.LocalPlayer
 
 -- =====================================================
 -- REFERENCIAS INTERNAS
 -- =====================================================
+print("[LotuxHub] Inicializando referências internas...")
 local isTeleporting = { value = false }
 local NoClip        = { value = false }
 local NotAutoEquip  = { value = false }
@@ -41,6 +55,7 @@ local function UpdateChar(c)
     HumanoidRootPart = c:WaitForChild("HumanoidRootPart")
 end
 UpdateChar(Player.Character or Player.CharacterAdded:Wait())
+print("[LotuxHub] Personagem detectado!")
 Player.CharacterAdded:Connect(function(c)
     UpdateChar(c)
     isTeleporting.value = false
@@ -48,6 +63,7 @@ Player.CharacterAdded:Connect(function(c)
 end)
 
 local Camera = workspace.CurrentCamera
+print("[LotuxHub] Referências internas carregadas!")
 
 -- =====================================================
 -- REMOTES
@@ -69,6 +85,7 @@ local Bosses    = QuestData.Bosses
 -- =====================================================
 -- LANGUAGE SYSTEM
 -- =====================================================
+print("[LotuxHub] Carregando sistema de linguagem...")
 local LangData    = {}
 local CurrentLang = "English"
 
@@ -106,6 +123,7 @@ local function LoadLanguage()
     end
 end
 LoadLanguage()
+print("[LotuxHub] Idioma carregado: " .. CurrentLang)
 
 local function T(key, vars)
     local lang = LangData[CurrentLang] or LangData["English"] or {}
@@ -167,17 +185,23 @@ local CurrentSea = GetSea()
 World1 = (CurrentSea == 1)
 World2 = (CurrentSea == 2)
 World3 = (CurrentSea == 3)
+print("[LotuxHub] Sea detectado: " .. (CurrentSea or "Desconhecido"))
 
 -- =====================================================
 -- INICIA RESOLVER DE ARMA
 -- =====================================================
+print("[LotuxHub] Iniciando resolver de arma...")
 Functions.StartWeaponResolver(Config)
+print("[LotuxHub] Resolver de arma iniciado!")
 
 -- Inicia loop de haki (substitui o ActivateBuso por frame)
+print("[LotuxHub] Iniciando loop de Haki...")
 Functions.StartHakiLoop(Config, CommF_)
 
 -- Inicia todos os loops das funções do Tiroreal integradas
+print("[LotuxHub] Iniciando loops gerais...")
 Functions.StartAllLoops(Config)
+print("[LotuxHub] Loops inicializados!")
 
 -- =====================================================
 -- NOCLIP LOOP
@@ -607,13 +631,30 @@ local function Notify(cfg)
 end
 
 -- =====================================================
+-- CARREGAMENTO COM PORCENTAGEM
+-- =====================================================
+local function LoadingBar(percent)
+    local barLength = 50
+    local filled = math.floor((percent / 100) * barLength)
+    local bar = string.rep("‖", filled) .. string.rep(" ", barLength - filled)
+    print(string.format("\r%3d%% [%s]", percent, bar))
+end
+
+for i = 10, 100, 10 do
+    LoadingBar(i)
+    task.wait(0.2)
+end
+
+-- =====================================================
 -- WINDOW
 -- =====================================================
+print("[LotuxHub] Criando interface...")
 local Window = redzlib:MakeWindow({
     Title      = "Lotux Hub",
     SubTitle   = "by LoadFlint/lucas v3.0",
     SaveFolder = "LotuxHub_Save",
 })
+print("[LotuxHub] Interface criada!")
 
 Window:AddMinimizeButton({
     Button = { Size = UDim2.fromOffset(45, 45), Position = UDim2.fromScale(0.05, 0.05), Image = IMG, BackgroundTransparency = 1 },
@@ -623,6 +664,7 @@ Window:AddMinimizeButton({
 -- =====================================================
 -- TAB: HOME
 -- =====================================================
+print("[LotuxHub] Carregando aba HOME...")
 local Home = Window:MakeTab({ Title = T("tab_home"), Icon = "home" })
 Home:AddSection(T("sec_discord"))
 Home:AddDiscordInvite({ Title = "Lotux Hub", Logo = IMG, Link = "https://discord.gg/HkB97N772p" })
@@ -693,6 +735,7 @@ end)
 -- =====================================================
 -- TAB: MAIN (FARM)
 -- =====================================================
+print("[LotuxHub] Carregando aba MAIN (FARM)...")
 local Main = Window:MakeTab({ Title = T("tab_main"), Icon = "menu" })
 
 Main:AddDropdown({
@@ -812,6 +855,7 @@ Main:AddToggle({ Title = T("ui_auto_mastery"), Default = false, Callback = funct
 -- =====================================================
 -- TAB: SETTINGS
 -- =====================================================
+print("[LotuxHub] Carregando aba SETTINGS...")
 local Settings = Window:MakeTab({ Title = T("tab_settings"), Icon = "settings" })
 
 Settings:AddSection(T("sec_farming_settings"))
@@ -898,6 +942,7 @@ Settings:AddParagraph({ Title = T("tab_language"), Text = T("ui_lang_list") })
 -- =====================================================
 -- TAB: ITEMS QUEST (espadas lendárias, boss itens)
 -- =====================================================
+print("[LotuxHub] Carregando aba ITEMS QUEST...")
 local ItemsQuest = Window:MakeTab({ Title = T("tab_itemquest"), Icon = "swords" })
 
 if World3 then
@@ -976,6 +1021,7 @@ ItemsQuest:AddToggle({ Title = "Auto Dungeon (avançar ilhas)", Default = false,
 -- =====================================================
 -- TAB: RACE V4
 -- =====================================================
+print("[LotuxHub] Carregando aba RACE V4...")
 local RaceTab = Window:MakeTab({ Title = T("tab_race"), Icon = "flag" })
 RaceTab:AddSection("Raça e Evolução")
 RaceTab:AddToggle({ Title = "Auto Quest Race (completar trial de raça)", Default = false,
@@ -1086,6 +1132,7 @@ end })
 -- =====================================================
 -- TAB: VULCAO / PREHISTORIC
 -- =====================================================
+print("[LotuxHub] Carregando aba VULCAO...")
 local VulcaoTab = Window:MakeTab({ Title = T("tab_vulcano"), Icon = "flame" })
 VulcaoTab:AddSection("Prehistoric Island")
 VulcaoTab:AddToggle({ Title = "Auto Defender Vulcão (Prehistoric)", Default = false,
@@ -1177,6 +1224,7 @@ VulcaoTab:AddToggle({ Title = "Auto Kill Lava Golem (Prehistoric Island)", Defau
 -- =====================================================
 -- TAB: SEA EVENT
 -- =====================================================
+print("[LotuxHub] Carregando aba SEA EVENT...")
 local SeaEventTab = Window:MakeTab({ Title = T("tab_seaevent"), Icon = "waves" })
 SeaEventTab:AddSection("Ilhas Especiais")
 SeaEventTab:AddToggle({ Title = "Auto Tween para Mirage Island", Default = false,
@@ -1301,6 +1349,7 @@ SeaEventTab:AddToggle({ Title = "Auto Tween para M-Gear (partes Neon)", Default 
 -- =====================================================
 -- TAB: FRUTAS / RAID
 -- =====================================================
+print("[LotuxHub] Carregando aba FRUTAS / RAID...")
 local FruitRaidTab = Window:MakeTab({ Title = T("tab_fruitraid"), Icon = "apple" })
 FruitRaidTab:AddSection("Frutas")
 FruitRaidTab:AddToggle({ Title = T("ui_twenfly_fruit"), Default = false,
@@ -1383,6 +1432,7 @@ FruitRaidTab:AddDropdown({ Title = "Cor do Haki (Barista)",
 -- =====================================================
 -- TAB: PVP / PLAYER HUNTER
 -- =====================================================
+print("[LotuxHub] Carregando aba PVP...")
 local PvpTab = Window:MakeTab({ Title = "PvP", Icon = "shield" })
 PvpTab:AddSection("Player Hunter")
 PvpTab:AddToggle({ Title = "Auto Player Hunter (TP para alvo)", Default = false,
@@ -1501,6 +1551,7 @@ PvpTab:AddToggle({ Title = "Auto Matar Fish Crew (mar)", Default = false,
 -- =====================================================
 -- TAB: SHOP / COMPRAS
 -- =====================================================
+print("[LotuxHub] Carregando aba SHOP...")
 local ShopTab = Window:MakeTab({ Title = "Compras", Icon = "shoppingbag" })
 ShopTab:AddSection("Compras Automáticas")
 ShopTab:AddToggle({ Title = T("ui_auto_buy_sword_legends"), Default = false,
@@ -1553,6 +1604,7 @@ ShopTab:AddParagraph({ Title = "Lotux Hub", Text =
 -- =====================================================
 -- TAB: ESP
 -- =====================================================
+print("[LotuxHub] Carregando aba ESP...")
 local Esp = Window:MakeTab({ Title = T("tab_esp"), Icon = "eye" })
 Esp:AddSection(T("sec_esp_settings"))
 
@@ -1737,6 +1789,7 @@ end)
 -- =====================================================
 -- TAB: LOCAL PLAYER
 -- =====================================================
+print("[LotuxHub] Carregando aba LOCAL PLAYER...")
 local LPTab = Window:MakeTab({ Title = T("tab_localplayer"), Icon = "users" })
 LPTab:AddSection(T("sec_char_stats"))
 LPTab:AddSlider({ Title = T("ui_walkspeed"), Min = 16, Max = 500, Default = 16,
@@ -1793,6 +1846,7 @@ LPTab:AddButton({ Title = T("ui_copy_pos"),
 -- =====================================================
 -- TAB: TELEPORT
 -- =====================================================
+print("[LotuxHub] Carregando aba TELEPORT...")
 local Teleport = Window:MakeTab({ Title = T("tab_teleport"), Icon = "mouse" })
 Teleport:AddSection(T("sec_quick_tp"))
 for _, island in ipairs(Islands[CurrentSea]) do
@@ -1854,6 +1908,7 @@ Teleport:AddButton({ Title = "Ir ao Mob da Quest",
 -- =====================================================
 -- TAB: VISUAL (NOVO - Funcoes do Tiroreal integradas)
 -- =====================================================
+print("[LotuxHub] Carregando aba VISUAL...")
 local Visual = Window:MakeTab({ Title = "Visual", Icon = "sparkles" })
 
 Visual:AddSection("Efeitos no Personagem")
@@ -2021,6 +2076,7 @@ Visual:AddButton({ Title = T("ui_reset_visual"),
 -- =====================================================
 -- TAB: MISC
 -- =====================================================
+print("[LotuxHub] Carregando aba MISC...")
 local Misc = Window:MakeTab({ Title = "Misc", Icon = "calendarsearch" })
 Misc:AddSection("Server")
 Misc:AddButton({
@@ -2102,6 +2158,7 @@ Misc:AddButton({ Title = T("ui_close_ui"), Callback = function() Window:CloseBtn
 -- =====================================================
 -- INICIA FEATURES ATIVAS POR PADRAO
 -- =====================================================
+print("[LotuxHub] Carregando features padrão...")
 
 -- Render on Focus ativo por padrao (Config.RenderOnFocus = true)
 Functions.StartFocusRenderControl()
@@ -2112,6 +2169,12 @@ Lighting.FogEnd = Config.NoFog and 100000 or 1000
 -- =====================================================
 -- FINALIZACAO
 -- =====================================================
+print("[LotuxHub] ========================================")
+print("[LotuxHub] Script carregado com sucesso!")
+print("[LotuxHub] Versão: 3.0 | by LoadFlint/lucas")
+print("[LotuxHub] Sea detectado: " .. CurrentSea)
+print("[LotuxHub] PlaceId: " .. game.PlaceId)
+print("[LotuxHub] ========================================")
 uiReady = true
 
 Notify({
