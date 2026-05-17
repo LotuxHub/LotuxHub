@@ -124,25 +124,29 @@ function Functions.EquipWeapon(weaponName, notAutoEquipRef)
 
     local char = Player.Character
     if not char then return end
+    local hum = char:FindFirstChildOfClass("Humanoid")
+    if not hum or hum.Health <= 0 then return end
 
+    -- Já está equipada no personagem? Não faz nada
     if char:FindFirstChild(weaponName) then return end
 
-    local config_tooltip = nil
-    local tool_in_backpack = Player.Backpack:FindFirstChild(weaponName)
-    if tool_in_backpack then
-        config_tooltip = tool_in_backpack.ToolTip
-    end
-    if config_tooltip then
-        for _, t in pairs(char:GetChildren()) do
-            if t:IsA("Tool") and t.ToolTip == config_tooltip then return end
-        end
-    end
-
+    -- Procura no Backpack e equipa
     local tool = Player.Backpack:FindFirstChild(weaponName)
-    local hum  = char:FindFirstChildOfClass("Humanoid")
-    if tool and hum then
+    if tool then
         hum:EquipTool(tool)
         task.wait(0.05)
+        return
+    end
+
+    -- Fallback: procura por ToolTip se não achou por nome exato
+    local tipo = weaponName
+    -- tenta pelo FarmWeapon tipo
+    for _, t in pairs(Player.Backpack:GetChildren()) do
+        if t:IsA("Tool") and (t.ToolTip == weaponName or t.ToolTip == tipo) then
+            hum:EquipTool(t)
+            task.wait(0.05)
+            return
+        end
     end
 end
 
@@ -1606,23 +1610,93 @@ function Functions.StartAutoFactory(config)
     end)
 end
 
--- Auto Raid Law (Sea 2)
+-- Auto Raid Law (Sea 2) - CORRIGIDO igual Tiroreal
 function Functions.StartAutoRaidLaw(config)
+    -- Chip Raid: compra automaticamente
     task.spawn(function()
-        while task.wait() do
+        while task.wait(0.5) do
+            if not config.AutoBuyChipRaidLaw then continue end
+            pcall(function()
+                local SelectChip = config.SelectChipRaid or "Flame"
+                ReplicatedStorage.Remotes.CommF_:InvokeServer("RaidsNpc", "Select", SelectChip)
+            end)
+        end
+    end)
+
+    -- Start Raid: inicia automaticamente quando tem chip
+    task.spawn(function()
+        while task.wait(0.5) do
+            if not config.AutoStartRaidLaw then continue end
+            pcall(function()
+                local timerGui = Player.PlayerGui.Main and Player.PlayerGui.Main:FindFirstChild("Timer")
+                if timerGui and timerGui.Visible then return end
+
+                local hasChip = Player.Backpack:FindFirstChild("Special Microchip")
+                            or (Player.Character and Player.Character:FindFirstChild("Special Microchip"))
+                if not hasChip then return end
+
+                local loc = workspace._WorldOrigin.Locations
+                if loc:FindFirstChild("Island 1") then return end -- raid já ativa
+
+                if game.PlaceId == 4442272183 then -- Sea 2
+                    Functions.TeleportTo(CFrame.new(-6438.73535, 250.645355, -4501.50684))
+                    task.wait(0.3)
+                    ReplicatedStorage.Remotes.CommF_:InvokeServer("SetSpawnPoint")
+                    pcall(function()
+                        fireclickdetector(workspace.Map.CircleIsland.RaidSummon2.Button.Main.ClickDetector)
+                    end)
+                elseif game.PlaceId == 7449423635 then -- Sea 3
+                    ReplicatedStorage.Remotes.CommF_:InvokeServer("requestEntrance",
+                        Vector3.new(-5075.50927734375, 314.5155029296875, -3150.0224609375))
+                    task.wait(0.3)
+                    Functions.TeleportTo(CFrame.new(-5017.40869, 314.844055, -2823.0127))
+                    ReplicatedStorage.Remotes.CommF_:InvokeServer("SetSpawnPoint")
+                    pcall(function()
+                        fireclickdetector(workspace.Map["Boat Castle"].RaidSummon2.Button.Main.ClickDetector)
+                    end)
+                end
+            end)
+        end
+    end)
+
+    -- Farm Raid: avança ilhas e mata inimigos
+    task.spawn(function()
+        while task.wait(0.1) do
             if not config.AutoRaidLaw then continue end
             pcall(function()
-                if config.AutoBuyChipRaidLaw then
-                    ReplicatedStorage.Remotes.CommF_:InvokeServer("BuyRaidChip", "LawRaid")
+                local char = Player.Character
+                local hrp  = char and char:FindFirstChild("HumanoidRootPart")
+                if not hrp then return end
+
+                -- Função igual ao Tiroreal: getNextIsland
+                local function isIslandRaid(cu)
+                    local loc = workspace._WorldOrigin.Locations
+                    if not loc:FindFirstChild("Island "..cu) then return nil end
+                    local minDist, best = math.huge, nil
+                    for _, v in pairs(loc:GetChildren()) do
+                        if v.Name == "Island "..cu then
+                            local d = (v.Position - hrp.Position).Magnitude
+                            if d < minDist then minDist = d; best = v end
+                        end
+                    end
+                    return best
                 end
-                if config.AutoStartRaidLaw then
-                    ReplicatedStorage.Remotes.CommF_:InvokeServer("StartRaid", "LawRaid")
+
+                local function getNextIsland()
+                    for _, cu in ipairs({5, 4, 3, 2, 1}) do
+                        local island = isIslandRaid(cu)
+                        if island and (island.Position - hrp.Position).Magnitude <= 4500 then
+                            return island
+                        end
+                    end
                 end
-                -- Atacar bosses do raid
+
+                -- Matar inimigos próximos
                 for _, v in ipairs(workspace.Enemies:GetChildren()) do
                     if v:FindFirstChild("Humanoid") and v:FindFirstChild("HumanoidRootPart")
-                       and v.Humanoid.Health > 0 then
-                        repeat task.wait()
+                       and v.Humanoid.Health > 0
+                       and (v.HumanoidRootPart.Position - hrp.Position).Magnitude <= 1000 then
+                        pcall(function()
                             Functions.AutoHaki()
                             Functions.EquipWeapon(config.SelectedWeaponName)
                             v.HumanoidRootPart.CanCollide = false
@@ -1631,7 +1705,127 @@ function Functions.StartAutoRaidLaw(config)
                             VirtualUser:CaptureController()
                             VirtualUser:Button1Down(Vector2.new(1280, 672))
                             pcall(function() sethiddenproperty(Player, "SimulationRadius", math.huge) end)
-                        until not config.AutoRaidLaw or v.Humanoid.Health <= 0 or not v.Parent
+                        end)
+                    end
+                end
+
+                -- Avançar para próxima ilha
+                local next = getNextIsland()
+                if next then
+                    Functions.TeleportTo(CFrame.new(next.Position) * CFrame.new(0, 60, 0))
+                end
+            end)
+        end
+    end)
+end
+
+-- =====================================================
+-- AWAKENER FRUIT (ativar frutas desperto no raid)
+-- =====================================================
+function Functions.StartAutoAwakenAbilities(config)
+    task.spawn(function()
+        while task.wait(0.1) do
+            if not config.AutoAwakenAbilities then continue end
+            pcall(function()
+                ReplicatedStorage.Remotes.CommF_:InvokeServer("Awakener", "Awaken")
+            end)
+        end
+    end)
+end
+
+-- =====================================================
+-- LOAD FRUIT CHEAP (Auto Get Fruit Low Beli)
+-- =====================================================
+function Functions.StartAutoLoadFruitCheap(config)
+    local cheapFruits = {
+        "Rocket-Rocket","Spin-Spin","Chop-Chop","Spring-Spring","Bomb-Bomb",
+        "Smoke-Smoke","Spike-Spike","Flame-Flame","Falcon-Falcon","Ice-Ice",
+        "Sand-Sand","Dark-Dark","Ghost-Ghost","Diamond-Diamond","Light-Light",
+        "Rubber-Rubber","Barrier-Barrier","Magnet-Magnet","Quake-Quake",
+        "Human-Human","Bird: Phoenix","Gura-Gura","Gravity-Gravity",
+        "Shadow-Shadow","Love-Love","Spider-Spider","Sound-Sound",
+        "Ripple-Ripple","Door-Door","Pain-Pain"
+    }
+
+    task.spawn(function()
+        while task.wait(0.1) do
+            if not config.AutoFruit then continue end
+            pcall(function()
+                for _, fruitName in ipairs(cheapFruits) do
+                    ReplicatedStorage.Remotes.CommF_:InvokeServer("LoadFruit", fruitName)
+                end
+            end)
+        end
+    end)
+end
+
+-- =====================================================
+-- TWEEN FRUIT - CORRIGIDO
+-- =====================================================
+function Functions.StartTweenFruit(config)
+    task.spawn(function()
+        while task.wait(0.5) do
+            if not config.TweenFruit then continue end
+            pcall(function()
+                -- Frutas no workspace raiz (estilo Tiroreal)
+                for _, obj in pairs(workspace:GetChildren()) do
+                    if obj:IsA("Tool") and obj.Name:find("Fruit") then
+                        local handle = obj:FindFirstChild("Handle")
+                        if handle then
+                            local hrp = Player.Character and Player.Character:FindFirstChild("HumanoidRootPart")
+                            if hrp then
+                                local dist = (handle.Position - hrp.Position).Magnitude
+                                local tween = TweenService:Create(
+                                    hrp,
+                                    TweenInfo.new(dist / 300, Enum.EasingStyle.Linear),
+                                    { CFrame = CFrame.new(handle.Position) }
+                                )
+                                tween:Play()
+                                tween.Completed:Wait()
+                            end
+                        end
+                    end
+                end
+
+                -- Frutas no AppleSpawner
+                local spawner = workspace:FindFirstChild("AppleSpawner")
+                if spawner then
+                    for _, obj in pairs(spawner:GetChildren()) do
+                        if obj:IsA("Tool") then
+                            local handle = obj:FindFirstChild("Handle")
+                            if handle then
+                                local hrp = Player.Character and Player.Character:FindFirstChild("HumanoidRootPart")
+                                if hrp then
+                                    local dist = (handle.Position - hrp.Position).Magnitude
+                                    local tween = TweenService:Create(
+                                        hrp,
+                                        TweenInfo.new(dist / 300, Enum.EasingStyle.Linear),
+                                        { CFrame = CFrame.new(handle.Position) }
+                                    )
+                                    tween:Play()
+                                    tween.Completed:Wait()
+                                end
+                            end
+                        end
+                    end
+                end
+            end)
+        end
+    end)
+end
+
+-- Grab Fruit: TP direto (sem tween, instantâneo)
+function Functions.StartGrabFruit(config)
+    task.spawn(function()
+        while task.wait(0.5) do
+            if not config.GrabFruit then continue end
+            pcall(function()
+                for _, obj in pairs(workspace:GetChildren()) do
+                    if obj:IsA("Tool") and obj.Name:find("Fruit") then
+                        local handle = obj:FindFirstChild("Handle")
+                        if handle then
+                            Functions.TeleportTo(CFrame.new(handle.Position))
+                        end
                     end
                 end
             end)
@@ -3773,6 +3967,12 @@ function Functions.StartAllLoops(config)
     -- Sea 2 Espadas Extras
     Functions.StartAutoGetPole(config)
     Functions.StartAutoGetSaw(config)
+
+    -- Frutas (Raid + Tween + Grab + Load)
+    Functions.StartAutoLoadFruitCheap(config)
+    Functions.StartTweenFruit(config)
+    Functions.StartGrabFruit(config)
+    Functions.StartAutoAwakenAbilities(config)
 
     -- Frutas Farm
     Functions.StartAutoFarmFruits(config)

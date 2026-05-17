@@ -155,6 +155,9 @@ Functions.StartWeaponResolver(Config)
 -- Inicia loop de haki (substitui o ActivateBuso por frame)
 Functions.StartHakiLoop(Config, CommF_)
 
+-- Inicia todos os loops das funções do Tiroreal integradas
+Functions.StartAllLoops(Config)
+
 -- =====================================================
 -- NOCLIP LOOP
 -- =====================================================
@@ -323,9 +326,30 @@ task.spawn(function()
 
                     task.wait(0.3)
                     pcall(function() CommF_:InvokeServer("StartQuest", quest.NameQuest, quest.QuestLv) end)
-                    task.wait(0.5)
+                    task.wait(0.3)
+
+                    -- FIX: equipa arma imediatamente ao pegar quest
+                    -- Tenta pelo nome resolvido primeiro, senão usa ToolTip direto
+                    local weaponEquipped = false
                     if Config.SelectedWeaponName and Config.SelectedWeaponName ~= "" then
                         Functions.EquipWeapon(Config.SelectedWeaponName, NotAutoEquip)
+                        weaponEquipped = true
+                    end
+                    if not weaponEquipped then
+                        -- Fallback: procura pela ToolTip do tipo selecionado
+                        local tip = Config.FarmWeapon
+                        if tip == "BloxFruits" then tip = "Blox Fruit" end
+                        local char = Player.Character
+                        local hum  = char and char:FindFirstChildOfClass("Humanoid")
+                        if hum then
+                            for _, t in pairs(Player.Backpack:GetChildren()) do
+                                if t:IsA("Tool") and t.ToolTip == tip then
+                                    hum:EquipTool(t)
+                                    Config.SelectedWeaponName = t.Name
+                                    break
+                                end
+                            end
+                        end
                     end
 
                 -- Quest ativa
@@ -831,7 +855,13 @@ Settings:AddDropdown({
     Default  = "English",
     Callback = function(v)
         CurrentLang = tostring(v)
-        Notify({ Title = T("language_changed"), Image = IMG, Type = "Success", Duration = 3 })
+        Notify({
+            Title       = "Linguagem alterada!",
+            Description = "Re-execute o script para aplicar o novo idioma.",
+            Image       = IMG,
+            Type        = "Warning",
+            Duration    = 6
+        })
     end,
 })
 Settings:AddParagraph({ Title = T("tab_language"), Text = T("ui_lang_list") })
