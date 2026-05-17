@@ -5,22 +5,280 @@
 -- =====================================================
 
 -- =====================================================
--- CARREGA MODULOS
+-- LOADING SCREEN - PAINEL VISUAL
 -- =====================================================
-local function LoadingStep(msg)
-    print("[LotuxHub] Carregando: " .. msg)
-    task.wait(0.15)
+local _Players   = game:GetService("Players")
+local _TweenSvc  = game:GetService("TweenService")
+local _LocalPl   = _Players.LocalPlayer
+local _PGui      = _LocalPl:WaitForChild("PlayerGui")
+
+-- Remove loading gui antiga se existir
+pcall(function()
+    if _PGui:FindFirstChild("LotuxLoading") then
+        _PGui:FindFirstChild("LotuxLoading"):Destroy()
+    end
+end)
+
+local _LGui = Instance.new("ScreenGui")
+_LGui.Name = "LotuxLoading"
+_LGui.ResetOnSpawn = false
+_LGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+_LGui.DisplayOrder = 9999
+_LGui.Parent = _PGui
+
+-- Fundo escuro
+local _BG = Instance.new("Frame")
+_BG.Size = UDim2.fromScale(1, 1)
+_BG.BackgroundColor3 = Color3.fromRGB(5, 5, 10)
+_BG.BackgroundTransparency = 0
+_BG.BorderSizePixel = 0
+_BG.ZIndex = 1
+_BG.Parent = _LGui
+
+-- Painel central
+local _Panel = Instance.new("Frame")
+_Panel.Size = UDim2.fromOffset(560, 360)
+_Panel.Position = UDim2.new(0.5, -280, 0.5, -180)
+_Panel.BackgroundColor3 = Color3.fromRGB(13, 13, 20)
+_Panel.BorderSizePixel = 0
+_Panel.ZIndex = 2
+_Panel.Parent = _BG
+Instance.new("UICorner", _Panel).CornerRadius = UDim.new(0, 16)
+
+-- Stroke roxo no painel
+local _PStroke = Instance.new("UIStroke")
+_PStroke.Color = Color3.fromRGB(90, 50, 210)
+_PStroke.Thickness = 1.5
+_PStroke.Parent = _Panel
+
+-- Barra topo colorida
+local _AccBar = Instance.new("Frame")
+_AccBar.Size = UDim2.new(1, 0, 0, 3)
+_AccBar.BackgroundColor3 = Color3.fromRGB(100, 50, 255)
+_AccBar.BorderSizePixel = 0
+_AccBar.ZIndex = 3
+_AccBar.Parent = _Panel
+Instance.new("UICorner", _AccBar).CornerRadius = UDim.new(0, 16)
+local _AccGrad = Instance.new("UIGradient")
+_AccGrad.Color = ColorSequence.new({
+    ColorSequenceKeypoint.new(0,   Color3.fromRGB(50, 20, 200)),
+    ColorSequenceKeypoint.new(0.5, Color3.fromRGB(160, 80, 255)),
+    ColorSequenceKeypoint.new(1,   Color3.fromRGB(50, 20, 200)),
+})
+_AccGrad.Parent = _AccBar
+
+-- Titulo
+local _Title = Instance.new("TextLabel")
+_Title.Size = UDim2.new(1, 0, 0, 36)
+_Title.Position = UDim2.new(0, 0, 0, 14)
+_Title.BackgroundTransparency = 1
+_Title.Text = "✦  Lotux Hub"
+_Title.TextColor3 = Color3.fromRGB(210, 180, 255)
+_Title.Font = Enum.Font.GothamBold
+_Title.TextSize = 22
+_Title.ZIndex = 3
+_Title.Parent = _Panel
+
+-- Subtitulo
+local _Sub = Instance.new("TextLabel")
+_Sub.Size = UDim2.new(1, 0, 0, 18)
+_Sub.Position = UDim2.new(0, 0, 0, 50)
+_Sub.BackgroundTransparency = 1
+_Sub.Text = "by LoadFlint/lucas  •  v3.0"
+_Sub.TextColor3 = Color3.fromRGB(110, 85, 170)
+_Sub.Font = Enum.Font.Gotham
+_Sub.TextSize = 12
+_Sub.ZIndex = 3
+_Sub.Parent = _Panel
+
+-- Separador
+local _Sep = Instance.new("Frame")
+_Sep.Size = UDim2.new(0.9, 0, 0, 1)
+_Sep.Position = UDim2.new(0.05, 0, 0, 74)
+_Sep.BackgroundColor3 = Color3.fromRGB(40, 30, 70)
+_Sep.BorderSizePixel = 0
+_Sep.ZIndex = 3
+_Sep.Parent = _Panel
+
+-- Label "UI Carregando..."
+local _StatusMsg = Instance.new("TextLabel")
+_StatusMsg.Size = UDim2.new(1, -30, 0, 20)
+_StatusMsg.Position = UDim2.new(0, 15, 0, 84)
+_StatusMsg.BackgroundTransparency = 1
+_StatusMsg.Text = "⏳  Inicializando Lotux Hub..."
+_StatusMsg.TextColor3 = Color3.fromRGB(200, 200, 255)
+_StatusMsg.Font = Enum.Font.GothamBold
+_StatusMsg.TextSize = 13
+_StatusMsg.TextXAlignment = Enum.TextXAlignment.Left
+_StatusMsg.ZIndex = 3
+_StatusMsg.Parent = _Panel
+
+-- Mini console (frame de fundo)
+local _ConFrame = Instance.new("Frame")
+_ConFrame.Size = UDim2.new(0.9, 0, 0, 152)
+_ConFrame.Position = UDim2.new(0.05, 0, 0, 112)
+_ConFrame.BackgroundColor3 = Color3.fromRGB(6, 6, 12)
+_ConFrame.BorderSizePixel = 0
+_ConFrame.ZIndex = 3
+_ConFrame.Parent = _Panel
+Instance.new("UICorner", _ConFrame).CornerRadius = UDim.new(0, 8)
+local _ConStroke = Instance.new("UIStroke")
+_ConStroke.Color = Color3.fromRGB(40, 30, 80)
+_ConStroke.Thickness = 1
+_ConStroke.Parent = _ConFrame
+
+-- ScrollingFrame dentro do console
+local _ConScroll = Instance.new("ScrollingFrame")
+_ConScroll.Size = UDim2.new(1, -8, 1, -8)
+_ConScroll.Position = UDim2.new(0, 4, 0, 4)
+_ConScroll.BackgroundTransparency = 1
+_ConScroll.BorderSizePixel = 0
+_ConScroll.ScrollBarThickness = 3
+_ConScroll.ScrollBarImageColor3 = Color3.fromRGB(90, 50, 200)
+_ConScroll.ZIndex = 4
+_ConScroll.Parent = _ConFrame
+
+local _ConLayout = Instance.new("UIListLayout")
+_ConLayout.SortOrder = Enum.SortOrder.LayoutOrder
+_ConLayout.Padding = UDim.new(0, 2)
+_ConLayout.Parent = _ConScroll
+
+-- Barra de progresso (fundo)
+local _BarBG = Instance.new("Frame")
+_BarBG.Size = UDim2.new(0.9, 0, 0, 18)
+_BarBG.Position = UDim2.new(0.05, 0, 0, 272)
+_BarBG.BackgroundColor3 = Color3.fromRGB(20, 15, 40)
+_BarBG.BorderSizePixel = 0
+_BarBG.ZIndex = 3
+_BarBG.Parent = _Panel
+Instance.new("UICorner", _BarBG).CornerRadius = UDim.new(0, 9)
+
+-- Barra de progresso (preenchimento)
+local _BarFill = Instance.new("Frame")
+_BarFill.Size = UDim2.new(0, 0, 1, 0)
+_BarFill.BackgroundColor3 = Color3.fromRGB(100, 50, 255)
+_BarFill.BorderSizePixel = 0
+_BarFill.ZIndex = 4
+_BarFill.Parent = _BarBG
+Instance.new("UICorner", _BarFill).CornerRadius = UDim.new(0, 9)
+local _FillGrad = Instance.new("UIGradient")
+_FillGrad.Color = ColorSequence.new({
+    ColorSequenceKeypoint.new(0,   Color3.fromRGB(80, 30, 200)),
+    ColorSequenceKeypoint.new(1,   Color3.fromRGB(180, 100, 255)),
+})
+_FillGrad.Parent = _BarFill
+
+-- Label de porcentagem
+local _PctLabel = Instance.new("TextLabel")
+_PctLabel.Size = UDim2.fromScale(1, 1)
+_PctLabel.BackgroundTransparency = 1
+_PctLabel.Text = "0%"
+_PctLabel.TextColor3 = Color3.fromRGB(220, 200, 255)
+_PctLabel.Font = Enum.Font.GothamBold
+_PctLabel.TextSize = 11
+_PctLabel.ZIndex = 5
+_PctLabel.Parent = _BarBG
+
+-- Contador de linhas no console (para layout)
+local _conLineCount = 0
+
+-- Funcoes do painel
+local function _SetProgress(pct)
+    pct = math.clamp(pct, 0, 100)
+    _BarFill.Size = UDim2.new(pct / 100, 0, 1, 0)
+    _PctLabel.Text = math.floor(pct) .. "%"
 end
 
-LoadingStep("Biblioteca principal (LotuxLibrary)")
-local redzlib = loadstring(game:HttpGet("https://raw.githubusercontent.com/LotuxHub/LotuxHub/refs/heads/main/Library/LotuxLibrary.lua"))()
-LoadingStep("Dados de Quests")
-local QuestData = loadstring(game:HttpGet("https://raw.githubusercontent.com/LotuxHub/LotuxHub/refs/heads/main/DevCopy/BloxFruits/Quests.lua"))()
-LoadingStep("Configurações do Script")
-local Config = loadstring(game:HttpGet("https://raw.githubusercontent.com/LotuxHub/LotuxHub/refs/heads/main/DevCopy/BloxFruits/Config.lua"))()
-LoadingStep("Funções Utilitárias")
-local Functions = loadstring(game:HttpGet("https://raw.githubusercontent.com/LotuxHub/LotuxHub/refs/heads/main/DevCopy/BloxFruits/Functions.lua"))()
-LoadingStep("Serviços do Roblox")
+local function _ConsoleLog(msg)
+    _conLineCount = _conLineCount + 1
+    local line = Instance.new("TextLabel")
+    line.Size = UDim2.new(1, 0, 0, 16)
+    line.BackgroundTransparency = 1
+    line.Text = "> " .. msg
+    line.TextColor3 = Color3.fromRGB(140, 110, 220)
+    line.Font = Enum.Font.Code
+    line.TextSize = 11
+    line.TextXAlignment = Enum.TextXAlignment.Left
+    line.LayoutOrder = _conLineCount
+    line.ZIndex = 5
+    line.Parent = _ConScroll
+    -- Auto scroll para o fim
+    _ConScroll.CanvasSize = UDim2.new(0, 0, 0, _ConLayout.AbsoluteContentSize.Y + 8)
+    _ConScroll.CanvasPosition = Vector2.new(0, math.max(0, _ConScroll.CanvasSize.Y.Offset - _ConScroll.AbsoluteSize.Y))
+end
+
+local function _SetStatus(msg)
+    _StatusMsg.Text = "⏳  " .. msg
+    _ConsoleLog(msg)
+    print("[LotuxHub] Carregando: " .. msg)
+    task.wait(0.1)
+end
+
+-- Funcao segura de load com retry (CORRIGE O ERRO Load_yb)
+local function _SafeLoad(url, nome, retries)
+    retries = retries or 3
+    for i = 1, retries do
+        local ok, result = pcall(function()
+            local code = game:HttpGet(url)
+            if not code or code == "" then
+                error("HttpGet retornou vazio para: " .. nome)
+            end
+            local fn, err = loadstring(code)
+            if not fn then
+                error("loadstring falhou para " .. nome .. ": " .. tostring(err))
+            end
+            return fn()
+        end)
+        if ok and result ~= nil then
+            _ConsoleLog("[OK] " .. nome .. " carregado!")
+            return result
+        else
+            _ConsoleLog("[ERRO] Tentativa " .. i .. "/" .. retries .. " falhou: " .. nome)
+            warn("[LotuxHub] Erro ao carregar " .. nome .. " (tentativa " .. i .. "): " .. tostring(result))
+            if i < retries then
+                task.wait(1)
+            end
+        end
+    end
+    -- Retorna tabela vazia para nao quebrar o resto do script
+    _ConsoleLog("[AVISO] " .. nome .. " nao carregou, usando fallback vazio")
+    warn("[LotuxHub] AVISO: " .. nome .. " nao carregou apos " .. retries .. " tentativas!")
+    return {}
+end
+
+-- =====================================================
+-- CARREGA MODULOS (COM PAINEL + PCALL + RETRY)
+-- =====================================================
+_SetStatus("Biblioteca principal (LotuxLibrary)")
+_SetProgress(5)
+local redzlib = _SafeLoad(
+    "https://raw.githubusercontent.com/LotuxHub/LotuxHub/refs/heads/main/Library/LotuxLibrary.lua",
+    "LotuxLibrary"
+)
+
+_SetStatus("Dados de Quests")
+_SetProgress(25)
+local QuestData = _SafeLoad(
+    "https://raw.githubusercontent.com/LotuxHub/LotuxHub/refs/heads/main/DevCopy/BloxFruits/Quests.lua",
+    "Quests"
+)
+
+_SetStatus("Configurações do Script")
+_SetProgress(50)
+local Config = _SafeLoad(
+    "https://raw.githubusercontent.com/LotuxHub/LotuxHub/refs/heads/main/DevCopy/BloxFruits/Config.lua",
+    "Config"
+)
+
+_SetStatus("Funções Utilitárias")
+_SetProgress(75)
+local Functions = _SafeLoad(
+    "https://raw.githubusercontent.com/LotuxHub/LotuxHub/refs/heads/main/DevCopy/BloxFruits/Functions.lua",
+    "Functions"
+)
+
+_SetStatus("Serviços do Roblox")
+_SetProgress(90)
 
 -- =====================================================
 -- SERVICES
@@ -2164,6 +2422,26 @@ Lighting.FogEnd = Config.NoFog and 100000 or 1000
 -- =====================================================
 print("[LotuxHub] Carregando features padrão...")
 uiReady = true
+
+-- Fecha o painel de loading com animacao suave
+task.spawn(function()
+    task.wait(0.3)
+    pcall(function()
+        _SetProgress(100)
+        _StatusMsg.Text = "✅  Lotux Hub carregado com sucesso!"
+        _StatusMsg.TextColor3 = Color3.fromRGB(100, 255, 150)
+        _ConsoleLog("[OK] Script pronto! Sea " .. tostring(CurrentSea))
+        task.wait(1.2)
+        -- Fade out
+        local tweenInfo = TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+        local tween = game:GetService("TweenService"):Create(_BG, tweenInfo, {BackgroundTransparency = 1})
+        local tween2 = game:GetService("TweenService"):Create(_Panel, tweenInfo, {BackgroundTransparency = 1})
+        tween:Play()
+        tween2:Play()
+        task.wait(0.6)
+        _LGui:Destroy()
+    end)
+end)
 
 Notify({
     Title       = "Lotux Hub v3.0 Carregado!",
