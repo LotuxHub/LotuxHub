@@ -72,7 +72,31 @@ local Bosses    = QuestData.Bosses
 local LangData    = {}
 local CurrentLang = "English"
 
+-- Arquivo local para salvar idioma entre sessoes
+local LANG_SAVE_FILE = "LotuxHub_Language.txt"
 local LANG_URL = "https://raw.githubusercontent.com/LotuxHub/LotuxHub/refs/heads/main/DevCopy/BloxFruits/Language.json"
+
+-- Carregar idioma salvo localmente
+local function LoadSavedLanguage()
+    pcall(function()
+        if isfile and isfile(LANG_SAVE_FILE) then
+            local saved = readfile(LANG_SAVE_FILE)
+            if saved and saved ~= "" then
+                CurrentLang = saved:gsub("%s+", "")
+            end
+        end
+    end)
+end
+LoadSavedLanguage()
+
+-- Salvar idioma no arquivo local
+local function SaveLanguage(lang)
+    pcall(function()
+        if writefile then
+            writefile(LANG_SAVE_FILE, lang)
+        end
+    end)
+end
 
 local function LoadLanguage()
     local ok, raw = pcall(function() return game:HttpGet(LANG_URL, true) end)
@@ -137,9 +161,6 @@ local function GetSea()
     if _G.OverrideSea then return _G.OverrideSea end
     local sea = GetSeaByPlaceId()
     if sea then return sea end
-    sea = GetSeaByWorkspace()
-    if sea then return sea end
-    return GetSeaByLevel()
 end
 
 local CurrentSea = GetSea()
@@ -276,6 +297,10 @@ task.spawn(function()
                         TweenService, Config, isTeleporting, NotAutoEquip
                     )
                     if Config.BringMob then Functions.BringMobFunc(mob, BringPos) end
+                    -- Skills Z/X/C integradas ao farm nearest
+                    if Config.AutoSkillZ then Functions.PressKey(Enum.KeyCode.Z) end
+                    if Config.AutoSkillX then Functions.PressKey(Enum.KeyCode.X) end
+                    if Config.AutoSkillC then Functions.PressKey(Enum.KeyCode.C) end
                 until not mob.Parent
                     or not mob:FindFirstChild("Humanoid")
                     or mob:FindFirstChild("Humanoid").Health <= 0
@@ -852,15 +877,19 @@ Settings:AddSection(T("sec_select_lang"))
 Settings:AddDropdown({
     Title    = T("ui_lang_dropdown"),
     Options  = { "English","Portugues_Brazil","Portugues_Portugal","Espanol","Vietnam" },
-    Default  = "English",
+    Default  = CurrentLang,
     Callback = function(v)
         CurrentLang = tostring(v)
+        Config.Language = CurrentLang
+        -- Salvar idioma no arquivo local para proxima execucao
+        SaveLanguage(CurrentLang)
+        -- Notificacao pedindo para re-executar o script
         Notify({
-            Title       = "Linguagem alterada!",
-            Description = "Re-execute o script para aplicar o novo idioma.",
+            Title       = T("language_restart_title"),
+            Description = T("language_restart_desc"),
             Image       = IMG,
             Type        = "Warning",
-            Duration    = 6
+            Duration    = 8
         })
     end,
 })
@@ -893,8 +922,8 @@ if World2 then
     ItemsQuest:AddSection("Espadas Lendárias - Sea 2")
     ItemsQuest:AddToggle({ Title = "Auto Pegar Dark Blade V2", Default = false,
         Callback = function(v) Config.AutoDarkBladeV2 = v end })
-    ItemsQuest:AddToggle({ Title = "Auto Pegar Saber (True Triple Katana)", Default = false,
-        Callback = function(v) Config.AutoSaber = v end })
+    ItemsQuest:AddToggle({ Title = T("ui_auto_buy_ttk"), Default = false,
+        Callback = function(v) Config.AutoBuyTTK = v end })
     ItemsQuest:AddToggle({ Title = "Auto Pegar Thunder Pole (Thunder God)", Default = false,
         Callback = function(v)
             Config.AutoGetPole = v
@@ -911,15 +940,23 @@ end
 
 if World1 then
     ItemsQuest:AddSection("Itens - Sea 1")
-    ItemsQuest:AddToggle({ Title = "Auto Pegar Saber V2", Default = false,
-        Callback = function(v) Config.AutoSaber = v end })
+    ItemsQuest:AddToggle({ Title = T("ui_auto_buy_ttk"), Default = false,
+        Callback = function(v) Config.AutoBuyTTK = v end })
     ItemsQuest:AddToggle({ Title = "Auto Dark Blade V2", Default = false,
         Callback = function(v) Config.AutoDarkBladeV2 = v end })
 end
 
 ItemsQuest:AddSection("Geral")
-ItemsQuest:AddToggle({ Title = "Auto Coletar Baus (Farm Chest)", Default = false,
-    Callback = function(v) Config.FarmChest = v end })
+ItemsQuest:AddToggle({ Title = T("ui_farm_chest"), Default = false,
+    Callback = function(v)
+        Config.FarmChest = v
+        if v then
+            task.spawn(function()
+                Functions.StartFarmChest(Config, isTeleporting, NotAutoEquip)
+            end)
+        end
+        Notify({ Title = v and "Farm Chest ON - TweenFly" or "Farm Chest OFF", Image = IMG, Type = v and "Success" or "Info", Duration = 2 })
+    end })
 ItemsQuest:AddToggle({ Title = "Auto Guardar Frutas no Storage", Default = false,
     Callback = function(v)
         Config.AutoStoreFruit = v
@@ -1006,55 +1043,20 @@ RaceTab:AddToggle({ Title = "Auto Doo Hee (olhar lua + T para V3 Moon)", Default
         end
     end })
 RaceTab:AddSection("Skills Automáticas")
-RaceTab:AddToggle({ Title = "Auto Skill Z", Default = false,
+RaceTab:AddToggle({ Title = T("ui_auto_skill_z"), Default = false,
     Callback = function(v)
-        Config.AutoSkill = v
-        if v then
-            task.spawn(function()
-                while Config.AutoSkill do
-                    pcall(function()
-                        local hrp = Player.Character and Player.Character:FindFirstChild("HumanoidRootPart")
-                        if not hrp then return end
-                        local VIM = game:GetService("VirtualInputManager")
-                        VIM:SendKeyEvent(true, 122, false, hrp)
-                        VIM:SendKeyEvent(false, 122, false, hrp)
-                    end)
-                    task.wait(0.2)
-                end
-            end)
-        end
+        Config.AutoSkillZ = v
+        Notify({ Title = v and "Auto Skill Z ON" or "Auto Skill Z OFF", Image = IMG, Type = v and "Success" or "Info", Duration = 2 })
     end })
-RaceTab:AddToggle({ Title = "Auto Skill X", Default = false,
+RaceTab:AddToggle({ Title = T("ui_auto_skill_x"), Default = false,
     Callback = function(v)
-        if v then
-            task.spawn(function()
-                while v do
-                    pcall(function()
-                        local hrp = Player.Character and Player.Character:FindFirstChild("HumanoidRootPart")
-                        if not hrp then return end
-                        game:GetService("VirtualInputManager"):SendKeyEvent(true, 120, false, hrp)
-                        game:GetService("VirtualInputManager"):SendKeyEvent(false, 120, false, hrp)
-                    end)
-                    task.wait(0.2)
-                end
-            end)
-        end
+        Config.AutoSkillX = v
+        Notify({ Title = v and "Auto Skill X ON" or "Auto Skill X OFF", Image = IMG, Type = v and "Success" or "Info", Duration = 2 })
     end })
-RaceTab:AddToggle({ Title = "Auto Skill C", Default = false,
+RaceTab:AddToggle({ Title = T("ui_auto_skill_c"), Default = false,
     Callback = function(v)
-        if v then
-            task.spawn(function()
-                while v do
-                    pcall(function()
-                        local hrp = Player.Character and Player.Character:FindFirstChild("HumanoidRootPart")
-                        if not hrp then return end
-                        game:GetService("VirtualInputManager"):SendKeyEvent(true, 99, false, hrp)
-                        game:GetService("VirtualInputManager"):SendKeyEvent(false, 99, false, hrp)
-                    end)
-                    task.wait(0.2)
-                end
-            end)
-        end
+        Config.AutoSkillC = v
+        Notify({ Title = v and "Auto Skill C ON" or "Auto Skill C OFF", Image = IMG, Type = v and "Success" or "Info", Duration = 2 })
     end })
 RaceTab:AddSection("Temple of Time")
 RaceTab:AddButton({ Title = "TP Temple of Time", Callback = function()
@@ -1301,27 +1303,15 @@ SeaEventTab:AddToggle({ Title = "Auto Tween para M-Gear (partes Neon)", Default 
 -- =====================================================
 local FruitRaidTab = Window:MakeTab({ Title = T("tab_fruitraid"), Icon = "apple" })
 FruitRaidTab:AddSection("Frutas")
-FruitRaidTab:AddToggle({ Title = "Tween para Frutas no Mapa", Default = false,
+FruitRaidTab:AddToggle({ Title = T("ui_twenfly_fruit"), Default = false,
     Callback = function(v)
-        Config.TweenFruit = v
+        Config.TweenFlyFruit = v
         if v then
             task.spawn(function()
-                while Config.TweenFruit do
-                    pcall(function()
-                        for _, obj in pairs(workspace:GetChildren()) do
-                            if obj:IsA("Tool") and obj.Name:find("Fruit") then
-                                local h = obj:FindFirstChild("Handle")
-                                if h and HumanoidRootPart then
-                                    Functions.FlyToPosition(h.CFrame, TweenService, Config, isTeleporting, NotAutoEquip)
-                                end
-                            end
-                        end
-                    end)
-                    task.wait(2)
-                end
+                Functions.StartTweenFlyFruit(Config, isTeleporting, NotAutoEquip)
             end)
         end
-        Notify({ Title = v and "Tween Fruit ON" or "Tween Fruit OFF", Image = IMG, Type = v and "Success" or "Info", Duration = 2 })
+        Notify({ Title = v and "TweenFly Fruit ON" or "TweenFly Fruit OFF", Image = IMG, Type = v and "Success" or "Info", Duration = 2 })
     end })
 FruitRaidTab:AddToggle({ Title = "Grab Fruit (TP até a fruta)", Default = false,
     Callback = function(v)
@@ -1424,7 +1414,7 @@ PvpTab:AddToggle({ Title = "Auto Player Hunter (TP para alvo)", Default = false,
 PvpTab:AddTextBox({ Title = "Nome do Player Alvo", Default = "", PlaceholderText = "Digite o nome...", ClearText = true,
     Callback = function(v) Config.SelectedPlayer = tostring(v) end })
 PvpTab:AddSection("Kill Aura")
-PvpTab:AddToggle({ Title = "Kill Aura (matar mobs no raio de 1000)", Default = false,
+PvpTab:AddToggle({ Title = T("ui_kill_aura"), Default = false,
     Callback = function(v)
         Config.KillAura = v
         if v then
@@ -1440,7 +1430,7 @@ PvpTab:AddToggle({ Title = "Kill Aura (matar mobs no raio de 1000)", Default = f
                                 local hum = mob:FindFirstChildOfClass("Humanoid")
                                 local hrp = mob:FindFirstChild("HumanoidRootPart")
                                 if hum and hrp and hum.Health > 0
-                                and (hrp.Position - myHrp.Position).Magnitude <= 1000 then
+                                and (hrp.Position - myHrp.Position).Magnitude <= (Config.KillAuraRadius or 1000) then
                                     hum.Health = 0
                                     hrp.CanCollide = false
                                     pcall(function() sethiddenproperty(Player, "SimulationRadius", math.huge) end)
@@ -1454,6 +1444,8 @@ PvpTab:AddToggle({ Title = "Kill Aura (matar mobs no raio de 1000)", Default = f
         end
         Notify({ Title = v and "Kill Aura ON" or "Kill Aura OFF", Image = IMG, Type = v and "Success" or "Info", Duration = 2 })
     end })
+PvpTab:AddSlider({ Title = T("ui_kill_aura_radius"), Min = 100, Max = 3000, Default = 1000,
+    Callback = function(v) Config.KillAuraRadius = v end })
 PvpTab:AddSection("Safe Mode")
 PvpTab:AddToggle({ Title = "Safe Mode (sobe se HP < 20%)", Default = false,
     Callback = function(v)
@@ -1511,7 +1503,7 @@ PvpTab:AddToggle({ Title = "Auto Matar Fish Crew (mar)", Default = false,
 -- =====================================================
 local ShopTab = Window:MakeTab({ Title = "Compras", Icon = "shoppingbag" })
 ShopTab:AddSection("Compras Automáticas")
-ShopTab:AddToggle({ Title = "Auto Comprar Espada Lendária", Default = false,
+ShopTab:AddToggle({ Title = T("ui_auto_buy_sword_legends"), Default = false,
     Callback = function(v)
         Config.AutoBuyLegendarySword = v
         if v then task.spawn(function() Functions.StartAutoBuyLegendarySword(Config) end) end

@@ -35,7 +35,6 @@
         "language_changed": "Language changed to English",
         "soon_coming": "SOON COMING",
         "loading": "Loading...",
-
         "tab_home": "Home",
         "tab_main": "Main",
         "tab_settings": "Settings",
@@ -51,7 +50,6 @@
         "tab_teleport": "Teleport",
         "tab_shopping": "Shopping",
         "tab_misc": "Misc",
-
         "sec_discord": "Discord Server",
         "sec_states": "States Script",
         "sec_farm_normal": "Farm Normal",
@@ -72,7 +70,6 @@
         "sec_utility": "Utility",
         "sec_script_info": "Script Info",
         "sec_select_lang": "Select Language",
-
         "lbl_time_zone": "Time Zone",
         "lbl_time_script": "Time Script",
         "lbl_time_server": "Time Server",
@@ -89,7 +86,6 @@
         "lbl_rip_indra": "Rip Indra Spawn",
         "lbl_spawned": "Spawned",
         "lbl_not_spawned": "Not Spawned",
-
         "ui_farm_weapon": "Farm Weapon",
         "ui_farm_attack": "Farm Attack",
         "ui_autofarm_level": "Auto Farm Level",
@@ -118,7 +114,7 @@
         "ui_auto_sharkman": "Auto Sharkman Karate V2",
         "ui_auto_death_step": "Auto Death Step",
         "ui_auto_sea2": "Auto Sea 2",
-        "ui_auto_saber": "Auto Saber",
+        "ui_auto_saber": "Auto Buy TTK",
         "ui_auto_graybeard": "Auto GrayBeard",
         "ui_auto_darkblade": "Auto DarkBlade V2",
         "ui_auto_berry": "Auto Collect Berry",
@@ -170,9 +166,24 @@
         "ui_fov": "FOV",
         "ui_reset_visual": "Reset Visual",
         "ui_close_ui": "Close UI",
-        "ui_compatible_exec": "Seliware, Velocity, Bunni, Ronix"
+        "ui_compatible_exec": "Seliware, Velocity, Bunni, Ronix",
+        "ui_auto_buy_ttk": "Auto Buy TTK",
+        "ui_auto_buy_ttk_desc": "Farm Saber Expert to get True Triple Katana",
+        "ui_auto_buy_sword_legends": "Auto Buy Sword Legends",
+        "ui_auto_buy_sword_legends_desc": "Buy all slots from Legendary Sword Dealer (Sea 2)",
+        "ui_kill_aura": "Kill Aura",
+        "ui_kill_aura_radius": "Kill Aura Radius (studs)",
+        "ui_twenfly_fruit": "TweenFly Fruit",
+        "ui_twenfly_fruit_desc": "Fly to fruits that spawn on the map",
+        "ui_farm_chest": "Auto Farm Chest",
+        "ui_farm_chest_desc": "TweenFly to chests on the map automatically",
+        "ui_auto_skill_z": "Auto Skill Z (farm)",
+        "ui_auto_skill_x": "Auto Skill X (farm)",
+        "ui_auto_skill_c": "Auto Skill C (farm)",
+        "language_restart_title": "Restart Required",
+        "language_restart_desc": "Re-execute the script to apply the new language.",
+        "ui_auto_buy_legendary": "Auto Buy Sword Legends"
     },
-
     "Portugues_Brazil": {
         "notify_starting_title": "Redux Hub está iniciando...",
         "notify_starting_desc": "Aguarde...",
@@ -209,7 +220,6 @@
         "language_changed": "Idioma alterado para Português (Brasil)",
         "soon_coming": "EM BREVE",
         "loading": "Carregando...",
-
         "tab_home": "Início",
         "tab_main": "Principal",
         "tab_settings": "Configurações",
@@ -225,7 +235,6 @@
         "tab_teleport": "Teletransporte",
         "tab_shopping": "Loja",
         "tab_misc": "Extra",
-
         "sec_discord": "Servidor Discord",
         "sec_states": "Status do Script",
         "sec_farm_normal": "Farm Normal",
@@ -246,7 +255,6 @@
         "sec_utility": "Utilidades",
         "sec_script_info": "Info do Script",
         "sec_select_lang": "Selecionar Idioma",
-
         "lbl_time_zone": "Fuso Horário",
         "lbl_time_script": "Tempo do Script",
         "lbl_time_server": "Tempo do Servidor",
@@ -263,7 +271,6 @@
         "lbl_rip_indra": "Spawn Rip Indra",
         "lbl_spawned": "Apareceu",
         "lbl_not_spawned": "Não Apareceu",
-
         "ui_farm_weapon": "Arma de Farm",
         "ui_farm_attack": "Ataque de Farm",
         "ui_autofarm_level": "Auto Farm Nível",
@@ -292,7 +299,7 @@
         "ui_auto_sharkman": "Auto Sharkman Karate V2",
         "ui_auto_death_step": "Auto Death Step",
         "ui_auto_sea2": "Auto Mar 2",
-        "ui_auto_saber": "Auto Saber",
+        "ui_auto_saber": "Auto Comprar TTK",
         "ui_auto_graybeard": "Auto GrayBeard",
         "ui_auto_darkblade": "Auto DarkBlade V2",
         "ui_auto_berry": "Auto Coletar Berry",
@@ -344,9 +351,24 @@
         "ui_fov": "Campo de Visão",
         "ui_reset_visual": "Resetar Visual",
         "ui_close_ui": "Fechar UI",
-        "ui_compatible_exec": "Seliware, Velocity, Bunni, Ronix"
+        "ui_compatible_exec": "Seliware, Velocity, Bunni, Ronix",
+        "ui_auto_buy_ttk": "Auto Comprar TTK",
+        "ui_auto_buy_ttk_desc": "Farm Saber Expert para pegar a True Triple Katana",
+        "ui_auto_buy_sword_legends": "Auto Comprar Espadas Lendárias",
+        "ui_auto_buy_sword_legends_desc": "Compra todos os slots do Vendedor de Espadas Lendárias (Mar 2)",
+        "ui_kill_aura": "Kill Aura",
+        "ui_kill_aura_radius": "Raio do Kill Aura (studs)",
+        "ui_twenfly_fruit": "TweenFly Fruta",
+        "ui_twenfly_fruit_desc": "Voar até frutas que aparecem no mapa",
+        "ui_farm_chest": "Auto Farm Baú",
+        "ui_farm_chest_desc": "TweenFly até baús no mapa automaticamente",
+        "ui_auto_skill_z": "Auto Skill Z (farm)",
+        "ui_auto_skill_x": "Auto Skill X (farm)",
+        "ui_auto_skill_c": "Auto Skill C (farm)",
+        "language_restart_title": "Reinicialização Necessária",
+        "language_restart_desc": "Re-execute o script para aplicar o novo idioma.",
+        "ui_auto_buy_legendary": "Auto Comprar Espadas Lendárias"
     },
-
     "Portugues_Portugal": {
         "notify_starting_title": "Redux Hub está a iniciar...",
         "notify_starting_desc": "Por favor aguarde...",
@@ -383,7 +405,6 @@
         "language_changed": "Idioma alterado para Português (Portugal)",
         "soon_coming": "EM BREVE",
         "loading": "A carregar...",
-
         "tab_home": "Início",
         "tab_main": "Principal",
         "tab_settings": "Definições",
@@ -399,7 +420,6 @@
         "tab_teleport": "Teletransporte",
         "tab_shopping": "Loja",
         "tab_misc": "Extra",
-
         "sec_discord": "Servidor Discord",
         "sec_states": "Estado do Script",
         "sec_farm_normal": "Farm Normal",
@@ -420,7 +440,6 @@
         "sec_utility": "Utilitários",
         "sec_script_info": "Info do Script",
         "sec_select_lang": "Selecionar Idioma",
-
         "lbl_time_zone": "Fuso Horário",
         "lbl_time_script": "Tempo do Script",
         "lbl_time_server": "Tempo do Servidor",
@@ -437,7 +456,6 @@
         "lbl_rip_indra": "Spawn Rip Indra",
         "lbl_spawned": "Apareceu",
         "lbl_not_spawned": "Não Apareceu",
-
         "ui_farm_weapon": "Arma de Farm",
         "ui_farm_attack": "Ataque de Farm",
         "ui_autofarm_level": "Auto Farm Nível",
@@ -466,7 +484,7 @@
         "ui_auto_sharkman": "Auto Sharkman Karate V2",
         "ui_auto_death_step": "Auto Death Step",
         "ui_auto_sea2": "Auto Mar 2",
-        "ui_auto_saber": "Auto Saber",
+        "ui_auto_saber": "Auto Comprar TTK",
         "ui_auto_graybeard": "Auto GrayBeard",
         "ui_auto_darkblade": "Auto DarkBlade V2",
         "ui_auto_berry": "Auto Recolher Berry",
@@ -518,9 +536,24 @@
         "ui_fov": "Campo de Visão",
         "ui_reset_visual": "Repor Visual",
         "ui_close_ui": "Fechar UI",
-        "ui_compatible_exec": "Seliware, Velocity, Bunni, Ronix"
+        "ui_compatible_exec": "Seliware, Velocity, Bunni, Ronix",
+        "ui_auto_buy_ttk": "Auto Comprar TTK",
+        "ui_auto_buy_ttk_desc": "Farm Saber Expert para obter a True Triple Katana",
+        "ui_auto_buy_sword_legends": "Auto Comprar Espadas Lendárias",
+        "ui_auto_buy_sword_legends_desc": "Compra todos os slots do Vendedor de Espadas Lendárias (Mar 2)",
+        "ui_kill_aura": "Kill Aura",
+        "ui_kill_aura_radius": "Raio do Kill Aura (studs)",
+        "ui_twenfly_fruit": "TweenFly Fruta",
+        "ui_twenfly_fruit_desc": "Voar até frutas que aparecem no mapa",
+        "ui_farm_chest": "Auto Farm Baú",
+        "ui_farm_chest_desc": "TweenFly até baús no mapa automaticamente",
+        "ui_auto_skill_z": "Auto Skill Z (farm)",
+        "ui_auto_skill_x": "Auto Skill X (farm)",
+        "ui_auto_skill_c": "Auto Skill C (farm)",
+        "language_restart_title": "Reinicialização Necessária",
+        "language_restart_desc": "Re-execute o script para aplicar o novo idioma.",
+        "ui_auto_buy_legendary": "Auto Comprar Espadas Lendárias"
     },
-
     "Espanol": {
         "notify_starting_title": "Redux Hub está iniciando...",
         "notify_starting_desc": "Por favor espera...",
@@ -557,7 +590,6 @@
         "language_changed": "Idioma cambiado a Español",
         "soon_coming": "PRÓXIMAMENTE",
         "loading": "Cargando...",
-
         "tab_home": "Inicio",
         "tab_main": "Principal",
         "tab_settings": "Ajustes",
@@ -573,7 +605,6 @@
         "tab_teleport": "Teletransporte",
         "tab_shopping": "Tienda",
         "tab_misc": "Misc",
-
         "sec_discord": "Servidor de Discord",
         "sec_states": "Estado del Script",
         "sec_farm_normal": "Farm Normal",
@@ -594,7 +625,6 @@
         "sec_utility": "Utilidades",
         "sec_script_info": "Info del Script",
         "sec_select_lang": "Seleccionar Idioma",
-
         "lbl_time_zone": "Zona Horaria",
         "lbl_time_script": "Tiempo del Script",
         "lbl_time_server": "Tiempo del Servidor",
@@ -611,7 +641,6 @@
         "lbl_rip_indra": "Spawn Rip Indra",
         "lbl_spawned": "Apareció",
         "lbl_not_spawned": "No Apareció",
-
         "ui_farm_weapon": "Arma de Farm",
         "ui_farm_attack": "Ataque de Farm",
         "ui_autofarm_level": "Auto Farm Nivel",
@@ -640,7 +669,7 @@
         "ui_auto_sharkman": "Auto Sharkman Karate V2",
         "ui_auto_death_step": "Auto Death Step",
         "ui_auto_sea2": "Auto Mar 2",
-        "ui_auto_saber": "Auto Saber",
+        "ui_auto_saber": "Auto Comprar TTK",
         "ui_auto_graybeard": "Auto GrayBeard",
         "ui_auto_darkblade": "Auto DarkBlade V2",
         "ui_auto_berry": "Auto Recoger Berry",
@@ -692,9 +721,24 @@
         "ui_fov": "Campo de Visión",
         "ui_reset_visual": "Reiniciar Visual",
         "ui_close_ui": "Cerrar UI",
-        "ui_compatible_exec": "Seliware, Velocity, Bunni, Ronix"
+        "ui_compatible_exec": "Seliware, Velocity, Bunni, Ronix",
+        "ui_auto_buy_ttk": "Auto Comprar TTK",
+        "ui_auto_buy_ttk_desc": "Farm Saber Expert para conseguir la True Triple Katana",
+        "ui_auto_buy_sword_legends": "Auto Comprar Espadas Legendarias",
+        "ui_auto_buy_sword_legends_desc": "Compra todos los slots del Vendedor de Espadas Legendarias (Mar 2)",
+        "ui_kill_aura": "Kill Aura",
+        "ui_kill_aura_radius": "Radio del Kill Aura (studs)",
+        "ui_twenfly_fruit": "TweenFly Fruta",
+        "ui_twenfly_fruit_desc": "Volar hacia frutas que aparecen en el mapa",
+        "ui_farm_chest": "Auto Farm Cofre",
+        "ui_farm_chest_desc": "TweenFly hacia cofres en el mapa automáticamente",
+        "ui_auto_skill_z": "Auto Skill Z (farm)",
+        "ui_auto_skill_x": "Auto Skill X (farm)",
+        "ui_auto_skill_c": "Auto Skill C (farm)",
+        "language_restart_title": "Reinicio Necesario",
+        "language_restart_desc": "Re-ejecuta el script para aplicar el nuevo idioma.",
+        "ui_auto_buy_legendary": "Auto Comprar Espadas Legendarias"
     },
-
     "Vietnam": {
         "notify_starting_title": "Redux Hub đang khởi động...",
         "notify_starting_desc": "Vui lòng chờ...",
@@ -731,7 +775,6 @@
         "language_changed": "Đã chuyển ngôn ngữ sang Tiếng Việt",
         "soon_coming": "SẮP CÓ",
         "loading": "Đang tải...",
-
         "tab_home": "Trang chủ",
         "tab_main": "Chính",
         "tab_settings": "Cài đặt",
@@ -747,7 +790,6 @@
         "tab_teleport": "Dịch chuyển",
         "tab_shopping": "Cửa hàng",
         "tab_misc": "Khác",
-
         "sec_discord": "Máy chủ Discord",
         "sec_states": "Trạng thái Script",
         "sec_farm_normal": "Farm Thường",
@@ -768,7 +810,6 @@
         "sec_utility": "Tiện ích",
         "sec_script_info": "Thông tin Script",
         "sec_select_lang": "Chọn Ngôn ngữ",
-
         "lbl_time_zone": "Múi giờ",
         "lbl_time_script": "Thời gian Script",
         "lbl_time_server": "Thời gian Máy chủ",
@@ -785,7 +826,6 @@
         "lbl_rip_indra": "Xuất hiện Rip Indra",
         "lbl_spawned": "Đã xuất hiện",
         "lbl_not_spawned": "Chưa xuất hiện",
-
         "ui_farm_weapon": "Vũ khí Farm",
         "ui_farm_attack": "Kiểu tấn công Farm",
         "ui_autofarm_level": "Tự động Farm Cấp",
@@ -814,7 +854,7 @@
         "ui_auto_sharkman": "Tự động Sharkman Karate V2",
         "ui_auto_death_step": "Tự động Death Step",
         "ui_auto_sea2": "Tự động Biển 2",
-        "ui_auto_saber": "Tự động Saber",
+        "ui_auto_saber": "Tự động Mua TTK",
         "ui_auto_graybeard": "Tự động GrayBeard",
         "ui_auto_darkblade": "Tự động DarkBlade V2",
         "ui_auto_berry": "Tự động Thu thập Berry",
@@ -866,6 +906,22 @@
         "ui_fov": "Góc nhìn",
         "ui_reset_visual": "Đặt lại hình ảnh",
         "ui_close_ui": "Đóng UI",
-        "ui_compatible_exec": "Seliware, Velocity, Bunni, Ronix, Redux, Madium"
+        "ui_compatible_exec": "Seliware, Velocity, Bunni, Ronix, Redux, Madium",
+        "ui_auto_buy_ttk": "Tự động Mua TTK",
+        "ui_auto_buy_ttk_desc": "Farm Saber Expert để lấy True Triple Katana",
+        "ui_auto_buy_sword_legends": "Tự động Mua Kiếm Huyền thoại",
+        "ui_auto_buy_sword_legends_desc": "Mua tất cả slot từ Người bán Kiếm Huyền thoại (Biển 2)",
+        "ui_kill_aura": "Kill Aura",
+        "ui_kill_aura_radius": "Bán kính Kill Aura (studs)",
+        "ui_twenfly_fruit": "TweenFly Trái cây",
+        "ui_twenfly_fruit_desc": "Bay đến trái cây xuất hiện trên bản đồ",
+        "ui_farm_chest": "Tự động Farm Rương",
+        "ui_farm_chest_desc": "TweenFly đến rương trên bản đồ tự động",
+        "ui_auto_skill_z": "Tự động Skill Z (farm)",
+        "ui_auto_skill_x": "Tự động Skill X (farm)",
+        "ui_auto_skill_c": "Tự động Skill C (farm)",
+        "language_restart_title": "Cần Khởi động lại",
+        "language_restart_desc": "Chạy lại script để áp dụng ngôn ngữ mới.",
+        "ui_auto_buy_legendary": "Tự động Mua Kiếm Huyền thoại"
     }
 }

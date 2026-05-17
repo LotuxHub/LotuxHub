@@ -83,7 +83,7 @@ local Config = {
     AutoSharkmanV2      = false,
     AutoDeathStep       = false,
     AutoBuyEnhancementColour = false, -- Comprar cores de Haki automaticamente
-    AutoBuyLegendarySword    = false, -- Comprar espada lendaria automaticamente
+    AutoBuyLegendarySword    = false, -- Auto Buy Sword Legends (slots 1/2/3 do dealer)
     AutoGetPole         = false,      -- Pegar espada Thunder Pole (Thunder God)
     AutoGetSaw          = false,      -- Pegar espada The Saw
 
@@ -91,7 +91,7 @@ local Config = {
     -- SEA 1
     -- =====================================================
     AutoSea2            = false,
-    AutoSaber           = false,
+    AutoBuyTTK          = false,    -- Auto Buy True Triple Katana (farm Saber Expert)
     AutoGrayBeard       = false,
     AutoDarkBladeV2     = false,
 
@@ -107,8 +107,8 @@ local Config = {
     -- FRUTAS
     -- =====================================================
     AutoStoreFruit      = false,    -- Guardar frutas no storage automaticamente
-    TweenFruit          = false,    -- Tween para frutas que spawnam no mapa
-    GrabFruit           = false,    -- Teleportar personagem ate frutas no mapa
+    TweenFlyFruit       = false,    -- TweenFly ate frutas que spawnam no mapa
+    GrabFruit           = false,    -- Teleportar personagem ate frutas no mapa (TP direto)
     AutoFruit           = false,    -- Carregar frutas baratas via LoadFruit remote
     AutoFarmFruits      = false,    -- Farm mobs usando frutas (mastery)
     SelectFruitFarm     = "Farm Level Mastery", -- Opcao de farm de frutas
@@ -121,12 +121,12 @@ local Config = {
     AutoBarista         = false,    -- Pegar cores de Haki com o NPC Barista
     HakiColor           = "White",
     AutoFarmObsHaki     = false,
-    FarmChest           = false,    -- Coletar baus no mapa
+    FarmChest           = false,    -- TweenFly ate baus no mapa automaticamente
     FarmChocola         = false,    -- Farm Chocolate Island (mobs)
-    AutoSkill           = false,    -- Usar skills automaticamente (Z/X/C)
-    AutoSkillZ          = false,    -- Usar skill Z automaticamente
-    AutoSkillX          = false,    -- Usar skill X automaticamente
-    AutoSkillC          = false,    -- Usar skill C automaticamente
+    AutoSkill           = false,    -- Usar skills automaticamente (Z/X/C integrado no farm)
+    AutoSkillZ          = false,    -- Usar skill Z automaticamente no farm/mastery
+    AutoSkillX          = false,    -- Usar skill X automaticamente no farm/mastery
+    AutoSkillC          = false,    -- Usar skill C automaticamente no farm/mastery
     AutoDungeon         = false,    -- Auto dungeon (atacar inimigos e avancar ilhas)
     TweenMGear          = false,    -- Tween para partes Neon da Mystic Island (M-Gear)
     AutoTryLuck         = false,    -- Auto Try Luck (frutas/item aleatorio)
@@ -137,7 +137,8 @@ local Config = {
     -- PVP / PLAYER HUNTER
     -- =====================================================
     EnabledPvP          = false,    -- Ativar modo PvP
-    KillAura            = false,    -- Matar todos os inimigos no raio de 1000
+    KillAura            = false,    -- Kill Aura (matar todos no raio)
+    KillAuraRadius      = 1000,     -- Raio do Kill Aura em studs
     AimbotGun           = false,    -- Aimbot com arma de fogo
     AimbotSkill         = false,    -- Aimbot com skills
     AutoKillPlayer      = false,    -- Matar players selecionados automaticamente
@@ -212,6 +213,11 @@ local Config = {
     -- UI
     -- =====================================================
     UIScale             = 450,      -- redzlib:SetScale (450 = padrao)
+
+    -- =====================================================
+    -- LANGUAGE (salvo automaticamente via writefile)
+    -- =====================================================
+    Language            = "English", -- idioma atual (salvo entre sessoes)
 
     -- =====================================================
     -- ESTADO INTERNO

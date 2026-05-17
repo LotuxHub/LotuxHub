@@ -127,10 +127,10 @@ function Functions.EquipWeapon(weaponName, notAutoEquipRef)
     local hum = char:FindFirstChildOfClass("Humanoid")
     if not hum or hum.Health <= 0 then return end
 
-    -- Já está equipada no personagem? Não faz nada
+    -- Ja esta equipada no personagem? Nao faz nada
     if char:FindFirstChild(weaponName) then return end
 
-    -- Procura no Backpack e equipa
+    -- Procura no Backpack por nome exato
     local tool = Player.Backpack:FindFirstChild(weaponName)
     if tool then
         hum:EquipTool(tool)
@@ -138,11 +138,32 @@ function Functions.EquipWeapon(weaponName, notAutoEquipRef)
         return
     end
 
-    -- Fallback: procura por ToolTip se não achou por nome exato
-    local tipo = weaponName
-    -- tenta pelo FarmWeapon tipo
+    -- Fallback 1: procura por ToolTip exato
     for _, t in pairs(Player.Backpack:GetChildren()) do
-        if t:IsA("Tool") and (t.ToolTip == weaponName or t.ToolTip == tipo) then
+        if t:IsA("Tool") and t.ToolTip == weaponName then
+            hum:EquipTool(t)
+            task.wait(0.05)
+            return
+        end
+    end
+
+    -- Fallback 2: procura por ToolTip parcial (Melee/Sword/Gun/Blox Fruit)
+    local tipTypes = {"Melee", "Sword", "Gun", "Blox Fruit"}
+    for _, tipType in ipairs(tipTypes) do
+        if weaponName:lower():find(tipType:lower()) then
+            for _, t in pairs(Player.Backpack:GetChildren()) do
+                if t:IsA("Tool") and t.ToolTip == tipType then
+                    hum:EquipTool(t)
+                    task.wait(0.05)
+                    return
+                end
+            end
+        end
+    end
+
+    -- Fallback 3: procura por nome parcial
+    for _, t in pairs(Player.Backpack:GetChildren()) do
+        if t:IsA("Tool") and t.Name:lower():find(weaponName:lower(), 1, true) then
             hum:EquipTool(t)
             task.wait(0.05)
             return
@@ -698,37 +719,85 @@ end
 -- AUTO SKILL (Z / X / C)
 -- =====================================================
 
+function Functions.PressKey(key)
+    VirtualInputManager:SendKeyEvent(true,  key, false, game)
+    task.wait(0.05)
+    VirtualInputManager:SendKeyEvent(false, key, false, game)
+end
+
 function Functions.StartAutoSkill(config)
-    local function pressKey(key)
-        VirtualInputManager:SendKeyEvent(true,  key, false, game)
-        task.wait(0.05)
-        VirtualInputManager:SendKeyEvent(false, key, false, game)
-    end
-
-    local function useWeaponSkills(weaponType)
-        local char = Player.Character
-        if not char then return end
-        for _, v in ipairs(Player.Backpack:GetChildren()) do
-            if v:IsA("Tool") and v.ToolTip == weaponType then
-                char.Humanoid:EquipTool(v)
-                task.wait(0.1)
-                pressKey(Enum.KeyCode.Z)
-                task.wait(0.2)
-                pressKey(Enum.KeyCode.X)
-                task.wait(0.2)
-                pressKey(Enum.KeyCode.C)
-                task.wait(0.2)
-            end
-        end
-    end
-
+    -- Loop geral AutoSkill (Z+X+C) - equipa arma e usa todas as skills
     task.spawn(function()
-        while task.wait(1) do
+        while task.wait(0.5) do
             if not config.AutoSkill then continue end
             pcall(function()
-                useWeaponSkills("Melee")
-                useWeaponSkills("Sword")
-                useWeaponSkills("Gun")
+                local char = Player.Character
+                if not char then return end
+                local hum = char:FindFirstChildOfClass("Humanoid")
+                if not hum or hum.Health <= 0 then return end
+
+                -- Equipa a arma selecionada atual
+                local weaponName = config.SelectedWeaponName
+                if weaponName ~= "" then
+                    Functions.EquipWeapon(weaponName)
+                    task.wait(0.1)
+                end
+
+                -- Usa Z, X, C com a ferramenta equipada
+                Functions.PressKey(Enum.KeyCode.Z)
+                task.wait(0.15)
+                Functions.PressKey(Enum.KeyCode.X)
+                task.wait(0.15)
+                Functions.PressKey(Enum.KeyCode.C)
+                task.wait(0.15)
+            end)
+        end
+    end)
+
+    -- Loop individual AutoSkillZ
+    task.spawn(function()
+        while task.wait(0.5) do
+            if not config.AutoSkillZ then continue end
+            pcall(function()
+                local char = Player.Character
+                if not char then return end
+                local hum = char:FindFirstChildOfClass("Humanoid")
+                if not hum or hum.Health <= 0 then return end
+                local weaponName = config.SelectedWeaponName
+                if weaponName ~= "" then Functions.EquipWeapon(weaponName) task.wait(0.1) end
+                Functions.PressKey(Enum.KeyCode.Z)
+            end)
+        end
+    end)
+
+    -- Loop individual AutoSkillX
+    task.spawn(function()
+        while task.wait(0.5) do
+            if not config.AutoSkillX then continue end
+            pcall(function()
+                local char = Player.Character
+                if not char then return end
+                local hum = char:FindFirstChildOfClass("Humanoid")
+                if not hum or hum.Health <= 0 then return end
+                local weaponName = config.SelectedWeaponName
+                if weaponName ~= "" then Functions.EquipWeapon(weaponName) task.wait(0.1) end
+                Functions.PressKey(Enum.KeyCode.X)
+            end)
+        end
+    end)
+
+    -- Loop individual AutoSkillC
+    task.spawn(function()
+        while task.wait(0.5) do
+            if not config.AutoSkillC then continue end
+            pcall(function()
+                local char = Player.Character
+                if not char then return end
+                local hum = char:FindFirstChildOfClass("Humanoid")
+                if not hum or hum.Health <= 0 then return end
+                local weaponName = config.SelectedWeaponName
+                if weaponName ~= "" then Functions.EquipWeapon(weaponName) task.wait(0.1) end
+                Functions.PressKey(Enum.KeyCode.C)
             end)
         end
     end)
@@ -1834,17 +1903,17 @@ function Functions.StartGrabFruit(config)
 end
 
 -- Auto Saber (Sea 1 & 2)
-function Functions.StartAutoSaber(config)
+function Functions.StartAutoBuyTTK(config)
     task.spawn(function()
         while task.wait() do
-            if not config.AutoSaber then continue end
+            if not config.AutoBuyTTK then continue end
             pcall(function()
                 local level = Player.Data.Level.Value
                 if level < 200 then return end
 
                 local hasSaber = Player.Backpack:FindFirstChild("True Triple Katana")
                               or (Player.Character and Player.Character:FindFirstChild("True Triple Katana"))
-                if hasSaber then config.AutoSaber = false; return end
+                if hasSaber then config.AutoBuyTTK = false; return end
 
                 if workspace.Enemies:FindFirstChild("Saber Expert") then
                     for _, v in ipairs(workspace.Enemies:GetChildren()) do
@@ -1859,7 +1928,7 @@ function Functions.StartAutoSaber(config)
                                 VirtualUser:CaptureController()
                                 VirtualUser:Button1Down(Vector2.new(1280, 672))
                                 pcall(function() sethiddenproperty(Player, "SimulationRadius", math.huge) end)
-                            until not config.AutoSaber or v.Humanoid.Health <= 0 or not v.Parent
+                            until not config.AutoBuyTTK or v.Humanoid.Health <= 0 or not v.Parent
                         end
                     end
                 elseif ReplicatedStorage:FindFirstChild("Saber Expert") then
@@ -2035,7 +2104,7 @@ function Functions.StartKillAura(config)
                     if enemy:FindFirstChild("Humanoid") and enemy:FindFirstChild("HumanoidRootPart")
                        and enemy.Humanoid.Health > 0 then
                         local dist = (enemy.HumanoidRootPart.Position - hrp.Position).Magnitude
-                        if dist <= 1000 then
+                        if dist <= (config.KillAuraRadius or 1000) then
                             pcall(function()
                                 repeat task.wait()
                                     pcall(function() sethiddenproperty(Player, "SimulationRadius", math.huge) end)
@@ -2443,19 +2512,33 @@ function Functions.StartAutoCollectEgg(config)
     end)
 end
 
-function Functions.StartFarmChest(config)
+function Functions.StartFarmChest(config, isTeleportingRef, notAutoEquipRef)
     task.spawn(function()
-        while task.wait(0.5) do
+        while task.wait(0.2) do
             if not config.FarmChest then continue end
             pcall(function()
-                for _, chest in ipairs(CollectionService:GetTagged("_ChestTagged")) do
+                local char = Player.Character
+                local hrp  = char and char:FindFirstChild("HumanoidRootPart")
+                local hum  = char and char:FindFirstChildOfClass("Humanoid")
+                if not hrp or not hum or hum.Health <= 0 then return end
+
+                -- Encontrar o bau mais proximo nao coletado
+                local chests = CollectionService:GetTagged("_ChestTagged")
+                local nearest, nearestDist = nil, math.huge
+                for _, chest in ipairs(chests) do
                     if not chest:GetAttribute("IsDisabled") then
-                        Functions.TeleportTo(CFrame.new(chest:GetPivot().Position))
-                        task.wait(0.5)
-                        VirtualInputManager:SendKeyEvent(true,  Enum.KeyCode.E, false, game)
-                        task.wait(0.1)
-                        VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.E, false, game)
+                        local dist = (chest:GetPivot().Position - hrp.Position).Magnitude
+                        if dist < nearestDist then
+                            nearestDist = dist
+                            nearest = chest
+                        end
                     end
+                end
+
+                if nearest then
+                    local targetCF = CFrame.new(nearest:GetPivot().Position)
+                    -- Usa TweenFly para voar ate o bau
+                    Functions.FlyToPosition(targetCF, TweenService, config, isTeleportingRef, notAutoEquipRef)
                 end
             end)
         end
@@ -2486,19 +2569,61 @@ function Functions.StartAutoStoreFruit(config)
     end)
 end
 
-function Functions.StartTweenFruit(config)
+function Functions.StartTweenFlyFruit(config, isTeleportingRef, notAutoEquipRef)
     task.spawn(function()
-        while task.wait(0.1) do
-            if not config.TweenFruit then continue end
+        while task.wait(0.3) do
+            if not config.TweenFlyFruit then continue end
             pcall(function()
+                local char = Player.Character
+                local hrp  = char and char:FindFirstChild("HumanoidRootPart")
+                if not hrp then return end
+
+                -- Frutas diretas no workspace
                 for _, v in ipairs(workspace:GetChildren()) do
-                    if v.Name:find("Fruit") and v:FindFirstChild("Handle") then
-                        Functions.TPP(v.Handle.CFrame)
+                    if v:IsA("Tool") and v.Name:lower():find("fruit") then
+                        local handle = v:FindFirstChild("Handle")
+                        if handle then
+                            local dist = (handle.Position - hrp.Position).Magnitude
+                            if dist > 5 then
+                                Functions.FlyToPosition(
+                                    CFrame.new(handle.Position),
+                                    TweenService, config,
+                                    isTeleportingRef, notAutoEquipRef
+                                )
+                            end
+                            return
+                        end
+                    end
+                end
+
+                -- Frutas no AppleSpawner
+                local spawner = workspace:FindFirstChild("AppleSpawner")
+                if spawner then
+                    for _, v in ipairs(spawner:GetChildren()) do
+                        if v:IsA("Tool") then
+                            local handle = v:FindFirstChild("Handle")
+                            if handle then
+                                local dist = (handle.Position - hrp.Position).Magnitude
+                                if dist > 5 then
+                                    Functions.FlyToPosition(
+                                        CFrame.new(handle.Position),
+                                        TweenService, config,
+                                        isTeleportingRef, notAutoEquipRef
+                                    )
+                                end
+                                return
+                            end
+                        end
                     end
                 end
             end)
         end
     end)
+end
+
+-- Alias de compatibilidade
+function Functions.StartTweenFruit(config)
+    Functions.StartTweenFlyFruit(config)
 end
 
 function Functions.StartGrabFruit(config)
@@ -2545,10 +2670,15 @@ end
 
 function Functions.StartAutoBuyLegendarySword(config)
     task.spawn(function()
-        while task.wait(1) do
+        while task.wait(0.5) do
             if not config.AutoBuyLegendarySword then continue end
             pcall(function()
-                ReplicatedStorage.Remotes.CommF_:InvokeServer("BuyLegendarySword")
+                -- Compra as 3 espadas lendarias do dealer (Sea 2)
+                ReplicatedStorage.Remotes.CommF_:InvokeServer("LegendarySwordDealer", "1")
+                task.wait(0.1)
+                ReplicatedStorage.Remotes.CommF_:InvokeServer("LegendarySwordDealer", "2")
+                task.wait(0.1)
+                ReplicatedStorage.Remotes.CommF_:InvokeServer("LegendarySwordDealer", "3")
             end)
         end
     end)
