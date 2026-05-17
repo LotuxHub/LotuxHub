@@ -4,10 +4,9 @@
 --         v3.0 - Modular + Visual Features
 -- =====================================================
 
-
--- ===============================
--- PRINTS DE CARREGAMENTO
--- ===============================
+-- =====================================================
+-- CARREGA MODULOS
+-- =====================================================
 local function LoadingStep(msg)
     print("[LotuxHub] Carregando: " .. msg)
     task.wait(0.15)
@@ -321,10 +320,6 @@ task.spawn(function()
                         TweenService, Config, isTeleporting, NotAutoEquip
                     )
                     if Config.BringMob then Functions.BringMobFunc(mob, BringPos) end
-                    -- Skills Z/X/C integradas ao farm nearest
-                    if Config.AutoSkillZ then Functions.PressKey(Enum.KeyCode.Z) end
-                    if Config.AutoSkillX then Functions.PressKey(Enum.KeyCode.X) end
-                    if Config.AutoSkillC then Functions.PressKey(Enum.KeyCode.C) end
                 until not mob.Parent
                     or not mob:FindFirstChild("Humanoid")
                     or mob:FindFirstChild("Humanoid").Health <= 0
@@ -855,7 +850,6 @@ Main:AddToggle({ Title = T("ui_auto_mastery"), Default = false, Callback = funct
 -- =====================================================
 -- TAB: SETTINGS
 -- =====================================================
-print("[LotuxHub] Carregando aba SETTINGS...")
 local Settings = Window:MakeTab({ Title = T("tab_settings"), Icon = "settings" })
 
 Settings:AddSection(T("sec_farming_settings"))
@@ -2158,7 +2152,6 @@ Misc:AddButton({ Title = T("ui_close_ui"), Callback = function() Window:CloseBtn
 -- =====================================================
 -- INICIA FEATURES ATIVAS POR PADRAO
 -- =====================================================
-print("[LotuxHub] Carregando features padrão...")
 
 -- Render on Focus ativo por padrao (Config.RenderOnFocus = true)
 Functions.StartFocusRenderControl()
@@ -2169,12 +2162,7 @@ Lighting.FogEnd = Config.NoFog and 100000 or 1000
 -- =====================================================
 -- FINALIZACAO
 -- =====================================================
-print("[LotuxHub] ========================================")
-print("[LotuxHub] Script carregado com sucesso!")
-print("[LotuxHub] Versão: 3.0 | by LoadFlint/lucas")
-print("[LotuxHub] Sea detectado: " .. CurrentSea)
-print("[LotuxHub] PlaceId: " .. game.PlaceId)
-print("[LotuxHub] ========================================")
+print("[LotuxHub] Carregando features padrão...")
 uiReady = true
 
 Notify({
@@ -2184,7 +2172,7 @@ Notify({
     Duration    = 5,
     Type        = "Success",
 })
-
-print("[Lotux Hub] Sea detectado:", CurrentSea)
-print("[Lotux Hub] PlaceId:", game.PlaceId)
-print("[Lotux Hub] World1:", World1, "| World2:", World2, "| World3:", World3)
+print("[LotuxHub] Script carregado com sucesso!")
+print("[LotuxHub] Versão: 3.0 | by LoadFlint/lucas")
+print("[LotuxHub] Sea detectado: " .. CurrentSea)
+print("[LotuxHub] PlaceId: " .. game.PlaceId)
