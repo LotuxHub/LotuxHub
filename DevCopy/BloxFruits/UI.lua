@@ -216,34 +216,48 @@ end
 
 -- Funcao segura de load com retry (CORRIGE O ERRO Load_yb)
 local function _SafeLoad(url, nome, retries)
-    retries = retries or 3
+    retries = retries or 5
+    task.wait(0.1) -- pequena espera para garantir contexto Roblox pronto
     for i = 1, retries do
         local ok, result = pcall(function()
-            local code = game:HttpGet(url)
-            if not code or code == "" then
-                error("HttpGet retornou vazio para: " .. nome)
+            local code = game:HttpGet(url, true)
+            if not code or code == "" or #code < 10 then
+                error("HttpGet retornou vazio/invalido para: " .. nome)
             end
-            local fn, err = loadstring(code)
+            local fn, compErr = loadstring(code)
             if not fn then
-                error("loadstring falhou para " .. nome .. ": " .. tostring(err))
+                error("Erro de compilacao em " .. nome .. ": " .. tostring(compErr))
             end
-            return fn()
+            local runOk, runResult = pcall(fn)
+            if not runOk then
+                error("Erro de execucao em " .. nome .. ": " .. tostring(runResult))
+            end
+            return runResult
         end)
         if ok and result ~= nil then
-            _ConsoleLog("[OK] " .. nome .. " carregado!")
+            _ConsoleLog("[OK] " .. nome .. " carregado com sucesso!")
             return result
         else
-            _ConsoleLog("[ERRO] Tentativa " .. i .. "/" .. retries .. " falhou: " .. nome)
-            warn("[LotuxHub] Erro ao carregar " .. nome .. " (tentativa " .. i .. "): " .. tostring(result))
+            local errMsg = tostring(result):sub(1, 80)
+            _ConsoleLog("[ERRO " .. i .. "/" .. retries .. "] " .. nome .. ": " .. errMsg)
+            warn("[LotuxHub] Falha ao carregar " .. nome .. " (tentativa " .. i .. "): " .. tostring(result))
             if i < retries then
-                task.wait(1)
+                local waitTime = i * 1.5
+                _ConsoleLog("[AGUARDANDO] " .. waitTime .. "s antes de tentar novamente...")
+                task.wait(waitTime)
             end
         end
     end
-    -- Retorna tabela vazia para nao quebrar o resto do script
-    _ConsoleLog("[AVISO] " .. nome .. " nao carregou, usando fallback vazio")
-    warn("[LotuxHub] AVISO: " .. nome .. " nao carregou apos " .. retries .. " tentativas!")
-    return {}
+    -- Se falhou tudo, mostra erro critico e retorna tabela vazia
+    _ConsoleLog("[CRITICO] " .. nome .. " NAO carregou apos " .. retries .. " tentativas!")
+    warn("[LotuxHub] ERRO CRITICO: " .. nome .. " nao carregou! Algumas funcoes podem estar indisponiveis.")
+    return setmetatable({}, {
+        __index = function(_, k)
+            return function(...)
+                warn("[LotuxHub] FUNCAO INDISPONIVEL: " .. nome .. "." .. tostring(k) .. " (modulo nao carregou)")
+            end
+        end
+    })
 end
 
 -- =====================================================
@@ -448,16 +462,29 @@ print("[LotuxHub] Sea detectado: " .. (CurrentSea or "Desconhecido"))
 -- INICIA RESOLVER DE ARMA
 -- =====================================================
 print("[LotuxHub] Iniciando resolver de arma...")
-Functions.StartWeaponResolver(Config)
-print("[LotuxHub] Resolver de arma iniciado!")
+local ok_wres, err_wres = pcall(function() Functions.StartWeaponResolver(Config) end)
+if not ok_wres then
+    warn("[LotuxHub] StartWeaponResolver falhou: " .. tostring(err_wres))
+    _ConsoleLog("[ERRO] StartWeaponResolver: " .. tostring(err_wres):sub(1,60))
+else
+    print("[LotuxHub] Resolver de arma iniciado!")
+end
 
 -- Inicia loop de haki (substitui o ActivateBuso por frame)
 print("[LotuxHub] Iniciando loop de Haki...")
-Functions.StartHakiLoop(Config, CommF_)
+local ok_haki, err_haki = pcall(function() Functions.StartHakiLoop(Config, CommF_) end)
+if not ok_haki then
+    warn("[LotuxHub] StartHakiLoop falhou: " .. tostring(err_haki))
+    _ConsoleLog("[ERRO] StartHakiLoop: " .. tostring(err_haki):sub(1,60))
+end
 
 -- Inicia todos os loops das funções do Tiroreal integradas
 print("[LotuxHub] Iniciando loops gerais...")
-Functions.StartAllLoops(Config)
+local ok_loops, err_loops = pcall(function() Functions.StartAllLoops(Config) end)
+if not ok_loops then
+    warn("[LotuxHub] StartAllLoops falhou: " .. tostring(err_loops))
+    _ConsoleLog("[ERRO] StartAllLoops: " .. tostring(err_loops):sub(1,60))
+end
 print("[LotuxHub] Loops inicializados!")
 
 -- =====================================================
@@ -2283,7 +2310,7 @@ Visual:AddToggle({
     Callback = function(v)
         Config.RenderOnFocus = v
         if v then
-            Functions.StartFocusRenderControl()
+            pcall(function() Functions.StartFocusRenderControl() end)
             Notify({ Title = "Render on Focus Ativado", Description = "3D pausa quando janela perde foco", Image = IMG, Type = "Success", Duration = 3 })
         else
             -- Garante que o render esta ligado ao desativar
