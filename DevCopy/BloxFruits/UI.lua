@@ -263,36 +263,10 @@ end
 -- =====================================================
 -- CARREGA MODULOS (COM PAINEL + PCALL + RETRY)
 -- =====================================================
-_SetStatus("Biblioteca principal (LotuxLibrary)")
-_SetProgress(5)
-local redzlib = _SafeLoad(
-    "https://raw.githubusercontent.com/LotuxHub/LotuxHub/refs/heads/main/Library/LotuxLibrary.lua",
-    "LotuxLibrary"
-)
-
-_SetStatus("Dados de Quests")
-_SetProgress(25)
-local QuestData = _SafeLoad(
-    "https://raw.githubusercontent.com/LotuxHub/LotuxHub/refs/heads/main/DevCopy/BloxFruits/Quests.lua",
-    "Quests"
-)
-
-_SetStatus("Configurações do Script")
-_SetProgress(50)
-local Config = _SafeLoad(
-    "https://raw.githubusercontent.com/LotuxHub/LotuxHub/refs/heads/main/DevCopy/BloxFruits/Config.lua",
-    "Config"
-)
-
-_SetStatus("Funções Utilitárias")
-_SetProgress(75)
-local Functions = _SafeLoad(
-    "https://raw.githubusercontent.com/LotuxHub/LotuxHub/refs/heads/main/DevCopy/BloxFruits/Functions.lua",
-    "Functions"
-)
-
-_SetStatus("Serviços do Roblox")
-_SetProgress(90)
+local redzlib = "https://raw.githubusercontent.com/LotuxHub/LotuxHub/refs/heads/main/Library/LotuxLibrary.lua"
+local QuestData = "https://raw.githubusercontent.com/LotuxHub/LotuxHub/refs/heads/main/DevCopy/BloxFruits/Quests.lua",
+local Config = "https://raw.githubusercontent.com/LotuxHub/LotuxHub/refs/heads/main/DevCopy/BloxFruits/Config.lua"
+local Functions ="https://raw.githubusercontent.com/LotuxHub/LotuxHub/refs/heads/main/DevCopy/BloxFruits/Functions.lua"
 
 -- =====================================================
 -- SERVICES
