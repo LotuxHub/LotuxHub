@@ -4633,8 +4633,8 @@ function Functions.StartAimbotGun(config)
                 local hrp = char and char:FindFirstChild("HumanoidRootPart")
                 local gun = char and char:FindFirstChildOfClass("Tool")
                 
-                if not gun or not gun.Handle then continue end
-                if not hrp then continue end
+                if not gun or not gun.Handle then return end
+                if not hrp then return end
                 
                 -- Procura alvo mais proximo
                 local bestTarget = nil
@@ -4679,7 +4679,7 @@ function Functions.StartAimbotSkill(config)
                 local char = Player.Character
                 local hrp = char and char:FindFirstChild("HumanoidRootPart")
                 
-                if not hrp then continue end
+                if not hrp then return end
                 
                 -- Procura alvo mais proximo
                 local bestTarget = nil
