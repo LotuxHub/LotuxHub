@@ -112,14 +112,17 @@ end
 local _NotAutoEquip = false
 
 function Functions.EquipWeapon(weaponName, notAutoEquipRef)
-    if type(weaponName) == "table" then
-        if weaponName.SelectedWeaponName then
-            weaponName = weaponName.SelectedWeaponName
-        else return end
-    end
-    if type(weaponName) ~= "string" or weaponName == "" then return end
+    -- Identico ao Tiroreal: so equipa se o nome estiver no Backpack
+    if not weaponName or weaponName == "" then return end
 
-    local notAuto = notAutoEquipRef and notAutoEquipRef.value or _NotAutoEquip
+    -- Aceita config table (pega SelectedWeaponName)
+    if type(weaponName) == "table" then
+        weaponName = weaponName.SelectedWeaponName or ""
+    end
+    if weaponName == "" then return end
+
+    -- Respeita flag NotAutoEquip (igual ao _G.NotAutoEquip do Tiroreal)
+    local notAuto = notAutoEquipRef and notAutoEquipRef.value
     if notAuto then return end
 
     local char = Player.Character
@@ -127,47 +130,15 @@ function Functions.EquipWeapon(weaponName, notAutoEquipRef)
     local hum = char:FindFirstChildOfClass("Humanoid")
     if not hum or hum.Health <= 0 then return end
 
-    -- Ja esta equipada no personagem? Nao faz nada
+    -- Se ja esta equipada no character, nao faz nada
     if char:FindFirstChild(weaponName) then return end
 
-    -- Procura no Backpack por nome exato
-    local tool = Player.Backpack:FindFirstChild(weaponName)
-    if tool then
+    -- Logica EXATA do Tiroreal:
+    -- Procura pelo nome exato no Backpack e equipa
+    if Player.Backpack:FindFirstChild(weaponName) then
+        local tool = Player.Backpack:FindFirstChild(weaponName)
+        task.wait(0.1)
         hum:EquipTool(tool)
-        task.wait(0.05)
-        return
-    end
-
-    -- Fallback 1: procura por ToolTip exato
-    for _, t in pairs(Player.Backpack:GetChildren()) do
-        if t:IsA("Tool") and t.ToolTip == weaponName then
-            hum:EquipTool(t)
-            task.wait(0.05)
-            return
-        end
-    end
-
-    -- Fallback 2: procura por ToolTip parcial (Melee/Sword/Gun/Blox Fruit)
-    local tipTypes = {"Melee", "Sword", "Gun", "Blox Fruit"}
-    for _, tipType in ipairs(tipTypes) do
-        if weaponName:lower():find(tipType:lower()) then
-            for _, t in pairs(Player.Backpack:GetChildren()) do
-                if t:IsA("Tool") and t.ToolTip == tipType then
-                    hum:EquipTool(t)
-                    task.wait(0.05)
-                    return
-                end
-            end
-        end
-    end
-
-    -- Fallback 3: procura por nome parcial
-    for _, t in pairs(Player.Backpack:GetChildren()) do
-        if t:IsA("Tool") and t.Name:lower():find(weaponName:lower(), 1, true) then
-            hum:EquipTool(t)
-            task.wait(0.05)
-            return
-        end
     end
 end
 
