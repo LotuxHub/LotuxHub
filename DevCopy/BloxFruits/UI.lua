@@ -263,10 +263,10 @@ end
 -- =====================================================
 -- CARREGA MODULOS (COM PAINEL + PCALL + RETRY)
 -- =====================================================
-local redzlib = "https://raw.githubusercontent.com/LotuxHub/LotuxHub/refs/heads/main/Library/LotuxLibrary.lua"
-local QuestData = "https://raw.githubusercontent.com/LotuxHub/LotuxHub/refs/heads/main/DevCopy/BloxFruits/Quests.lua",
-local Config = "https://raw.githubusercontent.com/LotuxHub/LotuxHub/refs/heads/main/DevCopy/BloxFruits/Config.lua"
-local Functions ="https://raw.githubusercontent.com/LotuxHub/LotuxHub/refs/heads/main/DevCopy/BloxFruits/Functions.lua"
+local redzlib   = _SafeLoad("https://raw.githubusercontent.com/LotuxHub/LotuxHub/refs/heads/main/Library/LotuxLibrary.lua",  "LotuxLibrary", 3)
+local QuestData = _SafeLoad("https://raw.githubusercontent.com/LotuxHub/LotuxHub/refs/heads/main/DevCopy/BloxFruits/Quests.lua",   "Quests",        3)
+local Config    = _SafeLoad("https://raw.githubusercontent.com/LotuxHub/LotuxHub/refs/heads/main/DevCopy/BloxFruits/Config.lua",    "Config",        3)
+local Functions = _SafeLoad("https://raw.githubusercontent.com/LotuxHub/LotuxHub/refs/heads/main/DevCopy/BloxFruits/Functions.lua", "Functions",     3)
 
 -- =====================================================
 -- SERVICES
@@ -562,7 +562,7 @@ task.spawn(function()
                 if not hrp or not hum or hum.Health <= 0 then farmRunning = false; return end
 
                 if Config.AutoBusoHaki then Functions.ActivateBuso(CommF_) end
-                -- Resolve arma pelo ToolTip (Tiroreal style) antes de equipar
+                -- Resolve nome pelo ToolTip (Tiroreal style)
                 do
                     local tip = Config.FarmWeapon
                     if tip == "BloxFruits" then tip = "Blox Fruit" end
@@ -642,19 +642,24 @@ task.spawn(function()
                     pcall(function() CommF_:InvokeServer("StartQuest", quest.NameQuest, quest.QuestLv) end)
                     task.wait(0.3)
 
-                    -- Logica Tiroreal: resolve nome pelo ToolTip E equipa direto
-                    do
+                    -- FIX: equipa arma imediatamente ao pegar quest
+                    -- Tenta pelo nome resolvido primeiro, senão usa ToolTip direto
+                    local weaponEquipped = false
+                    if Config.SelectedWeaponName and Config.SelectedWeaponName ~= "" then
+                        Functions.EquipWeapon(Config.SelectedWeaponName, NotAutoEquip)
+                        weaponEquipped = true
+                    end
+                    if not weaponEquipped then
+                        -- Fallback: procura pela ToolTip do tipo selecionado
                         local tip = Config.FarmWeapon
                         if tip == "BloxFruits" then tip = "Blox Fruit" end
                         local char = Player.Character
                         local hum  = char and char:FindFirstChildOfClass("Humanoid")
-                        if hum and hum.Health > 0 then
-                            -- Primeiro: procura no Backpack pelo ToolTip
+                        if hum then
                             for _, t in pairs(Player.Backpack:GetChildren()) do
                                 if t:IsA("Tool") and t.ToolTip == tip then
-                                    Config.SelectedWeaponName = t.Name
-                                    task.wait(0.1)
                                     hum:EquipTool(t)
+                                    Config.SelectedWeaponName = t.Name
                                     break
                                 end
                             end
