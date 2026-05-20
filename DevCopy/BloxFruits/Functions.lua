@@ -3586,11 +3586,37 @@ function Functions.StartFPSCounter()
 end
 
 function Functions.StartFocusRenderControl()
+    -- Garante que o render comeca ativo
+    pcall(function() RunService:Set3dRenderingEnabled(true) end)
+
+    local _focusDebounce = nil
+
+    -- Ao voltar para o jogo: reativa render imediatamente
     UserInputService.WindowFocused:Connect(function()
-        RunService:Set3dRenderingEnabled(true)
+        -- Cancela qualquer delay pendente de desativar
+        if _focusDebounce then
+            _focusDebounce = nil
+        end
+        pcall(function() RunService:Set3dRenderingEnabled(true) end)
     end)
+
+    -- Ao sair do jogo: aguarda 0.5s antes de desativar (evita tela branca em troca rapida de app)
     UserInputService.WindowFocusReleased:Connect(function()
-        RunService:Set3dRenderingEnabled(false)
+        local token = {}
+        _focusDebounce = token
+        task.delay(0.5, function()
+            -- So desativa se o token ainda for o atual (nao voltou antes)
+            if _focusDebounce == token then
+                _focusDebounce = nil
+                pcall(function() RunService:Set3dRenderingEnabled(false) end)
+            end
+        end)
+    end)
+
+    -- Seguranca: ao reaparecer o personagem, garante render ativo
+    Players.LocalPlayer.CharacterAdded:Connect(function()
+        _focusDebounce = nil
+        pcall(function() RunService:Set3dRenderingEnabled(true) end)
     end)
 end
 

@@ -5,7 +5,7 @@
 -- =====================================================
 
 -- =====================================================
--- LOADING SCREEN - PAINEL VISUAL
+-- LOADING SCREEN - PAINEL VISUAL (v3.1 Redesign)
 -- =====================================================
 local _Players   = game:GetService("Players")
 local _TweenSvc  = game:GetService("TweenService")
@@ -24,89 +24,230 @@ _LGui.Name = "LotuxLoading"
 _LGui.ResetOnSpawn = false
 _LGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 _LGui.DisplayOrder = 9999
+_LGui.IgnoreGuiInset = true
 _LGui.Parent = _PGui
 
--- Fundo escuro
+-- Fundo escuro com gradiente radial simulado
 local _BG = Instance.new("Frame")
 _BG.Size = UDim2.fromScale(1, 1)
-_BG.BackgroundColor3 = Color3.fromRGB(5, 5, 10)
+_BG.BackgroundColor3 = Color3.fromRGB(4, 4, 10)
 _BG.BackgroundTransparency = 0
 _BG.BorderSizePixel = 0
 _BG.ZIndex = 1
 _BG.Parent = _LGui
 
--- Painel central
+-- Gradiente de fundo (canto escuro -> centro levemente iluminado)
+local _BGGrad = Instance.new("UIGradient")
+_BGGrad.Color = ColorSequence.new({
+    ColorSequenceKeypoint.new(0,   Color3.fromRGB(8, 4, 20)),
+    ColorSequenceKeypoint.new(0.5, Color3.fromRGB(14, 8, 32)),
+    ColorSequenceKeypoint.new(1,   Color3.fromRGB(4, 2, 12)),
+})
+_BGGrad.Rotation = 135
+_BGGrad.Parent = _BG
+
+-- Estrelas decorativas (pontos pequenos no fundo)
+local _starPositions = {
+    {0.08,0.12},{0.18,0.32},{0.05,0.55},{0.12,0.78},{0.22,0.92},
+    {0.32,0.08},{0.45,0.18},{0.38,0.72},{0.28,0.60},{0.42,0.88},
+    {0.55,0.05},{0.62,0.28},{0.72,0.15},{0.80,0.40},{0.68,0.62},
+    {0.90,0.10},{0.88,0.35},{0.95,0.55},{0.78,0.80},{0.92,0.90},
+    {0.50,0.45},{0.60,0.70},{0.35,0.35},{0.15,0.50},{0.75,0.95},
+}
+for i, sp in ipairs(_starPositions) do
+    local star = Instance.new("Frame")
+    local sz = math.random(1, 3)
+    star.Size = UDim2.fromOffset(sz, sz)
+    star.Position = UDim2.fromScale(sp[1], sp[2])
+    star.BackgroundColor3 = Color3.fromRGB(
+        math.random(180, 255),
+        math.random(160, 220),
+        math.random(220, 255)
+    )
+    star.BackgroundTransparency = math.random(30, 70) / 100
+    star.BorderSizePixel = 0
+    star.ZIndex = 1
+    star.Parent = _BG
+    Instance.new("UICorner", star).CornerRadius = UDim.new(1, 0)
+
+    -- Animacao de pulsar nas estrelas
+    task.spawn(function()
+        local delay = math.random(0, 30) / 10
+        task.wait(delay)
+        while star and star.Parent do
+            local t1 = _TweenSvc:Create(star, TweenInfo.new(math.random(10,25)/10, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {BackgroundTransparency = math.random(60, 90)/100})
+            t1:Play(); t1.Completed:Wait()
+            local t2 = _TweenSvc:Create(star, TweenInfo.new(math.random(10,25)/10, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {BackgroundTransparency = math.random(0, 30)/100})
+            t2:Play(); t2.Completed:Wait()
+        end
+    end)
+end
+
+-- Painel central (mais alto e elegante)
 local _Panel = Instance.new("Frame")
-_Panel.Size = UDim2.fromOffset(560, 360)
-_Panel.Position = UDim2.new(0.5, -280, 0.5, -180)
-_Panel.BackgroundColor3 = Color3.fromRGB(13, 13, 20)
+_Panel.Size = UDim2.fromOffset(560, 400)
+_Panel.Position = UDim2.new(0.5, -280, 0.5, -200)
+_Panel.BackgroundColor3 = Color3.fromRGB(10, 10, 18)
 _Panel.BorderSizePixel = 0
 _Panel.ZIndex = 2
 _Panel.Parent = _BG
-Instance.new("UICorner", _Panel).CornerRadius = UDim.new(0, 16)
+Instance.new("UICorner", _Panel).CornerRadius = UDim.new(0, 20)
 
--- Stroke roxo no painel
+-- Brilho de fundo no painel (glow effect via frame maior e transparente)
+local _PanelGlow = Instance.new("Frame")
+_PanelGlow.Size = UDim2.new(1, 30, 1, 30)
+_PanelGlow.Position = UDim2.new(0, -15, 0, -15)
+_PanelGlow.BackgroundColor3 = Color3.fromRGB(80, 40, 200)
+_PanelGlow.BackgroundTransparency = 0.88
+_PanelGlow.BorderSizePixel = 0
+_PanelGlow.ZIndex = 1
+_PanelGlow.Parent = _Panel
+Instance.new("UICorner", _PanelGlow).CornerRadius = UDim.new(0, 28)
+
+-- Stroke com gradiente simulado (UIStroke nao suporta gradiente nativo)
 local _PStroke = Instance.new("UIStroke")
-_PStroke.Color = Color3.fromRGB(90, 50, 210)
+_PStroke.Color = Color3.fromRGB(100, 55, 230)
 _PStroke.Thickness = 1.5
+_PStroke.Transparency = 0.2
 _PStroke.Parent = _Panel
 
--- Barra topo colorida
+-- Animacao do stroke (pulsa levemente)
+task.spawn(function()
+    while _PStroke and _PStroke.Parent do
+        local t1 = _TweenSvc:Create(_PStroke, TweenInfo.new(2, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {Transparency = 0.6})
+        t1:Play(); t1.Completed:Wait()
+        local t2 = _TweenSvc:Create(_PStroke, TweenInfo.new(2, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {Transparency = 0.0})
+        t2:Play(); t2.Completed:Wait()
+    end
+end)
+
+-- Barra topo com gradiente animado
 local _AccBar = Instance.new("Frame")
-_AccBar.Size = UDim2.new(1, 0, 0, 3)
+_AccBar.Size = UDim2.new(1, 0, 0, 4)
 _AccBar.BackgroundColor3 = Color3.fromRGB(100, 50, 255)
 _AccBar.BorderSizePixel = 0
 _AccBar.ZIndex = 3
 _AccBar.Parent = _Panel
-Instance.new("UICorner", _AccBar).CornerRadius = UDim.new(0, 16)
+Instance.new("UICorner", _AccBar).CornerRadius = UDim.new(0, 20)
 local _AccGrad = Instance.new("UIGradient")
 _AccGrad.Color = ColorSequence.new({
-    ColorSequenceKeypoint.new(0,   Color3.fromRGB(50, 20, 200)),
-    ColorSequenceKeypoint.new(0.5, Color3.fromRGB(160, 80, 255)),
-    ColorSequenceKeypoint.new(1,   Color3.fromRGB(50, 20, 200)),
+    ColorSequenceKeypoint.new(0,   Color3.fromRGB(40, 15, 180)),
+    ColorSequenceKeypoint.new(0.35, Color3.fromRGB(140, 60, 255)),
+    ColorSequenceKeypoint.new(0.65, Color3.fromRGB(200, 100, 255)),
+    ColorSequenceKeypoint.new(1,   Color3.fromRGB(40, 15, 180)),
 })
 _AccGrad.Parent = _AccBar
 
+-- Animacao do gradiente da barra (efeito shimmer)
+task.spawn(function()
+    local offset = 0
+    while _AccGrad and _AccGrad.Parent do
+        offset = (offset + 0.01) % 1
+        _AccGrad.Offset = Vector2.new(math.sin(offset * math.pi * 2) * 0.3, 0)
+        task.wait(0.05)
+    end
+end)
+
+-- Icone / Logo area (circulo com inicial animado)
+local _LogoBG = Instance.new("Frame")
+_LogoBG.Size = UDim2.fromOffset(72, 72)
+_LogoBG.Position = UDim2.new(0.5, -36, 0, 22)
+_LogoBG.BackgroundColor3 = Color3.fromRGB(18, 12, 40)
+_LogoBG.BorderSizePixel = 0
+_LogoBG.ZIndex = 4
+_LogoBG.Parent = _Panel
+Instance.new("UICorner", _LogoBG).CornerRadius = UDim.new(1, 0)
+local _LogoStroke = Instance.new("UIStroke")
+_LogoStroke.Color = Color3.fromRGB(130, 70, 255)
+_LogoStroke.Thickness = 2
+_LogoStroke.Parent = _LogoBG
+-- Pulsar o logo stroke
+task.spawn(function()
+    while _LogoStroke and _LogoStroke.Parent do
+        local t1 = _TweenSvc:Create(_LogoStroke, TweenInfo.new(1.5, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {Transparency = 0.7})
+        t1:Play(); t1.Completed:Wait()
+        local t2 = _TweenSvc:Create(_LogoStroke, TweenInfo.new(1.5, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {Transparency = 0.0})
+        t2:Play(); t2.Completed:Wait()
+    end
+end)
+
+local _LogoLabel = Instance.new("TextLabel")
+_LogoLabel.Size = UDim2.fromScale(1, 1)
+_LogoLabel.BackgroundTransparency = 1
+_LogoLabel.Text = "✦"
+_LogoLabel.TextColor3 = Color3.fromRGB(190, 140, 255)
+_LogoLabel.Font = Enum.Font.GothamBold
+_LogoLabel.TextSize = 32
+_LogoLabel.ZIndex = 5
+_LogoLabel.Parent = _LogoBG
+-- Rotacao suave do icone
+task.spawn(function()
+    local rot = 0
+    while _LogoLabel and _LogoLabel.Parent do
+        rot = (rot + 0.5) % 360
+        _LogoLabel.Rotation = math.sin(rot * math.pi / 180) * 12
+        task.wait(0.05)
+    end
+end)
+
 -- Titulo
 local _Title = Instance.new("TextLabel")
-_Title.Size = UDim2.new(1, 0, 0, 36)
-_Title.Position = UDim2.new(0, 0, 0, 14)
+_Title.Size = UDim2.new(1, 0, 0, 32)
+_Title.Position = UDim2.new(0, 0, 0, 102)
 _Title.BackgroundTransparency = 1
-_Title.Text = "✦  Lotux Hub"
-_Title.TextColor3 = Color3.fromRGB(210, 180, 255)
+_Title.Text = "Lotux Hub"
+_Title.TextColor3 = Color3.fromRGB(220, 190, 255)
 _Title.Font = Enum.Font.GothamBold
-_Title.TextSize = 22
+_Title.TextSize = 24
 _Title.ZIndex = 3
 _Title.Parent = _Panel
+
+-- Efeito shimmer no titulo
+task.spawn(function()
+    while _Title and _Title.Parent do
+        local t1 = _TweenSvc:Create(_Title, TweenInfo.new(2.5, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {TextColor3 = Color3.fromRGB(180, 140, 255)})
+        t1:Play(); t1.Completed:Wait()
+        local t2 = _TweenSvc:Create(_Title, TweenInfo.new(2.5, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {TextColor3 = Color3.fromRGB(230, 200, 255)})
+        t2:Play(); t2.Completed:Wait()
+    end
+end)
 
 -- Subtitulo
 local _Sub = Instance.new("TextLabel")
 _Sub.Size = UDim2.new(1, 0, 0, 18)
-_Sub.Position = UDim2.new(0, 0, 0, 50)
+_Sub.Position = UDim2.new(0, 0, 0, 136)
 _Sub.BackgroundTransparency = 1
 _Sub.Text = "by LoadFlint/lucas  •  v3.0"
-_Sub.TextColor3 = Color3.fromRGB(110, 85, 170)
+_Sub.TextColor3 = Color3.fromRGB(100, 75, 160)
 _Sub.Font = Enum.Font.Gotham
 _Sub.TextSize = 12
 _Sub.ZIndex = 3
 _Sub.Parent = _Panel
 
--- Separador
-local _Sep = Instance.new("Frame")
-_Sep.Size = UDim2.new(0.9, 0, 0, 1)
-_Sep.Position = UDim2.new(0.05, 0, 0, 74)
-_Sep.BackgroundColor3 = Color3.fromRGB(40, 30, 70)
-_Sep.BorderSizePixel = 0
-_Sep.ZIndex = 3
-_Sep.Parent = _Panel
+-- Separador com gradiente
+local _SepFrame = Instance.new("Frame")
+_SepFrame.Size = UDim2.new(0.88, 0, 0, 1)
+_SepFrame.Position = UDim2.new(0.06, 0, 0, 162)
+_SepFrame.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+_SepFrame.BorderSizePixel = 0
+_SepFrame.ZIndex = 3
+_SepFrame.Parent = _Panel
+local _SepGrad = Instance.new("UIGradient")
+_SepGrad.Color = ColorSequence.new({
+    ColorSequenceKeypoint.new(0,   Color3.fromRGB(10, 8, 25)),
+    ColorSequenceKeypoint.new(0.3, Color3.fromRGB(80, 45, 180)),
+    ColorSequenceKeypoint.new(0.7, Color3.fromRGB(80, 45, 180)),
+    ColorSequenceKeypoint.new(1,   Color3.fromRGB(10, 8, 25)),
+})
+_SepGrad.Parent = _SepFrame
 
--- Label "UI Carregando..."
+-- Label status
 local _StatusMsg = Instance.new("TextLabel")
 _StatusMsg.Size = UDim2.new(1, -30, 0, 20)
-_StatusMsg.Position = UDim2.new(0, 15, 0, 84)
+_StatusMsg.Position = UDim2.new(0, 15, 0, 172)
 _StatusMsg.BackgroundTransparency = 1
 _StatusMsg.Text = "⏳  Inicializando Lotux Hub..."
-_StatusMsg.TextColor3 = Color3.fromRGB(200, 200, 255)
+_StatusMsg.TextColor3 = Color3.fromRGB(190, 175, 240)
 _StatusMsg.Font = Enum.Font.GothamBold
 _StatusMsg.TextSize = 13
 _StatusMsg.TextXAlignment = Enum.TextXAlignment.Left
@@ -115,22 +256,40 @@ _StatusMsg.Parent = _Panel
 
 -- Mini console (frame de fundo)
 local _ConFrame = Instance.new("Frame")
-_ConFrame.Size = UDim2.new(0.9, 0, 0, 152)
-_ConFrame.Position = UDim2.new(0.05, 0, 0, 112)
-_ConFrame.BackgroundColor3 = Color3.fromRGB(6, 6, 12)
+_ConFrame.Size = UDim2.new(0.88, 0, 0, 138)
+_ConFrame.Position = UDim2.new(0.06, 0, 0, 200)
+_ConFrame.BackgroundColor3 = Color3.fromRGB(5, 5, 11)
 _ConFrame.BorderSizePixel = 0
 _ConFrame.ZIndex = 3
 _ConFrame.Parent = _Panel
-Instance.new("UICorner", _ConFrame).CornerRadius = UDim.new(0, 8)
+Instance.new("UICorner", _ConFrame).CornerRadius = UDim.new(0, 10)
 local _ConStroke = Instance.new("UIStroke")
-_ConStroke.Color = Color3.fromRGB(40, 30, 80)
+_ConStroke.Color = Color3.fromRGB(45, 30, 90)
 _ConStroke.Thickness = 1
 _ConStroke.Parent = _ConFrame
 
+-- Cabecalho do console
+local _ConHeader = Instance.new("Frame")
+_ConHeader.Size = UDim2.new(1, 0, 0, 22)
+_ConHeader.BackgroundColor3 = Color3.fromRGB(14, 10, 30)
+_ConHeader.BorderSizePixel = 0
+_ConHeader.ZIndex = 4
+_ConHeader.Parent = _ConFrame
+Instance.new("UICorner", _ConHeader).CornerRadius = UDim.new(0, 10)
+local _ConHeaderLabel = Instance.new("TextLabel")
+_ConHeaderLabel.Size = UDim2.fromScale(1, 1)
+_ConHeaderLabel.BackgroundTransparency = 1
+_ConHeaderLabel.Text = "console"
+_ConHeaderLabel.TextColor3 = Color3.fromRGB(70, 50, 130)
+_ConHeaderLabel.Font = Enum.Font.Code
+_ConHeaderLabel.TextSize = 10
+_ConHeaderLabel.ZIndex = 5
+_ConHeaderLabel.Parent = _ConHeader
+
 -- ScrollingFrame dentro do console
 local _ConScroll = Instance.new("ScrollingFrame")
-_ConScroll.Size = UDim2.new(1, -8, 1, -8)
-_ConScroll.Position = UDim2.new(0, 4, 0, 4)
+_ConScroll.Size = UDim2.new(1, -8, 1, -28)
+_ConScroll.Position = UDim2.new(0, 4, 0, 24)
 _ConScroll.BackgroundTransparency = 1
 _ConScroll.BorderSizePixel = 0
 _ConScroll.ScrollBarThickness = 3
@@ -143,72 +302,143 @@ _ConLayout.SortOrder = Enum.SortOrder.LayoutOrder
 _ConLayout.Padding = UDim.new(0, 2)
 _ConLayout.Parent = _ConScroll
 
--- Barra de progresso (fundo)
+-- Barra de progresso (fundo) - com label de etapa acima
+local _StepLabel = Instance.new("TextLabel")
+_StepLabel.Size = UDim2.new(0.88, 0, 0, 16)
+_StepLabel.Position = UDim2.new(0.06, 0, 0, 345)
+_StepLabel.BackgroundTransparency = 1
+_StepLabel.Text = "Aguardando..."
+_StepLabel.TextColor3 = Color3.fromRGB(90, 65, 155)
+_StepLabel.Font = Enum.Font.Gotham
+_StepLabel.TextSize = 10
+_StepLabel.TextXAlignment = Enum.TextXAlignment.Left
+_StepLabel.ZIndex = 3
+_StepLabel.Parent = _Panel
+
 local _BarBG = Instance.new("Frame")
-_BarBG.Size = UDim2.new(0.9, 0, 0, 18)
-_BarBG.Position = UDim2.new(0.05, 0, 0, 272)
-_BarBG.BackgroundColor3 = Color3.fromRGB(20, 15, 40)
+_BarBG.Size = UDim2.new(0.88, 0, 0, 16)
+_BarBG.Position = UDim2.new(0.06, 0, 0, 362)
+_BarBG.BackgroundColor3 = Color3.fromRGB(16, 12, 35)
 _BarBG.BorderSizePixel = 0
 _BarBG.ZIndex = 3
 _BarBG.Parent = _Panel
-Instance.new("UICorner", _BarBG).CornerRadius = UDim.new(0, 9)
+Instance.new("UICorner", _BarBG).CornerRadius = UDim.new(0, 8)
 
--- Barra de progresso (preenchimento)
+-- Preenchimento da barra
 local _BarFill = Instance.new("Frame")
 _BarFill.Size = UDim2.new(0, 0, 1, 0)
 _BarFill.BackgroundColor3 = Color3.fromRGB(100, 50, 255)
 _BarFill.BorderSizePixel = 0
 _BarFill.ZIndex = 4
 _BarFill.Parent = _BarBG
-Instance.new("UICorner", _BarFill).CornerRadius = UDim.new(0, 9)
+Instance.new("UICorner", _BarFill).CornerRadius = UDim.new(0, 8)
 local _FillGrad = Instance.new("UIGradient")
 _FillGrad.Color = ColorSequence.new({
-    ColorSequenceKeypoint.new(0,   Color3.fromRGB(80, 30, 200)),
-    ColorSequenceKeypoint.new(1,   Color3.fromRGB(180, 100, 255)),
+    ColorSequenceKeypoint.new(0,   Color3.fromRGB(70, 25, 200)),
+    ColorSequenceKeypoint.new(0.6, Color3.fromRGB(160, 80, 255)),
+    ColorSequenceKeypoint.new(1,   Color3.fromRGB(200, 120, 255)),
 })
 _FillGrad.Parent = _BarFill
 
--- Label de porcentagem
+-- Brilho (shimmer) que percorre a barra
+local _BarShimmer = Instance.new("Frame")
+_BarShimmer.Size = UDim2.new(0, 30, 1, 0)
+_BarShimmer.Position = UDim2.new(-0.1, 0, 0, 0)
+_BarShimmer.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+_BarShimmer.BackgroundTransparency = 0.75
+_BarShimmer.BorderSizePixel = 0
+_BarShimmer.ZIndex = 5
+_BarShimmer.Parent = _BarFill
+Instance.new("UICorner", _BarShimmer).CornerRadius = UDim.new(0, 8)
+task.spawn(function()
+    while _BarShimmer and _BarShimmer.Parent do
+        local t = _TweenSvc:Create(_BarShimmer, TweenInfo.new(1.2, Enum.EasingStyle.Quad, Enum.EasingDirection.InOut), {Position = UDim2.new(1.1, 0, 0, 0)})
+        t:Play(); t.Completed:Wait()
+        _BarShimmer.Position = UDim2.new(-0.15, 0, 0, 0)
+        task.wait(0.3)
+    end
+end)
+
+-- Label de porcentagem (dentro da barra)
 local _PctLabel = Instance.new("TextLabel")
 _PctLabel.Size = UDim2.fromScale(1, 1)
 _PctLabel.BackgroundTransparency = 1
 _PctLabel.Text = "0%"
-_PctLabel.TextColor3 = Color3.fromRGB(220, 200, 255)
+_PctLabel.TextColor3 = Color3.fromRGB(210, 190, 255)
 _PctLabel.Font = Enum.Font.GothamBold
-_PctLabel.TextSize = 11
-_PctLabel.ZIndex = 5
+_PctLabel.TextSize = 10
+_PctLabel.ZIndex = 6
 _PctLabel.Parent = _BarBG
+
+-- Versao no rodape do painel
+local _Footer = Instance.new("TextLabel")
+_Footer.Size = UDim2.new(1, 0, 0, 16)
+_Footer.Position = UDim2.new(0, 0, 0, 382)
+_Footer.BackgroundTransparency = 1
+_Footer.Text = "Lotux Hub  •  Blox Fruits"
+_Footer.TextColor3 = Color3.fromRGB(50, 35, 90)
+_Footer.Font = Enum.Font.Gotham
+_Footer.TextSize = 10
+_Footer.ZIndex = 3
+_Footer.Parent = _Panel
 
 -- Contador de linhas no console (para layout)
 local _conLineCount = 0
 
+-- Animacao de entrada do painel (slide + fade in)
+_Panel.Position = UDim2.new(0.5, -280, 0.6, -200)
+_Panel.BackgroundTransparency = 1
+task.spawn(function()
+    task.wait(0.05)
+    local tin = TweenInfo.new(0.45, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
+    _TweenSvc:Create(_Panel, tin, {
+        Position = UDim2.new(0.5, -280, 0.5, -200),
+        BackgroundTransparency = 0,
+    }):Play()
+end)
+
 -- Funcoes do painel
 local function _SetProgress(pct)
     pct = math.clamp(pct, 0, 100)
-    _BarFill.Size = UDim2.new(pct / 100, 0, 1, 0)
+    _TweenSvc:Create(_BarFill, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+        Size = UDim2.new(pct / 100, 0, 1, 0)
+    }):Play()
     _PctLabel.Text = math.floor(pct) .. "%"
 end
 
+local _colorCycle = {
+    Color3.fromRGB(140, 110, 220),
+    Color3.fromRGB(100, 200, 180),
+    Color3.fromRGB(200, 160, 100),
+    Color3.fromRGB(140, 110, 220),
+}
+local _colorIdx = 0
+
 local function _ConsoleLog(msg)
     _conLineCount = _conLineCount + 1
+    _colorIdx = (_colorIdx % #_colorCycle) + 1
     local line = Instance.new("TextLabel")
-    line.Size = UDim2.new(1, 0, 0, 16)
+    line.Size = UDim2.new(1, 0, 0, 15)
     line.BackgroundTransparency = 1
     line.Text = "> " .. msg
-    line.TextColor3 = Color3.fromRGB(140, 110, 220)
+    line.TextColor3 = _colorCycle[_colorIdx]
     line.Font = Enum.Font.Code
     line.TextSize = 11
     line.TextXAlignment = Enum.TextXAlignment.Left
     line.LayoutOrder = _conLineCount
     line.ZIndex = 5
+    line.BackgroundTransparency = 1
     line.Parent = _ConScroll
     -- Auto scroll para o fim
-    _ConScroll.CanvasSize = UDim2.new(0, 0, 0, _ConLayout.AbsoluteContentSize.Y + 8)
-    _ConScroll.CanvasPosition = Vector2.new(0, math.max(0, _ConScroll.CanvasSize.Y.Offset - _ConScroll.AbsoluteSize.Y))
+    task.defer(function()
+        _ConScroll.CanvasSize = UDim2.new(0, 0, 0, _ConLayout.AbsoluteContentSize.Y + 8)
+        _ConScroll.CanvasPosition = Vector2.new(0, math.max(0, _ConScroll.CanvasSize.Y.Offset - _ConScroll.AbsoluteSize.Y))
+    end)
 end
 
 local function _SetStatus(msg)
     _StatusMsg.Text = "⏳  " .. msg
+    _StepLabel.Text = msg
     _ConsoleLog(msg)
     print("[LotuxHub] Carregando: " .. msg)
     task.wait(0.1)
