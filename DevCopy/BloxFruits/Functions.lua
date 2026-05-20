@@ -69,15 +69,24 @@ function Functions.StartWeaponResolver(config)
                 local tooltip = tipo
                 if tipo == "BloxFruits" then tooltip = "Blox Fruit" end
 
+                -- Verifica se a arma atual ainda existe E ainda bate com o tipo selecionado
+                -- (igual ao Tiroreal: sempre reatualiza quando o tipo muda)
                 if config.SelectedWeaponName ~= "" then
+                    -- Procura a arma no backpack ou no character
                     local existing = Player.Backpack:FindFirstChild(config.SelectedWeaponName)
                                   or (Player.Character and Player.Character:FindFirstChild(config.SelectedWeaponName))
-                    if existing then return end
+                    -- So pula a atualizacao se a arma existe E o ToolTip ainda bate
+                    if existing and (existing.ToolTip == tooltip or existing.ToolTip == tipo) then
+                        return
+                    end
+                    -- Arma nao existe ou tipo mudou: reseta para buscar nova
+                    config.SelectedWeaponName = ""
                 end
 
+                -- Busca pelo ToolTip exato (logica identica ao Tiroreal)
                 local found = false
                 for _, tool in pairs(Player.Backpack:GetChildren()) do
-                    if tool:IsA("Tool") and tool.ToolTip == tooltip then
+                    if tool:IsA("Tool") and (tool.ToolTip == tooltip or tool.ToolTip == tipo) then
                         config.SelectedWeaponName = tool.Name
                         found = true; break
                     end
@@ -85,13 +94,14 @@ function Functions.StartWeaponResolver(config)
 
                 if not found and Player.Character then
                     for _, tool in pairs(Player.Character:GetChildren()) do
-                        if tool:IsA("Tool") and tool.ToolTip == tooltip then
+                        if tool:IsA("Tool") and (tool.ToolTip == tooltip or tool.ToolTip == tipo) then
                             config.SelectedWeaponName = tool.Name
                             found = true; break
                         end
                     end
                 end
 
+                -- Fallback: busca por nome parcial (caso ToolTip esteja vazio/diferente)
                 if not found then
                     for _, tool in pairs(Player.Backpack:GetChildren()) do
                         if tool:IsA("Tool") and tool.Name:lower():find(tooltip:lower()) then
@@ -4336,28 +4346,179 @@ function Functions.DetectMob2(mobName)
     return Functions.DetectMob(mobName)
 end
 
--- GetPlayerBoat - Pega o barco do jogador
-function Functions.GetPlayerBoat()
+-- GetLocalBoat - Pega barco do jogador pelo Owner no workspace.Boats
+-- Identico ao Tiroreal (verifica Humanoid.Value > 0)
+function Functions.GetLocalBoat()
     local boats = workspace:FindFirstChild("Boats")
-    if boats then
-        for _, boat in ipairs(boats:GetChildren()) do
-            if boat:FindFirstChild("Owner") and boat.Owner.Value == Player then
-                return boat
+    if not boats then return false end
+    for _, v in next, boats:GetChildren() do
+        if v:IsA("Model") then
+            if v:FindFirstChild("Owner") and tostring(v.Owner.Value) == Player.Name then
+                local hum = v:FindFirstChild("Humanoid")
+                if hum and hum.Value > 0 then
+                    return v
+                end
             end
+        end
+    end
+    return false
+end
+
+-- GetPlayerBoat - Pega barco onde o player esta sentado (pelo VehicleSeat)
+-- Identico ao Tiroreal
+function Functions.GetPlayerBoat()
+    local char = Player.Character
+    if char and char:FindFirstChild("HumanoidRootPart") then
+        local hum = char:FindFirstChildOfClass("Humanoid")
+        if hum and hum.SeatPart and hum.SeatPart:IsA("VehicleSeat") then
+            return hum.SeatPart.Parent
         end
     end
     return nil
 end
 
--- MoveBoat - Move o barco em direcao
+-- MoveBoat - Move o barco em direcao com Tween (logica do Tiroreal)
+local _boatMovementConnection = nil
 function Functions.MoveBoat(direction, distance, speed)
     local boat = Functions.GetPlayerBoat()
-    if boat then
-        local boatPos = boat:FindFirstChild("PrimaryPart") or boat
-        local targetPos = boatPos.Position + (direction * distance)
-        
-        local tween = TweenService:Create(boatPos, TweenInfo.new(distance / speed), {Position = targetPos})
+    if boat and boat.PrimaryPart then
+        local boatPrimaryPart = boat.PrimaryPart
+        local targetPosition  = boatPrimaryPart.Position + (direction * distance)
+        targetPosition = Vector3.new(targetPosition.X, targetPosition.Y + 200, targetPosition.Z)
+        local dist2    = (boatPrimaryPart.Position - targetPosition).Magnitude
+        local tweenInfo = TweenInfo.new(dist2 / speed, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+        local tween = TweenService:Create(boatPrimaryPart, tweenInfo, {CFrame = CFrame.new(targetPosition)})
         tween:Play()
+    end
+end
+
+-- StartBoatMovement / StopBoatMovement (identicos ao Tiroreal)
+function Functions.StartBoatMovement(config)
+    Functions.StopBoatMovement()
+    _boatMovementConnection = RunService.Heartbeat:Connect(function()
+        local direction = Vector3.new(0, 0, 1000)
+        local distance  = 500
+        local speed     = 186
+        Functions.MoveBoat(direction, distance, speed)
+    end)
+end
+
+function Functions.StopBoatMovement()
+    if _boatMovementConnection then
+        _boatMovementConnection:Disconnect()
+        _boatMovementConnection = nil
+    end
+end
+
+-- WaitHRP - Aguarda HumanoidRootPart do player (identico ao Tiroreal)
+function Functions.WaitHRP(plr)
+    if not plr then return end
+    return plr.Character:WaitForChild("HumanoidRootPart", 9)
+end
+
+-- isnil - Verifica se objeto eh nulo/destruido com pcall (identico ao Tiroreal)
+function Functions.isnil(thing)
+    return not pcall(function() return thing.Parent end)
+end
+
+-- attackNearbyEnemies - Ataca inimigos proximos (logica do Tiroreal)
+function Functions.attackNearbyEnemies(config, range)
+    range = range or 20
+    local char = Player.Character
+    if not char then return end
+    local hrp = char:FindFirstChild("HumanoidRootPart")
+    if not hrp then return end
+    local enemies = workspace:FindFirstChild("Enemies")
+    if not enemies then return end
+    for _, mob in pairs(enemies:GetChildren()) do
+        pcall(function()
+            local mobHrp = mob:FindFirstChild("HumanoidRootPart")
+            local mobHum = mob:FindFirstChild("Humanoid")
+            if mobHrp and mobHum and mobHum.Health > 0 then
+                local dist = (mobHrp.Position - hrp.Position).Magnitude
+                if dist <= range then
+                    Functions.EquipWeapon(config.SelectedWeaponName)
+                    local remote = ReplicatedStorage.Remotes:FindFirstChild("CommF_")
+                    if remote then
+                        remote:InvokeServer("UpdateNPCHealth", mob, 1)
+                    end
+                end
+            end
+        end)
+    end
+end
+
+-- targettrial - Completa trial/arena atacando mobs proximos
+function Functions.targettrial(config)
+    local char = Player.Character
+    if not char then return end
+    local hrp = char:FindFirstChild("HumanoidRootPart")
+    if not hrp then return end
+    local enemies = workspace:FindFirstChild("Enemies")
+    if not enemies then return end
+    for _, mob in pairs(enemies:GetChildren()) do
+        pcall(function()
+            local mobHrp = mob:FindFirstChild("HumanoidRootPart")
+            local mobHum = mob:FindFirstChild("Humanoid")
+            if mobHrp and mobHum and mobHum.Health > 0 then
+                Functions.EquipWeapon(config.SelectedWeaponName)
+                hrp.CFrame = mobHrp.CFrame * CFrame.new(0, 0, 3)
+            end
+        end)
+    end
+end
+
+-- CheckPirateBoat - Verifica se existe barco pirata no mapa
+function Functions.CheckPirateBoat()
+    local boats = workspace:FindFirstChild("Boats")
+    if not boats then return false end
+    for _, v in pairs(boats:GetChildren()) do
+        if v:IsA("Model") and v.Name:lower():find("pirate") then
+            return true
+        end
+    end
+    return false
+end
+
+-- TpEntrance - Teleporta para entrada de dungeon/portal (identico ao Tiroreal)
+function Functions.TpEntrance(pos)
+    local char = Player.Character
+    if not char then return end
+    local hrp = char:FindFirstChild("HumanoidRootPart")
+    if not hrp then return end
+    hrp.CFrame = pos
+end
+
+-- UpdateTime - Atualiza label de tempo na UI (placeholder para compatibilidade)
+function Functions.UpdateTime(label)
+    if not label then return end
+    local elapsed = os.time() - (Functions._startTime or os.time())
+    local h = math.floor(elapsed / 3600)
+    local m = math.floor((elapsed % 3600) / 60)
+    local s = elapsed % 60
+    pcall(function()
+        label:Set(string.format("%02d:%02d:%02d", h, m, s))
+    end)
+end
+
+-- UpdateClient / UpdateClient1 - Atualiza labels de status (placeholder)
+function Functions.UpdateClient(label, text)
+    pcall(function()
+        if label then label:Set(tostring(text)) end
+    end)
+end
+
+function Functions.UpdateClient1(label, text)
+    Functions.UpdateClient(label, text)
+end
+
+-- InfAb - Activa Awakening/AbilityBar infinitamente via remote
+function Functions.InfAb()
+    local remote = ReplicatedStorage.Remotes:FindFirstChild("CommF_")
+    if remote then
+        pcall(function()
+            remote:InvokeServer("ActivateAbility")
+        end)
     end
 end
 
