@@ -1146,7 +1146,7 @@ end
 print("[LotuxHub] Criando interface...")
 local Window = redzlib:MakeWindow({
     Title      = "Lotux Hub",
-    SubTitle   = "by LoadFlint/lucas v3.0",
+    SubTitle   = "by LoadFlint/lucas v1.2",
     SaveFolder = "LotuxHub_Save",
 })
 print("[LotuxHub] Interface criada!")
