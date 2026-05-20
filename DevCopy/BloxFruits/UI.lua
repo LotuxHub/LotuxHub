@@ -2518,23 +2518,6 @@ Visual:AddToggle({
     end,
 })
 
--- Render on Focus (pausa render quando janela perde foco)
-Visual:AddToggle({
-    Title    = "Render on Focus (economiza CPU)",
-    Default  = true,
-    Callback = function(v)
-        Config.RenderOnFocus = v
-        if v then
-            pcall(function() Functions.StartFocusRenderControl() end)
-            Notify({ Title = "Render on Focus Ativado", Description = "3D pausa quando janela perde foco", Image = IMG, Type = "Success", Duration = 3 })
-        else
-            -- Garante que o render esta ligado ao desativar
-            pcall(function() RunService:Set3dRenderingEnabled(true) end)
-            Notify({ Title = "Render on Focus Desativado", Image = IMG, Type = "Info", Duration = 2 })
-        end
-    end,
-})
-
 Visual:AddSection("Visuais do Mapa")
 
 -- Fullbright
@@ -2639,12 +2622,11 @@ Misc:AddToggle({ Title = "Auto Skill C", Default = false,
 
 Misc:AddSection(T("sec_script_info"))
 Misc:AddParagraph({ Title = "Lotux Hub v3.0 - Modular", Text =
-    "by LoadFlint/lucas\n" ..
+    "Lotux Hub Update v1.2\n" ..
     "[>] Auto Farm com Quest Fix\n" ..
     "[>] ESP Circulo Verde + SelectionBox\n" ..
     "[>] Aqua Aura, Rainbow Skills, Billboard\n" ..
     "[>] Self Highlight + FPS Counter\n" ..
-    "[>] Render on Focus (economiza CPU)\n" ..
     "[>] Sea 1, 2 e 3 detectado automaticamente"
 })
 Misc:AddButton({ Title = T("ui_close_ui"), Callback = function() Window:CloseBtn() end })
@@ -2652,9 +2634,6 @@ Misc:AddButton({ Title = T("ui_close_ui"), Callback = function() Window:CloseBtn
 -- =====================================================
 -- INICIA FEATURES ATIVAS POR PADRAO
 -- =====================================================
-
--- Render on Focus ativo por padrao (Config.RenderOnFocus = true)
-Functions.StartFocusRenderControl()
 
 -- Sem neblina por padrao
 Lighting.FogEnd = Config.NoFog and 100000 or 1000
@@ -2686,13 +2665,13 @@ task.spawn(function()
 end)
 
 Notify({
-    Title       = "Lotux Hub v3.0 Carregado!",
+    Title       = "Lotux Hub v1.2 Carregado!",
     Description = "Sea " .. CurrentSea .. " | PlaceId: " .. game.PlaceId,
     Image       = IMG,
     Duration    = 5,
     Type        = "Success",
 })
 print("[LotuxHub] Script carregado com sucesso!")
-print("[LotuxHub] Versão: 3.0 | by LoadFlint/lucas")
+print("[LotuxHub] Versão: 1.2 | by LoadFlint/lucas")
 print("[LotuxHub] Sea detectado: " .. CurrentSea)
 print("[LotuxHub] PlaceId: " .. game.PlaceId)
