@@ -792,17 +792,8 @@ task.spawn(function()
                 if not hrp or not hum or hum.Health <= 0 then farmRunning = false; return end
 
                 if Config.AutoBusoHaki then Functions.ActivateBuso(CommF_) end
-                -- Resolve nome pelo ToolTip (Tiroreal style)
-                do
-                    local tip = Config.FarmWeapon
-                    if tip == "BloxFruits" then tip = "Blox Fruit" end
-                    for _, t in pairs(Player.Backpack:GetChildren()) do
-                        if t:IsA("Tool") and t.ToolTip == tip then
-                            Config.SelectedWeaponName = t.Name
-                            break
-                        end
-                    end
-                end
+                -- Resolve nome da arma AGORA (igual ao Tiroreal: inline antes de equipar)
+                Functions.ResolveWeaponNow(Config)
                 if Config.SelectedWeaponName and Config.SelectedWeaponName ~= "" then
                     Functions.EquipWeapon(Config.SelectedWeaponName, NotAutoEquip)
                 end
@@ -872,28 +863,10 @@ task.spawn(function()
                     pcall(function() CommF_:InvokeServer("StartQuest", quest.NameQuest, quest.QuestLv) end)
                     task.wait(0.3)
 
-                    -- FIX: equipa arma imediatamente ao pegar quest
-                    -- Tenta pelo nome resolvido primeiro, senão usa ToolTip direto
-                    local weaponEquipped = false
+                    -- Resolve e equipa a arma imediatamente ao pegar quest (igual ao Tiroreal)
+                    Functions.ResolveWeaponNow(Config)
                     if Config.SelectedWeaponName and Config.SelectedWeaponName ~= "" then
                         Functions.EquipWeapon(Config.SelectedWeaponName, NotAutoEquip)
-                        weaponEquipped = true
-                    end
-                    if not weaponEquipped then
-                        -- Fallback: procura pela ToolTip do tipo selecionado
-                        local tip = Config.FarmWeapon
-                        if tip == "BloxFruits" then tip = "Blox Fruit" end
-                        local char = Player.Character
-                        local hum  = char and char:FindFirstChildOfClass("Humanoid")
-                        if hum then
-                            for _, t in pairs(Player.Backpack:GetChildren()) do
-                                if t:IsA("Tool") and t.ToolTip == tip then
-                                    hum:EquipTool(t)
-                                    Config.SelectedWeaponName = t.Name
-                                    break
-                                end
-                            end
-                        end
                     end
 
                 -- Quest ativa
@@ -913,6 +886,8 @@ task.spawn(function()
                             local hum = mob:FindFirstChild("Humanoid")
                             if hrp and hum and hum.Health > 0 then
                                 if Config.AutoBusoHaki then Functions.ActivateBuso(CommF_) end
+                                -- Resolve arma inline antes de equipar (igual ao Tiroreal)
+                                Functions.ResolveWeaponNow(Config)
                                 if Config.SelectedWeaponName and Config.SelectedWeaponName ~= "" then
                                     Functions.EquipWeapon(Config.SelectedWeaponName, NotAutoEquip)
                                 end
@@ -1146,7 +1121,7 @@ end
 print("[LotuxHub] Criando interface...")
 local Window = redzlib:MakeWindow({
     Title      = "Lotux Hub",
-    SubTitle   = "by LoadFlint/lucas v1.2",
+    SubTitle   = "by LoadFlint/lucas v3.0",
     SaveFolder = "LotuxHub_Save",
 })
 print("[LotuxHub] Interface criada!")

@@ -61,56 +61,59 @@ end
 -- WEAPON RESOLVER
 -- =====================================================
 
+-- ResolveWeaponNow - Resolve o nome da arma IMEDIATAMENTE pelo ToolTip
+-- Logica identica ao Tiroreal: chame isso inline antes de equipar
+function Functions.ResolveWeaponNow(config)
+    pcall(function()
+        local tipo = config.FarmWeapon
+        local tooltip = tipo
+        if tipo == "BloxFruits" then tooltip = "Blox Fruit" end
+
+        -- Sempre re-resolve: igual ao loop do Tiroreal que roda while wait()
+        -- Nao pula se ja tem nome — pode ter mudado de tipo ou a arma sumiu
+        local found = false
+
+        -- 1. Procura no Backpack pelo ToolTip exato
+        for _, tool in pairs(Player.Backpack:GetChildren()) do
+            if tool:IsA("Tool") and (tool.ToolTip == tooltip or tool.ToolTip == tipo) then
+                config.SelectedWeaponName = tool.Name
+                found = true; break
+            end
+        end
+
+        -- 2. Procura no Character (ja equipada) pelo ToolTip exato
+        if not found and Player.Character then
+            for _, tool in pairs(Player.Character:GetChildren()) do
+                if tool:IsA("Tool") and (tool.ToolTip == tooltip or tool.ToolTip == tipo) then
+                    config.SelectedWeaponName = tool.Name
+                    found = true; break
+                end
+            end
+        end
+
+        -- 3. Fallback: nome parcial no Backpack (caso ToolTip diferente)
+        if not found then
+            for _, tool in pairs(Player.Backpack:GetChildren()) do
+                if tool:IsA("Tool") and tool.Name:lower():find(tooltip:lower()) then
+                    config.SelectedWeaponName = tool.Name
+                    found = true; break
+                end
+            end
+        end
+
+        -- 4. Se ainda nao achou, limpa para nao usar nome errado
+        if not found then
+            config.SelectedWeaponName = ""
+        end
+    end)
+end
+
+-- StartWeaponResolver - Loop de fundo que mantem SelectedWeaponName atualizado
+-- (complementa o ResolveWeaponNow; use os dois juntos)
 function Functions.StartWeaponResolver(config)
     task.spawn(function()
-        while task.wait(0.5) do
-            pcall(function()
-                local tipo    = config.FarmWeapon
-                local tooltip = tipo
-                if tipo == "BloxFruits" then tooltip = "Blox Fruit" end
-
-                -- Verifica se a arma atual ainda existe E ainda bate com o tipo selecionado
-                -- (igual ao Tiroreal: sempre reatualiza quando o tipo muda)
-                if config.SelectedWeaponName ~= "" then
-                    -- Procura a arma no backpack ou no character
-                    local existing = Player.Backpack:FindFirstChild(config.SelectedWeaponName)
-                                  or (Player.Character and Player.Character:FindFirstChild(config.SelectedWeaponName))
-                    -- So pula a atualizacao se a arma existe E o ToolTip ainda bate
-                    if existing and (existing.ToolTip == tooltip or existing.ToolTip == tipo) then
-                        return
-                    end
-                    -- Arma nao existe ou tipo mudou: reseta para buscar nova
-                    config.SelectedWeaponName = ""
-                end
-
-                -- Busca pelo ToolTip exato (logica identica ao Tiroreal)
-                local found = false
-                for _, tool in pairs(Player.Backpack:GetChildren()) do
-                    if tool:IsA("Tool") and (tool.ToolTip == tooltip or tool.ToolTip == tipo) then
-                        config.SelectedWeaponName = tool.Name
-                        found = true; break
-                    end
-                end
-
-                if not found and Player.Character then
-                    for _, tool in pairs(Player.Character:GetChildren()) do
-                        if tool:IsA("Tool") and (tool.ToolTip == tooltip or tool.ToolTip == tipo) then
-                            config.SelectedWeaponName = tool.Name
-                            found = true; break
-                        end
-                    end
-                end
-
-                -- Fallback: busca por nome parcial (caso ToolTip esteja vazio/diferente)
-                if not found then
-                    for _, tool in pairs(Player.Backpack:GetChildren()) do
-                        if tool:IsA("Tool") and tool.Name:lower():find(tooltip:lower()) then
-                            config.SelectedWeaponName = tool.Name
-                            break
-                        end
-                    end
-                end
-            end)
+        while task.wait(0.3) do
+            Functions.ResolveWeaponNow(config)
         end
     end)
 end
@@ -125,9 +128,14 @@ function Functions.EquipWeapon(weaponName, notAutoEquipRef)
     -- Identico ao Tiroreal: so equipa se o nome estiver no Backpack
     if not weaponName or weaponName == "" then return end
 
-    -- Aceita config table (pega SelectedWeaponName)
+    -- Aceita config table (resolve inline pelo tipo selecionado)
     if type(weaponName) == "table" then
-        weaponName = weaponName.SelectedWeaponName or ""
+        local config = weaponName
+        -- Resolve agora se ainda nao resolveu
+        if not config.SelectedWeaponName or config.SelectedWeaponName == "" then
+            Functions.ResolveWeaponNow(config)
+        end
+        weaponName = config.SelectedWeaponName or ""
     end
     if weaponName == "" then return end
 
@@ -140,13 +148,12 @@ function Functions.EquipWeapon(weaponName, notAutoEquipRef)
     local hum = char:FindFirstChildOfClass("Humanoid")
     if not hum or hum.Health <= 0 then return end
 
-    -- Se ja esta equipada no character, nao faz nada
+    -- Se ja esta equipada no character, nao faz nada (igual ao Tiroreal)
     if char:FindFirstChild(weaponName) then return end
 
-    -- Logica EXATA do Tiroreal:
-    -- Procura pelo nome exato no Backpack e equipa
-    if Player.Backpack:FindFirstChild(weaponName) then
-        local tool = Player.Backpack:FindFirstChild(weaponName)
+    -- Logica EXATA do Tiroreal: busca no Backpack e equipa
+    local tool = Player.Backpack:FindFirstChild(weaponName)
+    if tool then
         task.wait(0.1)
         hum:EquipTool(tool)
     end
