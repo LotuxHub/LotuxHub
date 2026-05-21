@@ -66,42 +66,35 @@ end
 function Functions.ResolveWeaponNow(config)
     pcall(function()
         local tipo = config.FarmWeapon
-        local tooltip = tipo
-        if tipo == "BloxFruits" then tooltip = "Blox Fruit" end
+        -- Normaliza o tooltip: remove espaços e converte para lower case
+        local normalized = tipo:lower():gsub("%s+", "")
+        if normalized == "bloxfruits" then normalized = "bloxfruit" end
 
-        -- Sempre re-resolve: igual ao loop do Tiroreal que roda while wait()
-        -- Nao pula se ja tem nome — pode ter mudado de tipo ou a arma sumiu
         local found = false
-
-        -- 1. Procura no Backpack pelo ToolTip exato
         for _, tool in pairs(Player.Backpack:GetChildren()) do
-            if tool:IsA("Tool") and (tool.ToolTip == tooltip or tool.ToolTip == tipo) then
-                config.SelectedWeaponName = tool.Name
-                found = true; break
+            if tool:IsA("Tool") then
+                local tt = (tool.ToolTip or ""):lower():gsub("%s+", "")
+                if tt == normalized or tt == tipo:lower() or tool.Name:lower():find(normalized) then
+                    config.SelectedWeaponName = tool.Name
+                    found = true
+                    break
+                end
             end
         end
 
-        -- 2. Procura no Character (ja equipada) pelo ToolTip exato
         if not found and Player.Character then
             for _, tool in pairs(Player.Character:GetChildren()) do
-                if tool:IsA("Tool") and (tool.ToolTip == tooltip or tool.ToolTip == tipo) then
-                    config.SelectedWeaponName = tool.Name
-                    found = true; break
+                if tool:IsA("Tool") then
+                    local tt = (tool.ToolTip or ""):lower():gsub("%s+", "")
+                    if tt == normalized or tt == tipo:lower() or tool.Name:lower():find(normalized) then
+                        config.SelectedWeaponName = tool.Name
+                        found = true
+                        break
+                    end
                 end
             end
         end
 
-        -- 3. Fallback: nome parcial no Backpack (caso ToolTip diferente)
-        if not found then
-            for _, tool in pairs(Player.Backpack:GetChildren()) do
-                if tool:IsA("Tool") and tool.Name:lower():find(tooltip:lower()) then
-                    config.SelectedWeaponName = tool.Name
-                    found = true; break
-                end
-            end
-        end
-
-        -- 4. Se ainda nao achou, limpa para nao usar nome errado
         if not found then
             config.SelectedWeaponName = ""
         end
@@ -125,37 +118,45 @@ end
 local _NotAutoEquip = false
 
 function Functions.EquipWeapon(weaponName, notAutoEquipRef)
-    -- Identico ao Tiroreal: so equipa se o nome estiver no Backpack
-    if not weaponName or weaponName == "" then return end
-
-    -- Aceita config table (resolve inline pelo tipo selecionado)
+    -- Se veio uma tabela (config), resolve inline
     if type(weaponName) == "table" then
-        local config = weaponName
-        -- Resolve agora se ainda nao resolveu
-        if not config.SelectedWeaponName or config.SelectedWeaponName == "" then
-            Functions.ResolveWeaponNow(config)
+        local cfg = weaponName
+        if not cfg.SelectedWeaponName or cfg.SelectedWeaponName == "" then
+            Functions.ResolveWeaponNow(cfg)
         end
-        weaponName = config.SelectedWeaponName or ""
+        weaponName = cfg.SelectedWeaponName or ""
     end
-    if weaponName == "" then return end
 
-    -- Respeita flag NotAutoEquip (igual ao _G.NotAutoEquip do Tiroreal)
-    local notAuto = notAutoEquipRef and notAutoEquipRef.value
-    if notAuto then return end
+    if weaponName == "" then
+        warn("[EquipWeapon] Nome da arma vazio - verifique se você possui uma arma do tipo selecionado no inventário.")
+        return false
+    end
+
+    -- Respeita flag NotAutoEquip
+    if notAutoEquipRef and notAutoEquipRef.value then
+        warn("[EquipWeapon] NotAutoEquip está ativo, não equipando.")
+        return false
+    end
 
     local char = Player.Character
-    if not char then return end
+    if not char then return false end
     local hum = char:FindFirstChildOfClass("Humanoid")
-    if not hum or hum.Health <= 0 then return end
+    if not hum or hum.Health <= 0 then return false end
 
-    -- Se ja esta equipada no character, nao faz nada (igual ao Tiroreal)
-    if char:FindFirstChild(weaponName) then return end
+    -- Se já está equipada, não faz nada
+    if char:FindFirstChild(weaponName) then
+        return true
+    end
 
-    -- Logica EXATA do Tiroreal: busca no Backpack e equipa
     local tool = Player.Backpack:FindFirstChild(weaponName)
     if tool then
         task.wait(0.1)
         hum:EquipTool(tool)
+        print("[EquipWeapon] Equipado: " .. weaponName)
+        return true
+    else
+        warn("[EquipWeapon] Arma não encontrada no Backpack: " .. weaponName)
+        return false
     end
 end
 
@@ -4519,5 +4520,750 @@ function Functions.InfAb()
         end)
     end
 end
+
+-- =====================================================
+-- FUNÇÕES FALTANTES DO TIROREAL
+-- =====================================================
+
+-- 1. CHECK QUEST (determina quest baseada no nível/mundo)
+local function CheckQuest()
+    local MyLevel = Player.Data.Level.Value
+    local SelectMonster = _G.SelectMonster or ""
+    local World1 = (CurrentSea == 1)
+    local World2 = (CurrentSea == 2)
+    local World3 = (CurrentSea == 3)
+
+    if World1 then
+        if (MyLevel >= 1 and MyLevel <= 9) or SelectMonster == "Bandit" then
+            Mon = "Bandit"
+            LevelQuest = 1
+            NameQuest = "BanditQuest1"
+            NameMon = "Bandit"
+            CFrameQuest = CFrame.new(1059.37195, 15.4495068, 1550.4231, 0.939700544, -0, -0.341998369, 0, 1, -0, 0.341998369, 0, 0.939700544)
+            CFrameMon = CFrame.new(1045.962646484375, 27.00250816345215, 1560.8203125)
+        elseif (MyLevel >= 10 and MyLevel <= 14) or SelectMonster == "Monkey" then
+            Mon = "Monkey"
+            LevelQuest = 1
+            NameQuest = "JungleQuest"
+            NameMon = "Monkey"
+            CFrameQuest = CFrame.new(-1598.08911, 35.5501175, 153.377838, 0, 0, 1, 0, 1, -0, -1, 0, 0)
+            CFrameMon = CFrame.new(-1448.51806640625, 67.85301208496094, 11.46579647064209)
+        elseif (MyLevel >= 15 and MyLevel <= 29) or SelectMonster == "Gorilla" then
+            Mon = "Gorilla"
+            LevelQuest = 2
+            NameQuest = "JungleQuest"
+            NameMon = "Gorilla"
+            CFrameQuest = CFrame.new(-1598.08911, 35.5501175, 153.377838, 0, 0, 1, 0, 1, -0, -1, 0, 0)
+            CFrameMon = CFrame.new(-1129.8836669921875, 40.46354675292969, -525.4237060546875)
+        elseif (MyLevel >= 30 and MyLevel <= 39) or SelectMonster == "Pirate" then
+            Mon = "Pirate"
+            LevelQuest = 1
+            NameQuest = "BuggyQuest1"
+            NameMon = "Pirate"
+            CFrameQuest = CFrame.new(-1141.07483, 4.10001802, 3831.5498, 0.965929627, -0, -0.258804798, 0, 1, -0, 0.258804798, 0, 0.965929627)
+            CFrameMon = CFrame.new(-1103.513427734375, 13.752052307128906, 3896.091064453125)
+        elseif (MyLevel >= 40 and MyLevel <= 59) or SelectMonster == "Brute" then
+            Mon = "Brute"
+            LevelQuest = 2
+            NameQuest = "BuggyQuest1"
+            NameMon = "Brute"
+            CFrameQuest = CFrame.new(-1141.07483, 4.10001802, 3831.5498, 0.965929627, -0, -0.258804798, 0, 1, -0, 0.258804798, 0, 0.965929627)
+            CFrameMon = CFrame.new(-1140.083740234375, 14.809885025024414, 4322.92138671875)
+        elseif (MyLevel >= 60 and MyLevel <= 74) or SelectMonster == "Desert Bandit" then
+            Mon = "Desert Bandit"
+            LevelQuest = 1
+            NameQuest = "DesertQuest"
+            NameMon = "Desert Bandit"
+            CFrameQuest = CFrame.new(894.488647, 5.14000702, 4392.43359, 0.819155693, -0, -0.573571265, 0, 1, -0, 0.573571265, 0, 0.819155693)
+            CFrameMon = CFrame.new(924.7998046875, 6.44867467880249, 4481.5859375)
+        elseif (MyLevel >= 75 and MyLevel <= 89) or SelectMonster == "Desert Officer" then
+            Mon = "Desert Officer"
+            LevelQuest = 2
+            NameQuest = "DesertQuest"
+            NameMon = "Desert Officer"
+            CFrameQuest = CFrame.new(894.488647, 5.14000702, 4392.43359, 0.819155693, -0, -0.573571265, 0, 1, -0, 0.573571265, 0, 0.819155693)
+            CFrameMon = CFrame.new(1608.2822265625, 8.614224433898926, 4371.00732421875)
+        elseif (MyLevel >= 90 and MyLevel <= 99) or SelectMonster == "Snow Bandit" then
+            Mon = "Snow Bandit"
+            LevelQuest = 1
+            NameQuest = "SnowQuest"
+            NameMon = "Snow Bandit"
+            CFrameQuest = CFrame.new(1389.74451, 88.1519318, -1298.90796, -0.342042685, 0, 0.939684391, 0, 1, 0, -0.939684391, 0, -0.342042685)
+            CFrameMon = CFrame.new(1354.347900390625, 87.27277374267578, -1393.946533203125)
+        elseif (MyLevel >= 100 and MyLevel <= 119) or SelectMonster == "Snowman" then
+            Mon = "Snowman"
+            LevelQuest = 2
+            NameQuest = "SnowQuest"
+            NameMon = "Snowman"
+            CFrameQuest = CFrame.new(1389.74451, 88.1519318, -1298.90796, -0.342042685, 0, 0.939684391, 0, 1, 0, -0.939684391, 0, -0.342042685)
+            CFrameMon = CFrame.new(1201.6412353515625, 144.57958984375, -1550.0670166015625)
+        elseif (MyLevel >= 120 and MyLevel <= 149) or SelectMonster == "Chief Petty Officer" then
+            Mon = "Chief Petty Officer"
+            LevelQuest = 1
+            NameQuest = "MarineQuest2"
+            NameMon = "Chief Petty Officer"
+            CFrameQuest = CFrame.new(-5039.58643, 27.3500385, 4324.68018, 0, 0, -1, 0, 1, 0, 1, 0, 0)
+            CFrameMon = CFrame.new(-4881.23095703125, 22.65204429626465, 4273.75244140625)
+        elseif (MyLevel >= 150 and MyLevel <= 174) or SelectMonster == "Sky Bandit" then
+            Mon = "Sky Bandit"
+            LevelQuest = 1
+            NameQuest = "SkyQuest"
+            NameMon = "Sky Bandit"
+            CFrameQuest = CFrame.new(-4839.53027, 716.368591, -2619.44165, 0.866007268, 0, 0.500031412, 0, 1, 0, -0.500031412, 0, 0.866007268)
+            CFrameMon = CFrame.new(-4953.20703125, 295.74420166015625, -2899.22900390625)
+        elseif (MyLevel >= 175 and MyLevel <= 189) or SelectMonster == "Dark Master" then
+            Mon = "Dark Master"
+            LevelQuest = 2
+            NameQuest = "SkyQuest"
+            NameMon = "Dark Master"
+            CFrameQuest = CFrame.new(-4839.53027, 716.368591, -2619.44165, 0.866007268, 0, 0.500031412, 0, 1, 0, -0.500031412, 0, 0.866007268)
+            CFrameMon = CFrame.new(-5259.8447265625, 391.3976745605469, -2229.035400390625)
+        elseif (MyLevel >= 190 and MyLevel <= 209) or SelectMonster == "Prisoner" then
+            Mon = "Prisoner"
+            LevelQuest = 1
+            NameQuest = "PrisonerQuest"
+            NameMon = "Prisoner"
+            CFrameQuest = CFrame.new(5308.93115, 1.65517521, 475.120514, -0.0894274712, -5.00292918e-09, -0.995993316, 1.60817859e-09, 1, -5.16744869e-09, 0.995993316, -2.06384709e-09, -0.0894274712)
+            CFrameMon = CFrame.new(5098.9736328125, -0.3204058110713959, 474.2373352050781)
+        elseif (MyLevel >= 210 and MyLevel <= 249) or SelectMonster == "Dangerous Prisone" then
+            Mon = "Dangerous Prisoner"
+            LevelQuest = 2
+            NameQuest = "PrisonerQuest"
+            NameMon = "Dangerous Prisoner"
+            CFrameQuest = CFrame.new(5308.93115, 1.65517521, 475.120514, -0.0894274712, -5.00292918e-09, -0.995993316, 1.60817859e-09, 1, -5.16744869e-09, 0.995993316, -2.06384709e-09, -0.0894274712)
+            CFrameMon = CFrame.new(5654.5634765625, 15.633401870727539, 866.2991943359375)
+        -- ... (continue com todas as faixas do Tiroreal)
+        else
+            -- fallback
+            Mon = "Bandit"
+            LevelQuest = 1
+            NameQuest = "BanditQuest1"
+            NameMon = "Bandit"
+            CFrameQuest = CFrame.new(1059.37195, 15.4495068, 1550.4231)
+            CFrameMon = CFrame.new(1045.962646484375, 27.00250816345215, 1560.8203125)
+        end
+    elseif World2 then
+        -- Adicione aqui as quests do Sea 2 (baseado no Tiroreal)
+        if (MyLevel >= 700 and MyLevel <= 724) or SelectMonster == "Raider" then
+            Mon = "Raider"
+            LevelQuest = 1
+            NameQuest = "Area1Quest"
+            NameMon = "Raider"
+            CFrameQuest = CFrame.new(-429.543518, 71.7699966, 1836.18188, -0.22495985, 0, -0.974368095, 0, 1, 0, 0.974368095, 0, -0.22495985)
+            CFrameMon = CFrame.new(-728.3267211914062, 52.779319763183594, 2345.7705078125)
+        elseif (MyLevel >= 725 and MyLevel <= 774) or SelectMonster == "Mercenary" then
+            Mon = "Mercenary"
+            LevelQuest = 2
+            NameQuest = "Area1Quest"
+            NameMon = "Mercenary"
+            CFrameQuest = CFrame.new(-429.543518, 71.7699966, 1836.18188, -0.22495985, 0, -0.974368095, 0, 1, 0, 0.974368095, 0, -0.22495985)
+            CFrameMon = CFrame.new(-1004.3244018554688, 80.15886688232422, 1424.619384765625)
+        else
+            Mon = "Raider"
+            LevelQuest = 1
+            NameQuest = "Area1Quest"
+            NameMon = "Raider"
+            CFrameQuest = CFrame.new(-429.543518, 71.7699966, 1836.18188)
+            CFrameMon = CFrame.new(-728.3267211914062, 52.779319763183594, 2345.7705078125)
+        end
+    elseif World3 then
+        -- Adicione aqui as quests do Sea 3 (baseado no Tiroreal)
+        if (MyLevel >= 1500 and MyLevel <= 1524) or SelectMonster == "Pirate Millionaire" then
+            Mon = "Pirate Millionaire"
+            LevelQuest = 1
+            NameQuest = "PiratePortQuest"
+            NameMon = "Pirate Millionaire"
+            CFrameQuest = CFrame.new(-450.104645, 107.681458, 5950.72607, 0.957107544, -0, -0.289732844, 0, 1, -0, 0.289732844, 0, 0.957107544)
+            CFrameMon = CFrame.new(-245.9963836669922, 47.30615234375, 5584.1005859375)
+        else
+            Mon = "Pirate Millionaire"
+            LevelQuest = 1
+            NameQuest = "PiratePortQuest"
+            NameMon = "Pirate Millionaire"
+            CFrameQuest = CFrame.new(-450.104645, 107.681458, 5950.72607)
+            CFrameMon = CFrame.new(-245.9963836669922, 47.30615234375, 5584.1005859375)
+        end
+    end
+end
+
+-- 2. MATERIAL MON (define mob/posição para farm de material)
+local function MaterialMon()
+    if _G.SelectMaterial == "Radiactive Material" then
+        MMon = "Factory Staff"
+        MPos = CFrame.new(-105.889565, 72.8076935, -670.247986, -0.965929747, 0, -0.258804798, 0, 1, 0, 0.258804798, 0, -0.965929747)
+        SP = "Bar"
+    elseif _G.SelectMaterial == "Leather + Scrap Metal" then
+        if game.PlaceId == 2753915549 then
+            MMon = "Pirate"
+            MPos = CFrame.new(-967.433105, 13.5999937, 4034.24707, -0.258864403, 0, -0.965913713, 0, 1, 0, 0.965913713, 0, -0.258864403)
+            SP = "Pirate"
+            MMon = "Brute"
+            MPos = CFrame.new(-1191.41235, 15.5999985, 4235.50928, 0.629286051, -0, -0.777173758, 0, 1, -0, 0.777173758, 0, 0.629286051)
+            SP = "Pirate"
+        elseif game.PlaceId == 4442272183 then
+            MMon = "Mercenary"
+            MPos = CFrame.new(-986.774475, 72.8755951, 1088.44653, -0.656062722, 0, 0.754706323, 0, 1, 0, -0.754706323, 0, -0.656062722)
+            SP = "DressTown"
+        elseif game.PlaceId == 7449423635 then
+            MMon = "Pirate Millionaire"
+            MPos = CFrame.new(-118.809372, 55.4874573, 5649.17041, -0.965929747, 0, 0.258804798, 0, 1, 0, -0.258804798, 0, -0.965929747)
+            SP = "Default"
+        end
+    elseif _G.SelectMaterial == "Magma Ore" then
+        if game.PlaceId == 2753915549 then
+            MMon = "Military Soldier"
+            MPos = CFrame.new(-5565.60156, 9.10001755, 8327.56934, -0.838688731, 0, -0.544611216, 0, 1, 0, 0.544611216, 0, -0.838688731)
+            SP = "Magma"
+            MMon = "Military Spy"
+            MPos = CFrame.new(-5806.70068, 78.5000458, 8904.46973, 0.707134247, 0, 0.707079291, 0, 1, 0, -0.707079291, 0, 0.707134247)
+            SP = "Magma"
+        elseif game.PlaceId == 4442272183 then
+            MMon = "Lava Pirate"
+            MPos = CFrame.new(-5158.77051, 14.4791956, -4654.2627, -0.848060489, 0, -0.529899538, 0, 1, 0, 0.529899538, 0, -0.848060489)
+            SP = "CircleIslandFire"
+        end
+    elseif _G.SelectMaterial == "Fish Tail" then
+        if game.PlaceId == 2753915549 then
+            MMon = "Fishman Warrior"
+            MPos = CFrame.new(60943.9023, 17.9492188, 1744.11133, 0.826706648, -0, -0.562633216, 0, 1, -0, 0.562633216, 0, 0.826706648)
+            SP = "Underwater City"
+            MMon = "Fishman Commando"
+            MPos = CFrame.new(61760.8984, 18.0800781, 1460.11133, -0.632549644, 0, -0.774520278, 0, 1, 0, 0.774520278, 0, -0.632549644)
+            SP = "Underwater City"
+        elseif game.PlaceId == 7449423635 then
+            MMon = "Fishman Captain"
+            MPos = CFrame.new(-10828.1064, 331.825989, -9049.14648, -0.0912091732, 0, 0.995831788, 0, 1, 0, -0.995831788, 0, -0.0912091732)
+            SP = "PineappleTown"
+        end
+    elseif _G.SelectMaterial == "Angel Wings" then
+        MMon = "Royal Soldier"
+        MPos = CFrame.new(-7759.45898, 5606.93652, -1862.70276, -0.866007447, 0, -0.500031412, 0, 1, 0, 0.500031412, 0, -0.866007447)
+        SP = "SkyArea2"
+    elseif _G.SelectMaterial == "Mystic Droplet" then
+        MMon = "Water Fighter"
+        MPos = CFrame.new(-3331.70459, 239.138336, -10553.3564, -0.29242146, 0, 0.95628953, 0, 1, 0, -0.95628953, 0, -0.29242146)
+        SP = "ForgottenIsland"
+    elseif _G.SelectMaterial == "Vampire Fang" then
+        MMon = "Vampire"
+        MPos = CFrame.new(-6132.39453, 9.00769424, -1466.16919, -0.927179813, 0, -0.374617696, 0, 1, 0, 0.374617696, 0, -0.927179813)
+        SP = "Graveyard"
+    elseif _G.SelectMaterial == "Gunpowder" then
+        MMon = "Pistol Billionaire"
+        MPos = CFrame.new(-185.693283, 84.7088699, 6103.62744, 0.90629667, -0, -0.422642082, 0, 1, -0, 0.422642082, 0, 0.90629667)
+        SP = "Mansion"
+    elseif _G.SelectMaterial == "Mini Tusk" then
+        MMon = "Mythological Pirate"
+        MPos = CFrame.new(-13456.0498, 469.433228, -7039.96436, 0, 0, 1, 0, 1, -0, -1, 0, 0)
+        SP = "BigMansion"
+    elseif _G.SelectMaterial == "Conjured Cocoa" then
+        MMon = "Chocolate Bar Battler"
+        MPos = CFrame.new(582.828674, 25.5824986, -12550.7041, -0.766061664, 0, -0.642767608, 0, 1, 0, 0.642767608, 0, -0.766061664)
+        SP = "Chocolate"
+    end
+end
+
+-- 3. ESP FLOWER (flores azuis/vermelhas)
+function Functions.UpdateFlowerChams()
+    local Number = _G.FlowerESPNumber or math.random(1, 1000000)
+    for _, v in pairs(workspace:GetChildren()) do
+        if v.Name == "Flower2" or v.Name == "Flower1" then
+            if _G.FlowerESP then
+                if not v:FindFirstChild('NameEsp'..Number) then
+                    local bill = Instance.new('BillboardGui', v)
+                    bill.Name = 'NameEsp'..Number
+                    bill.ExtentsOffset = Vector3.new(0, 1, 0)
+                    bill.Size = UDim2.new(1, 200, 1, 30)
+                    bill.Adornee = v
+                    bill.AlwaysOnTop = true
+                    local name = Instance.new('TextLabel', bill)
+                    name.Font = Enum.Font.GothamSemibold
+                    name.TextSize = 14
+                    name.TextWrapped = true
+                    name.Size = UDim2.new(1, 0, 1, 0)
+                    name.TextYAlignment = 'Top'
+                    name.BackgroundTransparency = 1
+                    name.TextStrokeTransparency = 0.5
+                    if v.Name == "Flower1" then
+                        name.Text = ("Blue Flower" .. ' \n' .. math.floor((Player.Character.Head.Position - v.Position).Magnitude / 3) .. ' Distance')
+                        name.TextColor3 = Color3.fromRGB(0, 0, 255)
+                    else
+                        name.Text = ("Red Flower" .. ' \n' .. math.floor((Player.Character.Head.Position - v.Position).Magnitude / 3) .. ' Distance')
+                        name.TextColor3 = Color3.fromRGB(255, 0, 0)
+                    end
+                else
+                    v['NameEsp'..Number].TextLabel.Text = v.Name .. '   \n' .. math.floor((Player.Character.Head.Position - v.Position).Magnitude / 3) .. ' Distance'
+                end
+            else
+                if v:FindFirstChild('NameEsp'..Number) then
+                    v:FindFirstChild('NameEsp'..Number):Destroy()
+                end
+            end
+        end
+    end
+end
+
+-- 4. ESP REAL FRUIT (Apple/Pineapple/Banana)
+function Functions.UpdateRealFruitChams()
+    local Number = _G.RealFruitESPNumber or math.random(1, 1000000)
+    local spawners = {"AppleSpawner", "PineappleSpawner", "BananaSpawner"}
+    for _, spawnerName in ipairs(spawners) do
+        local spawner = workspace:FindFirstChild(spawnerName)
+        if spawner then
+            for _, v in pairs(spawner:GetChildren()) do
+                if v:IsA("Tool") and v:FindFirstChild("Handle") then
+                    if _G.RealFruitESP then
+                        if not v.Handle:FindFirstChild('NameEsp'..Number) then
+                            local bill = Instance.new('BillboardGui', v.Handle)
+                            bill.Name = 'NameEsp'..Number
+                            bill.ExtentsOffset = Vector3.new(0, 1, 0)
+                            bill.Size = UDim2.new(1, 200, 1, 30)
+                            bill.Adornee = v.Handle
+                            bill.AlwaysOnTop = true
+                            local name = Instance.new('TextLabel', bill)
+                            name.Font = Enum.Font.GothamSemibold
+                            name.TextSize = 14
+                            name.TextWrapped = true
+                            name.Size = UDim2.new(1, 0, 1, 0)
+                            name.TextYAlignment = 'Top'
+                            name.BackgroundTransparency = 1
+                            name.TextStrokeTransparency = 0.5
+                            if spawnerName == "AppleSpawner" then
+                                name.TextColor3 = Color3.fromRGB(255, 0, 0)
+                            elseif spawnerName == "PineappleSpawner" then
+                                name.TextColor3 = Color3.fromRGB(255, 174, 0)
+                            else
+                                name.TextColor3 = Color3.fromRGB(251, 255, 0)
+                            end
+                            name.Text = v.Name .. ' \n' .. math.floor((Player.Character.Head.Position - v.Handle.Position).Magnitude / 3) .. ' Distance'
+                        else
+                            v.Handle['NameEsp'..Number].TextLabel.Text = v.Name .. ' ' .. math.floor((Player.Character.Head.Position - v.Handle.Position).Magnitude / 3) .. ' Distance'
+                        end
+                    else
+                        if v.Handle:FindFirstChild('NameEsp'..Number) then
+                            v.Handle:FindFirstChild('NameEsp'..Number):Destroy()
+                        end
+                    end
+                end
+            end
+        end
+    end
+end
+
+-- 5. ESP GEAR (Mystic Island)
+function Functions.UpdateGearESP()
+    local Number = _G.GearESPNumber or math.random(1, 1000000)
+    local mystic = workspace.Map:FindFirstChild("MysticIsland")
+    if mystic then
+        for _, v in pairs(mystic:GetChildren()) do
+            if v.Name == "MeshPart" then
+                if _G.GearESP then
+                    if not v:FindFirstChild('NameEsp'..Number) then
+                        local bill = Instance.new('BillboardGui', v)
+                        bill.Name = 'NameEsp'..Number
+                        bill.ExtentsOffset = Vector3.new(0, 1, 0)
+                        bill.Size = UDim2.new(1, 200, 1, 30)
+                        bill.Adornee = v
+                        bill.AlwaysOnTop = true
+                        local name = Instance.new('TextLabel', bill)
+                        name.Font = "Code"
+                        name.TextSize = 14
+                        name.TextWrapped = true
+                        name.Size = UDim2.new(1, 0, 1, 0)
+                        name.TextYAlignment = 'Top'
+                        name.BackgroundTransparency = 1
+                        name.TextStrokeTransparency = 0.5
+                        name.TextColor3 = Color3.fromRGB(80, 245, 245)
+                        name.Text = "Gear Part"
+                    else
+                        local dist = math.floor((Player.Character.Head.Position - v.Position).Magnitude / 3)
+                        v['NameEsp'..Number].TextLabel.Text = "Gear\n" .. dist .. " M"
+                    end
+                else
+                    if v:FindFirstChild('NameEsp'..Number) then
+                        v:FindFirstChild('NameEsp'..Number):Destroy()
+                    end
+                end
+            end
+        end
+    end
+end
+
+-- 6. FUNÇÕES DE MOVIMENTO/BARCO
+function Functions.TPB(CFgo)
+    local boatSeat = workspace.Boats:FindFirstChild("PirateBrigade")
+    if boatSeat then
+        boatSeat = boatSeat:FindFirstChild("VehicleSeat")
+    end
+    if not boatSeat then return end
+    local dist = (boatSeat.CFrame.Position - CFgo.Position).Magnitude
+    local tween = TweenService:Create(boatSeat, TweenInfo.new(dist / 300, Enum.EasingStyle.Linear), {CFrame = CFgo})
+    tween:Play()
+    return { Stop = function() tween:Cancel() end }
+end
+
+function Functions.BTP(p)
+    pcall(function()
+        if (p.Position - HumanoidRootPart.Position).Magnitude >= 1500 and Humanoid and Humanoid.Health > 0 then
+            repeat
+                task.wait()
+                HumanoidRootPart.CFrame = p
+                task.wait(0.05)
+                local head = Character:FindFirstChild("Head")
+                if head then head:Destroy() end
+                HumanoidRootPart.CFrame = p
+            until (p.Position - HumanoidRootPart.Position).Magnitude < 1500 or (Humanoid and Humanoid.Health <= 0)
+        end
+    end)
+end
+
+function Functions.fastpos(Pos)
+    local dist = (Pos.Position - HumanoidRootPart.Position).Magnitude
+    TweenService:Create(HumanoidRootPart, TweenInfo.new(dist / 1250, Enum.EasingStyle.Linear), {CFrame = Pos}):Play()
+end
+
+function Functions.slowpos(Pos)
+    local dist = (Pos.Position - HumanoidRootPart.Position).Magnitude
+    TweenService:Create(HumanoidRootPart, TweenInfo.new(dist / 300, Enum.EasingStyle.Linear), {CFrame = Pos}):Play()
+end
+
+function Functions.GetLocalBoat()
+    for _, v in pairs(workspace.Boats:GetChildren()) do
+        if v:IsA("Model") and v:FindFirstChild("Owner") and tostring(v.Owner.Value) == Player.Name then
+            local hum = v:FindFirstChild("Humanoid")
+            if hum and hum.Value > 0 then
+                return v
+            end
+        end
+    end
+    return false
+end
+
+function Functions.GetPlayerBoat()
+    local char = Player.Character
+    if char and char:FindFirstChild("Humanoid") then
+        local seat = char.Humanoid.SeatPart
+        if seat and seat:IsA("VehicleSeat") then
+            return seat.Parent
+        end
+    end
+    return nil
+end
+
+local _boatMovementConnection = nil
+function Functions.MoveBoat(direction, distance, speed)
+    local boat = Functions.GetPlayerBoat()
+    if boat and boat.PrimaryPart then
+        local targetPos = boat.PrimaryPart.Position + (direction * distance)
+        targetPos = Vector3.new(targetPos.X, targetPos.Y + 200, targetPos.Z)
+        local tween = TweenService:Create(boat.PrimaryPart, TweenInfo.new(distance / speed, Enum.EasingStyle.Linear), {CFrame = CFrame.new(targetPos)})
+        tween:Play()
+    end
+end
+
+function Functions.StartBoatMovement()
+    Functions.StopBoatMovement()
+    _boatMovementConnection = RunService.Heartbeat:Connect(function()
+        Functions.MoveBoat(Vector3.new(0, 0, 1000), 500, 186)
+    end)
+end
+
+function Functions.StopBoatMovement()
+    if _boatMovementConnection then
+        _boatMovementConnection:Disconnect()
+        _boatMovementConnection = nil
+    end
+end
+
+function Functions.CheckPirateBoat()
+    for _, v in pairs(workspace.Enemies:GetChildren()) do
+        if v.Name == "PirateBrigade" or v.Name == "FishBoat" then
+            if v:FindFirstChild("Health") and v.Health.Value > 0 then
+                return v
+            end
+        end
+    end
+    return nil
+end
+
+-- 7. HABILIDADES INFINITAS (Soru, Geppo, Dodge, InfAb)
+function Functions.InfiniteSoruLoop()
+    task.spawn(function()
+        while task.wait(0.5) do
+            if _G.InfiniteSoru and Character and Character:FindFirstChild("Soru") then
+                pcall(function()
+                    for _, v in pairs(getgc()) do
+                        if getfenv(v).script == Character:WaitForChild("Soru") then
+                            for i2, v2 in pairs(debug.getupvalues(v)) do
+                                if type(v2) == 'table' and (v2.LastUse ~= nil) then
+                                    debug.setupvalue(v, i2, {LastAfter = 0, LastUse = 0})
+                                end
+                            end
+                        end
+                    end
+                end)
+            end
+        end
+    end)
+end
+
+function Functions.InfiniteGeppoLoop()
+    task.spawn(function()
+        while task.wait(0.5) do
+            if _G.InfiniteGeppo and Character and Character:FindFirstChild("Geppo") then
+                pcall(function()
+                    for _, v in pairs(getgc()) do
+                        if getfenv(v).script == Character:WaitForChild("Geppo") then
+                            for i2, v2 in pairs(debug.getupvalues(v)) do
+                                if tostring(v2) == "0" then
+                                    debug.setupvalue(v, i2, 0)
+                                end
+                            end
+                        end
+                    end
+                end)
+            end
+        end
+    end)
+end
+
+function Functions.DodgeNoCDLoop()
+    task.spawn(function()
+        while task.wait(0.5) do
+            if _G.DodgeNoCD and Character and Character:FindFirstChild("Dodge") then
+                pcall(function()
+                    for _, v in pairs(getgc()) do
+                        if getfenv(v).script == Character:WaitForChild("Dodge") then
+                            for i2, v2 in pairs(debug.getupvalues(v)) do
+                                if tostring(v2) == "0.4" then
+                                    debug.setupvalue(v, i2, 0)
+                                end
+                            end
+                        end
+                    end
+                end)
+            end
+        end
+    end)
+end
+
+function Functions.InfAb()
+    if _G.InfAbility then
+        if not Character.HumanoidRootPart:FindFirstChild("Agility") then
+            local inf = Instance.new("ParticleEmitter")
+            inf.Name = "Agility"
+            inf.Acceleration = Vector3.new(0,0,0)
+            inf.Drag = 20
+            inf.EmissionDirection = Enum.NormalId.Top
+            inf.Enabled = true
+            inf.Lifetime = NumberRange.new(0,0)
+            inf.LightInfluence = 0
+            inf.LockedToPart = true
+            inf.Rate = 500
+            inf.Size = NumberSequence.new({NumberSequenceKeypoint.new(0,0), NumberSequenceKeypoint.new(1,4)})
+            inf.RotSpeed = NumberRange.new(9999, 99999)
+            inf.Rotation = NumberRange.new(0, 0)
+            inf.Speed = NumberRange.new(30, 30)
+            inf.SpreadAngle = Vector2.new(0,0)
+            inf.Texture = ""
+            inf.VelocityInheritance = 0
+            inf.ZOffset = 2
+            inf.Transparency = NumberSequence.new(0)
+            inf.Color = ColorSequence.new(Color3.fromRGB(0,0,0))
+            inf.Parent = Character.HumanoidRootPart
+        end
+    else
+        if Character.HumanoidRootPart:FindFirstChild("Agility") then
+            Character.HumanoidRootPart.Agility:Destroy()
+        end
+    end
+end
+
+-- 8. RIP_INDRA PUZZLE
+function Functions.CheckColorRipIndra()
+    local colors = {}
+    local circle = workspace.Map["Boat Castle"].Summoner.Circle
+    if circle then
+        for _, v in pairs(circle:GetChildren()) do
+            if v:IsA("Part") and v:FindFirstChild("Part") and v.Part.BrickColor.Name == "Dark stone grey" then
+                colors[v.BrickColor.Name] = v
+            end
+        end
+    end
+    return colors
+end
+
+function Functions.ActivateColor(colorName)
+    local hakiMap = {
+        ["Hot pink"] = "Winter Sky",
+        ["Really red"] = "Pure Red",
+        ["Oyster"] = "Snow White"
+    }
+    local hakiName = hakiMap[colorName]
+    if hakiName then
+        pcall(function()
+            CommF_:InvokeServer("activateColor", hakiName)
+        end)
+    end
+end
+
+function Functions.AutoActiveColorRip_Indra()
+    for colorName, part in pairs(Functions.CheckColorRipIndra()) do
+        Functions.ActivateColor(colorName)
+        Functions.TeleportTo(part.CFrame)
+        pcall(function() firetouchinterest(part, 0) end) -- toque simulado
+    end
+end
+
+-- 9. OUTRAS UTILIDADES
+function Functions.SetHomePoint()
+    pcall(function()
+        CommF_:InvokeServer("SetSpawnPoint")
+    end)
+end
+
+function Functions.WalkWater(enabled)
+    local water = workspace.Map:FindFirstChild("WaterBase-Plane")
+    if water then
+        water.Size = enabled and Vector3.new(1000, 112, 1000) or Vector3.new(1000, 80, 1000)
+    end
+end
+
+function Functions.SpinPositionLoop()
+    task.spawn(function()
+        local posY = _G.PosY or 35
+        while _G.SpinPos do
+            HumanoidRootPart.CFrame = CFrame.new(0, posY, -20)
+            task.wait(0.1)
+            HumanoidRootPart.CFrame = CFrame.new(-20, posY, 0)
+            task.wait(0.1)
+            HumanoidRootPart.CFrame = CFrame.new(0, posY, 20)
+            task.wait(0.1)
+            HumanoidRootPart.CFrame = CFrame.new(20, posY, 0)
+            task.wait(0.1)
+        end
+    end)
+end
+
+function Functions.TpEntrance(pos)
+    pcall(function()
+        CommF_:InvokeServer("requestEntrance", pos)
+        HumanoidRootPart.CFrame = HumanoidRootPart.CFrame + Vector3.new(0, 50, 0)
+        task.wait(0.5)
+    end)
+end
+
+function Functions.CheckItemBPCR(name)
+    local containers = {Player.Character, Player.Backpack}
+    for _, cont in pairs(containers) do
+        if cont and cont:FindFirstChild(name) then
+            return cont:FindFirstChild(name)
+        end
+    end
+    return nil
+end
+
+-- 10. AUTO KATAKURI V2 (versão simplificada baseada no Tiroreal)
+function Functions.AutoKatakuriV2Loop()
+    task.spawn(function()
+        while _G.AutoKatakuriV2 do
+            pcall(function()
+                local char = Player.Character
+                if not char then task.wait(1); continue end
+                local backpack = Player.Backpack
+
+                -- Verifica se tem Sweet Chalice ou God's Chalice
+                local sweetChalice = backpack:FindFirstChild("Sweet Chalice") or char:FindFirstChild("Sweet Chalice")
+                local godsChalice = backpack:FindFirstChild("God's Chalice") or char:FindFirstChild("God's Chalice")
+
+                if godsChalice then
+                    -- Falar com SweetChaliceNpc
+                    if string.find(CommF_:InvokeServer("SweetChaliceNpc") or "", "Where") then
+                        CommF_:InvokeServer("SweetChaliceNpc")
+                    end
+                elseif sweetChalice then
+                    -- Abrir portal do Cake Prince
+                    if string.find(CommF_:InvokeServer("CakePrinceSpawner") or "", "open the portal") then
+                        CommF_:InvokeServer("CakePrinceSpawner")
+                    end
+                else
+                    -- Farm mobs para conseguir God's Chalice
+                    local eliteMobs = {"Diablo", "Deandre", "Urban"}
+                    for _, mobName in ipairs(eliteMobs) do
+                        local mob = workspace.Enemies:FindFirstChild(mobName)
+                        if mob and mob:FindFirstChild("Humanoid") and mob.Humanoid.Health > 0 then
+                            repeat
+                                task.wait()
+                                Functions.EquipWeapon(Config.SelectedWeaponName)
+                                Functions.AutoHaki()
+                                Functions.TeleportTo(mob.HumanoidRootPart.CFrame * CFrame.new(0, 30, 0))
+                                VirtualUser:Button1Down(Vector2.new(1280, 672))
+                            until not mob.Parent or mob.Humanoid.Health <= 0
+                        end
+                    end
+                end
+
+                -- Se Dough King apareceu, matar
+                local doughKing = workspace.Enemies:FindFirstChild("Dough King")
+                if doughKing and doughKing:FindFirstChild("Humanoid") and doughKing.Humanoid.Health > 0 then
+                    repeat
+                        task.wait()
+                        Functions.EquipWeapon(Config.SelectedWeaponName)
+                        Functions.AutoHaki()
+                        doughKing.HumanoidRootPart.Size = Vector3.new(70,70,70)
+                        doughKing.HumanoidRootPart.CanCollide = false
+                        Functions.TeleportTo(doughKing.HumanoidRootPart.CFrame * CFrame.new(0, -40, 0))
+                        VirtualUser:Button1Down(Vector2.new(1280, 672))
+                    until doughKing.Humanoid.Health <= 0 or not _G.AutoKatakuriV2
+                end
+
+                -- Se Cake Prince apareceu, matar
+                local cakePrince = workspace.Enemies:FindFirstChild("Cake Prince")
+                if cakePrince and cakePrince:FindFirstChild("Humanoid") and cakePrince.Humanoid.Health > 0 then
+                    repeat
+                        task.wait()
+                        Functions.EquipWeapon(Config.SelectedWeaponName)
+                        Functions.AutoHaki()
+                        cakePrince.HumanoidRootPart.Size = Vector3.new(50,50,50)
+                        cakePrince.HumanoidRootPart.CanCollide = false
+                        Functions.TeleportTo(cakePrince.HumanoidRootPart.CFrame * CFrame.new(4, 10, 10))
+                        VirtualUser:Button1Down(Vector2.new(1280, 672))
+                    until cakePrince.Humanoid.Health <= 0 or not _G.AutoKatakuriV2
+                end
+            end)
+            task.wait(1)
+        end
+    end)
+end
+
+-- EXPOR FUNÇÕES GLOBAIS PARA COMPATIBILIDADE
+_G.CheckQuest = CheckQuest
+_G.MaterialMon = MaterialMon
+_G.UpdateFlowerChams = Functions.UpdateFlowerChams
+_G.UpdateRealFruitChams = Functions.UpdateRealFruitChams
+_G.UpdateGeaESP = Functions.UpdateGearESP
+_G.TPB = Functions.TPB
+_G.BTP = Functions.BTP
+_G.fastpos = Functions.fastpos
+_G.slowpos = Functions.slowpos
+_G.GetLocalBoat = Functions.GetLocalBoat
+_G.GetPlayerBoat = Functions.GetPlayerBoat
+_G.MoveBoat = Functions.MoveBoat
+_G.StartBoatMovement = Functions.StartBoatMovement
+_G.StopBoatMovement = Functions.StopBoatMovement
+_G.CheckPirateBoat = Functions.CheckPirateBoat
+_G.InfiniteSoruLoop = Functions.InfiniteSoruLoop
+_G.InfiniteGeppoLoop = Functions.InfiniteGeppoLoop
+_G.DodgeNoCDLoop = Functions.DodgeNoCDLoop
+_G.InfAb = Functions.InfAb
+_G.CheckColorRipIndra = Functions.CheckColorRipIndra
+_G.ActivateColor = Functions.ActivateColor
+_G.AutoActiveColorRip_Indra = Functions.AutoActiveColorRip_Indra
+_G.SetHomePoint = Functions.SetHomePoint
+_G.WalkWater = Functions.WalkWater
+_G.SpinPositionLoop = Functions.SpinPositionLoop
+_G.TpEntrance = Functions.TpEntrance
+_G.CheckItemBPCR = Functions.CheckItemBPCR
+_G.AutoKatakuriV2Loop = Functions.AutoKatakuriV2Loop
+_G.AutoClick = Functions.FastAttackAdvanced
 
 return Functions
