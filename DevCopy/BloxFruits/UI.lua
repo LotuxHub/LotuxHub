@@ -545,8 +545,8 @@ print("[LotuxHub] Referências internas carregadas!")
 -- =====================================================
 local CommF_
 pcall(function()
-    CommF_ = ReplicatedStorage:WaitForChild("Remotes", 5)
-                              :WaitForChild("CommF_", 5)
+    CommF_ = ReplicatedStorage:WaitForChild("Remotes")
+                              :WaitForChild("CommF_")
 end)
 
 -- =====================================================
