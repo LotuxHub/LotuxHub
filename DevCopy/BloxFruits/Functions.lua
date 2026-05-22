@@ -5183,7 +5183,7 @@ function Functions.AutoKatakuriV2Loop()
         while _G.AutoKatakuriV2 do
             pcall(function()
                 local char = Player.Character
-                if not char then task.wait(1); continue end
+                if not char then task.wait(1); return end
                 local backpack = Player.Backpack
 
                 -- Verifica se tem Sweet Chalice ou God's Chalice
@@ -5281,4 +5281,5 @@ _G.CheckItemBPCR = Functions.CheckItemBPCR
 _G.AutoKatakuriV2Loop = Functions.AutoKatakuriV2Loop
 _G.AutoClick = Functions.FastAttackAdvanced
 
+print("UI loaded")
 return Functions
