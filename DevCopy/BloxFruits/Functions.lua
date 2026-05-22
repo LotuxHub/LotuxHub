@@ -5275,4 +5275,6 @@ _G.CheckItemBPCR = Functions.CheckItemBPCR
 _G.AutoKatakuriV2Loop = Functions.AutoKatakuriV2Loop
 _G.AutoClick = Functions.FastAttackAdvanced
 
+print("[Lotux Hub] Functions Carregado com sucesso")
+
 return Functions
