@@ -1118,16 +1118,15 @@ end
 -- CARREGAMENTO COM PORCENTAGEM
 -- =====================================================
 local function LoadingBar(percent)
-    local barLength = 50
-    local filled = math.floor((percent / 100) * barLength)
-    local bar = string.rep("‖", filled) .. string.rep(" ", barLength - filled)
-    print(string.format("\r%3d%% [%s]", percent, bar))
+    _SetProgress(percent)
 end
 
-for i = 10, 100, 10 do
-    LoadingBar(i)
-    task.wait(0.2)
-end
+task.spawn(function()
+    for i = 10, 90, 10 do
+        LoadingBar(i)
+        task.wait(0.2)
+    end
+end)
 
 -- =====================================================
 -- WINDOW
