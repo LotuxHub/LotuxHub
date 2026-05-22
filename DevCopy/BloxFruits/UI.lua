@@ -440,7 +440,6 @@ local function _SetStatus(msg)
     _StatusMsg.Text = "⏳  " .. msg
     _StepLabel.Text = msg
     _ConsoleLog(msg)
-    print("[LotuxHub] Carregando: " .. msg)
     task.wait(0.1)
 end
 
@@ -501,7 +500,6 @@ local Functions = _SafeLoad("https://raw.githubusercontent.com/LotuxHub/LotuxHub
 -- =====================================================
 -- SERVICES
 -- =====================================================
-print("[LotuxHub] Inicializando serviços...")
 local Players           = game:GetService("Players")
 local RunService        = game:GetService("RunService")
 local TweenService      = game:GetService("TweenService")
@@ -510,14 +508,12 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local HttpService       = game:GetService("HttpService")
 local Lighting          = game:GetService("Lighting")
 local UserInputService  = game:GetService("UserInputService")
-print("[LotuxHub] Serviços carregados com sucesso!")
 
 local Player = Players.LocalPlayer
 
 -- =====================================================
 -- REFERENCIAS INTERNAS
 -- =====================================================
-print("[LotuxHub] Inicializando referências internas...")
 local isTeleporting = { value = false }
 local NoClip        = { value = false }
 local NotAutoEquip  = { value = false }
@@ -530,7 +526,6 @@ local function UpdateChar(c)
     HumanoidRootPart = c:WaitForChild("HumanoidRootPart")
 end
 UpdateChar(Player.Character or Player.CharacterAdded:Wait())
-print("[LotuxHub] Personagem detectado!")
 Player.CharacterAdded:Connect(function(c)
     UpdateChar(c)
     isTeleporting.value = false
@@ -538,7 +533,6 @@ Player.CharacterAdded:Connect(function(c)
 end)
 
 local Camera = workspace.CurrentCamera
-print("[LotuxHub] Referências internas carregadas!")
 
 -- =====================================================
 -- REMOTES
@@ -560,7 +554,6 @@ local Bosses    = QuestData.Bosses
 -- =====================================================
 -- LANGUAGE SYSTEM
 -- =====================================================
-print("[LotuxHub] Carregando sistema de linguagem...")
 local LangData    = {}
 local CurrentLang = "English"
 
@@ -598,7 +591,6 @@ local function LoadLanguage()
     end
 end
 LoadLanguage()
-print("[LotuxHub] Idioma carregado: " .. CurrentLang)
 
 local function T(key, vars)
     local lang = LangData[CurrentLang] or LangData["English"] or {}
@@ -660,22 +652,18 @@ local CurrentSea = GetSea()
 World1 = (CurrentSea == 1)
 World2 = (CurrentSea == 2)
 World3 = (CurrentSea == 3)
-print("[LotuxHub] Sea detectado: " .. (CurrentSea or "Desconhecido"))
 
 -- =====================================================
 -- INICIA RESOLVER DE ARMA
 -- =====================================================
-print("[LotuxHub] Iniciando resolver de arma...")
 local ok_wres, err_wres = pcall(function() Functions.StartWeaponResolver(Config) end)
 if not ok_wres then
     warn("[LotuxHub] StartWeaponResolver falhou: " .. tostring(err_wres))
     _ConsoleLog("[ERRO] StartWeaponResolver: " .. tostring(err_wres):sub(1,60))
 else
-    print("[LotuxHub] Resolver de arma iniciado!")
-end
+    end
 
 -- Inicia loop de haki (substitui o ActivateBuso por frame)
-print("[LotuxHub] Iniciando loop de Haki...")
 local ok_haki, err_haki = pcall(function() Functions.StartHakiLoop(Config, CommF_) end)
 if not ok_haki then
     warn("[LotuxHub] StartHakiLoop falhou: " .. tostring(err_haki))
@@ -683,13 +671,11 @@ if not ok_haki then
 end
 
 -- Inicia todos os loops das funções do Tiroreal integradas
-print("[LotuxHub] Iniciando loops gerais...")
 local ok_loops, err_loops = pcall(function() Functions.StartAllLoops(Config) end)
 if not ok_loops then
     warn("[LotuxHub] StartAllLoops falhou: " .. tostring(err_loops))
     _ConsoleLog("[ERRO] StartAllLoops: " .. tostring(err_loops):sub(1,60))
 end
-print("[LotuxHub] Loops inicializados!")
 
 -- =====================================================
 -- NOCLIP LOOP
@@ -1146,13 +1132,11 @@ end
 -- =====================================================
 -- WINDOW
 -- =====================================================
-print("[LotuxHub] Criando interface...")
 local Window = redzlib:MakeWindow({
     Title      = "Lotux Hub",
     SubTitle   = "by LoadFlint/lucas v3.0",
     SaveFolder = "LotuxHub_Save",
 })
-print("[LotuxHub] Interface criada!")
 
 Window:AddMinimizeButton({
     Button = { Size = UDim2.fromOffset(45, 45), Position = UDim2.fromScale(0.05, 0.05), Image = IMG, BackgroundTransparency = 1 },
@@ -1162,7 +1146,6 @@ Window:AddMinimizeButton({
 -- =====================================================
 -- TAB: HOME
 -- =====================================================
-print("[LotuxHub] Carregando aba HOME...")
 local Home = Window:MakeTab({ Title = T("tab_home"), Icon = "home" })
 Home:AddSection(T("sec_discord"))
 Home:AddDiscordInvite({ Title = "Lotux Hub", Logo = IMG, Link = "https://discord.gg/HkB97N772p" })
@@ -1233,7 +1216,6 @@ end)
 -- =====================================================
 -- TAB: MAIN (FARM)
 -- =====================================================
-print("[LotuxHub] Carregando aba MAIN (FARM)...")
 local Main = Window:MakeTab({ Title = T("tab_main"), Icon = "menu" })
 
 Main:AddDropdown({
@@ -1294,6 +1276,12 @@ local sea3Toggles = {
     { "ui_auto_god_human",     "AutoGodHuman"        }, { "ui_auto_dragon",        "AutoDragonTaylor"   },
     { "ui_auto_electric_claw", "AutoElectricClaw"    }, { "ui_auto_cake_prince",   "AutoCakePrince"     },
     { "ui_auto_dough_king",    "AutoDoughKing"       },
+    { "ui_auto_big_mom",       "AutoBigMom"          },
+    { "ui_auto_rip_indra",     "AutoRipIndra"        },
+    { "ui_auto_soul_reaper",   "AutoSoulReaper"      },
+    { "ui_auto_tyrant",        "AutoTyrantSpawn"     },
+    { "ui_auto_farm_bone",     "AutoFarmBone"        },
+    { "ui_auto_temple",        "AutoUnlockTemple"    },
 }
 for _, t in pairs(sea3Toggles) do
     local key = t[2]
@@ -1306,6 +1294,7 @@ local sea2Toggles = {
     { "ui_auto_raid_law",    "AutoRaidLaw"        }, { "ui_auto_buy_chip",    "AutoBuyChipRaidLaw" },
     { "ui_auto_start_raid",  "AutoStartRaidLaw"   }, { "ui_auto_darkbeard",   "AutoDarkBeard"      },
     { "ui_auto_sharkman",    "AutoSharkmanV2"     }, { "ui_auto_death_step",  "AutoDeathStep"      },
+    { "Auto Gray Beard (Sea 2)",      "AutoGrayBeard"     },
 }
 for _, t in pairs(sea2Toggles) do
     local key = t[2]
@@ -1316,6 +1305,7 @@ Main:AddSection(T("sec_farm_sea1"))
 local sea1Toggles = {
     { "ui_auto_sea2",       "AutoSea2"        }, { "ui_auto_saber",       "AutoSaber"       },
     { "ui_auto_graybeard",  "AutoGrayBeard"   }, { "ui_auto_darkblade",   "AutoDarkBladeV2" },
+    { "Auto Fruit (carregar frutas baratas)", "AutoFruit" },
 }
 for _, t in pairs(sea1Toggles) do
     local key = t[2]
@@ -1323,6 +1313,8 @@ for _, t in pairs(sea1Toggles) do
 end
 
 Main:AddSection(T("sec_extras"))
+Main:AddToggle({ Title = "Auto Skill Z/X/C (loop geral)", Default = false, Flag = "AutoSkill", Callback = function(v) Config.AutoSkill = v end })
+Main:AddToggle({ Title = "Farm Chocola Island (mobs)", Default = false, Flag = "FarmChocola", Callback = function(v) Config.FarmChocola = v end })
 Main:AddToggle({ Title = T("ui_auto_berry"),    Default = false, Flag = "AutoCollectBerry", Callback = function(v) Config.AutoCollectBerry = v end })
 Main:AddToggle({ Title = T("ui_auto_barista"),  Default = false, Flag = "AutoBarista",      Callback = function(v) Config.AutoBarista = v end })
 Main:AddDropdown({ Title = T("ui_haki_color"), Options = { "White","Black","Red","Blue","Green","Yellow","Purple","Pink" }, Default = "White",
@@ -1397,6 +1389,7 @@ Settings:AddSlider({
 })
 
 Settings:AddToggle({ Title = T("ui_disable_notify"), Default = false, Callback = function(v) Config.DisableGameNotify = v end })
+
 Settings:AddToggle({ Title = T("ui_no_fog"), Default = true,
     Callback = function(v)
         Config.NoFog    = v
@@ -1439,7 +1432,6 @@ Settings:AddParagraph({ Title = T("tab_language"), Text = T("ui_lang_list") })
 -- =====================================================
 -- TAB: ITEMS QUEST (espadas lendárias, boss itens)
 -- =====================================================
-print("[LotuxHub] Carregando aba ITEMS QUEST...")
 local ItemsQuest = Window:MakeTab({ Title = T("tab_itemquest"), Icon = "swords" })
 
 if World3 then
@@ -1518,7 +1510,6 @@ ItemsQuest:AddToggle({ Title = "Auto Dungeon (avançar ilhas)", Default = false,
 -- =====================================================
 -- TAB: RACE V4
 -- =====================================================
-print("[LotuxHub] Carregando aba RACE V4...")
 local RaceTab = Window:MakeTab({ Title = T("tab_race"), Icon = "flag" })
 RaceTab:AddSection("Raça e Evolução")
 RaceTab:AddToggle({ Title = "Auto Quest Race (completar trial de raça)", Default = false,
@@ -1629,7 +1620,6 @@ end })
 -- =====================================================
 -- TAB: VULCAO / PREHISTORIC
 -- =====================================================
-print("[LotuxHub] Carregando aba VULCAO...")
 local VulcaoTab = Window:MakeTab({ Title = T("tab_vulcano"), Icon = "flame" })
 VulcaoTab:AddSection("Prehistoric Island")
 VulcaoTab:AddToggle({ Title = "Auto Defender Vulcão (Prehistoric)", Default = false,
@@ -1721,7 +1711,6 @@ VulcaoTab:AddToggle({ Title = "Auto Kill Lava Golem (Prehistoric Island)", Defau
 -- =====================================================
 -- TAB: SEA EVENT
 -- =====================================================
-print("[LotuxHub] Carregando aba SEA EVENT...")
 local SeaEventTab = Window:MakeTab({ Title = T("tab_seaevent"), Icon = "waves" })
 SeaEventTab:AddSection("Ilhas Especiais")
 SeaEventTab:AddToggle({ Title = "Auto Tween para Mirage Island", Default = false,
@@ -1846,7 +1835,6 @@ SeaEventTab:AddToggle({ Title = "Auto Tween para M-Gear (partes Neon)", Default 
 -- =====================================================
 -- TAB: FRUTAS / RAID
 -- =====================================================
-print("[LotuxHub] Carregando aba FRUTAS / RAID...")
 local FruitRaidTab = Window:MakeTab({ Title = T("tab_fruitraid"), Icon = "apple" })
 FruitRaidTab:AddSection("Frutas")
 FruitRaidTab:AddToggle({ Title = T("ui_twenfly_fruit"), Default = false,
@@ -1929,8 +1917,18 @@ FruitRaidTab:AddDropdown({ Title = "Cor do Haki (Barista)",
 -- =====================================================
 -- TAB: PVP / PLAYER HUNTER
 -- =====================================================
-print("[LotuxHub] Carregando aba PVP...")
 local PvpTab = Window:MakeTab({ Title = "PvP", Icon = "shield" })
+PvpTab:AddSection("Modo PvP")
+PvpTab:AddToggle({ Title = "Ativar Modo PvP", Default = false,
+    Callback = function(v)
+        Config.EnabledPvP = v
+        Notify({ Title = v and "Modo PvP ATIVADO" or "Modo PvP Desativado", Image = IMG, Type = v and "Warning" or "Info", Duration = 2 })
+    end })
+PvpTab:AddToggle({ Title = "Fast Attack (ataque rápido manual)", Default = false,
+    Callback = function(v)
+        Config.FastAttack = v
+        Notify({ Title = v and "Fast Attack ON" or "Fast Attack OFF", Image = IMG, Type = v and "Success" or "Info", Duration = 2 })
+    end })
 PvpTab:AddSection("Player Hunter")
 PvpTab:AddToggle({ Title = "Auto Player Hunter (TP para alvo)", Default = false,
     Callback = function(v)
@@ -2048,7 +2046,6 @@ PvpTab:AddToggle({ Title = "Auto Matar Fish Crew (mar)", Default = false,
 -- =====================================================
 -- TAB: SHOP / COMPRAS
 -- =====================================================
-print("[LotuxHub] Carregando aba SHOP...")
 local ShopTab = Window:MakeTab({ Title = "Compras", Icon = "shoppingbag" })
 ShopTab:AddSection("Compras Automáticas")
 ShopTab:AddToggle({ Title = T("ui_auto_buy_sword_legends"), Default = false,
@@ -2101,7 +2098,6 @@ ShopTab:AddParagraph({ Title = "Lotux Hub", Text =
 -- =====================================================
 -- TAB: ESP
 -- =====================================================
-print("[LotuxHub] Carregando aba ESP...")
 local Esp = Window:MakeTab({ Title = T("tab_esp"), Icon = "eye" })
 Esp:AddSection(T("sec_esp_settings"))
 
@@ -2286,7 +2282,6 @@ end)
 -- =====================================================
 -- TAB: LOCAL PLAYER
 -- =====================================================
-print("[LotuxHub] Carregando aba LOCAL PLAYER...")
 local LPTab = Window:MakeTab({ Title = T("tab_localplayer"), Icon = "users" })
 LPTab:AddSection(T("sec_char_stats"))
 LPTab:AddSlider({ Title = T("ui_walkspeed"), Min = 16, Max = 500, Default = 16,
@@ -2343,7 +2338,6 @@ LPTab:AddButton({ Title = T("ui_copy_pos"),
 -- =====================================================
 -- TAB: TELEPORT
 -- =====================================================
-print("[LotuxHub] Carregando aba TELEPORT...")
 local Teleport = Window:MakeTab({ Title = T("tab_teleport"), Icon = "mouse" })
 Teleport:AddSection(T("sec_quick_tp"))
 for _, island in ipairs(Islands[CurrentSea]) do
@@ -2405,7 +2399,6 @@ Teleport:AddButton({ Title = "Ir ao Mob da Quest",
 -- =====================================================
 -- TAB: VISUAL (NOVO - Funcoes do Tiroreal integradas)
 -- =====================================================
-print("[LotuxHub] Carregando aba VISUAL...")
 local Visual = Window:MakeTab({ Title = "Visual", Icon = "sparkles" })
 
 Visual:AddSection("Efeitos no Personagem")
@@ -2556,7 +2549,6 @@ Visual:AddButton({ Title = T("ui_reset_visual"),
 -- =====================================================
 -- TAB: MISC
 -- =====================================================
-print("[LotuxHub] Carregando aba MISC...")
 local Misc = Window:MakeTab({ Title = "Misc", Icon = "calendarsearch" })
 Misc:AddSection("Server")
 Misc:AddButton({
@@ -2579,6 +2571,16 @@ Misc:AddToggle({ Title = "Auto Dark Beard (Sea 2)", Default = false,
     Callback = function(v) Config.AutoDarkBeard = v end })
 Misc:AddToggle({ Title = "Auto Bartilo Quest (acesso Sea 3)", Default = false,
     Callback = function(v) Config.AutoBartilo = v end })
+Misc:AddToggle({ Title = "Auto Chief Warden (Farm)", Default = false,
+    Callback = function(v)
+        Config.ChiefWarden = v
+        Notify({ Title = v and "Chief Warden ON" or "Chief Warden OFF", Image = IMG, Type = v and "Success" or "Info", Duration = 2 })
+    end })
+Misc:AddToggle({ Title = "Auto Cursed Captain (Farm)", Default = false,
+    Callback = function(v)
+        Config.CursedCaptain = v
+        Notify({ Title = v and "Cursed Captain ON" or "Cursed Captain OFF", Image = IMG, Type = v and "Success" or "Info", Duration = 2 })
+    end })
 
 Misc:AddSection("Bosses Especiais (Sea 3)")
 Misc:AddToggle({ Title = "Auto Dough King (Sea 3)", Default = false,
@@ -2644,7 +2646,6 @@ Lighting.FogEnd = Config.NoFog and 100000 or 1000
 -- =====================================================
 -- FINALIZACAO
 -- =====================================================
-print("[LotuxHub] Carregando features padrão...")
 uiReady = true
 
 -- Fecha o painel de loading com animacao suave
@@ -2667,6 +2668,8 @@ task.spawn(function()
     end)
 end)
 
+print("[LotuxHub] ✅ Carregado! v1.2 | Sea " .. CurrentSea .. " | by LoadFlint/lucas")
+
 Notify({
     Title       = "Lotux Hub v1.2 Carregado!",
     Description = "Sea " .. CurrentSea .. " | PlaceId: " .. game.PlaceId,
@@ -2674,10 +2677,3 @@ Notify({
     Duration    = 5,
     Type        = "Success",
 })
-
-
-print("[LotuxHub] Script carregado com sucesso!")
-print("[LotuxHub] Versão: 1.2 | by LoadFlint/lucas")
-print("[LotuxHub] Sea detectado: " .. CurrentSea)
-print("[LotuxHub] Carregando...")
-print("[LotuxHub] PlaceId: " .. game.PlaceId)
