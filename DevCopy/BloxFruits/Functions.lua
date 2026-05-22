@@ -221,7 +221,7 @@ function Functions.AutoHaki()
     _hakiLastTime = now
 
     pcall(function()
-        (GetCommF() or {}):InvokeServer("Buso")
+        ;(GetCommF() or {}):InvokeServer("Buso")
     end)
 end
 
@@ -434,7 +434,7 @@ end
 
 function Functions.RequestEntrance(teleportPos)
     pcall(function()
-        (GetCommF() or {}):InvokeServer("requestEntrance", teleportPos)
+        ;(GetCommF() or {}):InvokeServer("requestEntrance", teleportPos)
         local hrp = Player.Character and Player.Character:FindFirstChild("HumanoidRootPart")
         if hrp then hrp.CFrame = hrp.CFrame + Vector3.new(0, 50, 0) end
         task.wait(0.5)
@@ -954,7 +954,7 @@ function Functions.StartAutoBartilo(config)
                     else
                         Functions.TeleportTo(CFrame.new(-456.28952, 73.0200958, 299.895966))
                         task.wait(1.1)
-                        (GetCommF() or {}):InvokeServer("StartQuest", "BartiloQuest", 1)
+                        ;(GetCommF() or {}):InvokeServer("StartQuest", "BartiloQuest", 1)
                     end
 
                 elseif progress == 1 then
@@ -1036,7 +1036,7 @@ function Functions.StartAutoEliteHunter(config)
                        and response == "I don't have anything for you right now. Come back later." then
                         Functions.Hop()
                     else
-                        (GetCommF() or {}):InvokeServer("EliteHunter")
+                        ;(GetCommF() or {}):InvokeServer("EliteHunter")
                     end
                 end
             end)
@@ -1070,7 +1070,7 @@ function Functions.StartAutoHolyTorch(config)
         while task.wait(0.5) do
             if not config.AutoHolyTorch then continue end
             pcall(function()
-                (GetCommF() or {}):InvokeServer("requestEntrance",
+                ;(GetCommF() or {}):InvokeServer("requestEntrance",
                     Vector3.new(5657.88623046875, 1013.0790405273438, -335.4996337890625))
                 task.wait(1)
                 Functions.TeleportTo(CFrame.new(5711.87451171875, 45.82802963256836, 254.17005920410156))
@@ -1341,12 +1341,12 @@ function Functions.StartAutoDoughKing(config)
                     if Player.Backpack:FindFirstChild("Sweet Chalice") or
                        (Player.Character and Player.Character:FindFirstChild("Sweet Chalice")) then
                         if string.find((GetCommF() or {}):InvokeServer("CakePrinceSpawner"), "Do you want to open the portal now?") then
-                            (GetCommF() or {}):InvokeServer("CakePrinceSpawner")
+                            ;(GetCommF() or {}):InvokeServer("CakePrinceSpawner")
                         end
                     elseif Player.Backpack:FindFirstChild("God's Chalice") or
                            (Player.Character and Player.Character:FindFirstChild("God's Chalice")) then
                         if string.find((GetCommF() or {}):InvokeServer("SweetChaliceNpc"), "Where") then
-                            (GetCommF() or {}):InvokeServer("SweetChaliceNpc")
+                            ;(GetCommF() or {}):InvokeServer("SweetChaliceNpc")
                         end
                     else
                         Functions.TeleportTo(CFrame.new(-1820.0634765625, 210.74781799316406, -12297.49609375))
@@ -1462,7 +1462,7 @@ function Functions.StartAutoPray(config)
             pcall(function()
                 Functions.TeleportTo(CFrame.new(-8652.99707, 143.450119, 6170.50879))
                 task.wait()
-                (GetCommF() or {}):InvokeServer("gravestoneEvent", 1)
+                ;(GetCommF() or {}):InvokeServer("gravestoneEvent", 1)
             end)
         end
     end)
@@ -1475,7 +1475,7 @@ function Functions.StartAutoTryLuck(config)
             pcall(function()
                 Functions.TeleportTo(CFrame.new(-8652.99707, 143.450119, 6170.50879))
                 task.wait()
-                (GetCommF() or {}):InvokeServer("gravestoneEvent", 2)
+                ;(GetCommF() or {}):InvokeServer("gravestoneEvent", 2)
             end)
         end
     end)
@@ -1487,7 +1487,7 @@ function Functions.StartAutoTradeBone(config)
         while task.wait(0.1) do
             if not config.AutoTradeBone then continue end
             pcall(function()
-                (GetCommF() or {}):InvokeServer("Bones", "Buy", 1, 1)
+                ;(GetCommF() or {}):InvokeServer("Bones", "Buy", 1, 1)
             end)
         end
     end)
@@ -1503,7 +1503,7 @@ function Functions.StartAutoHakiV2(config)
                 local hakiNPCPos = CFrame.new(-1830, 10, -1700) -- posicao aproximada
                 Functions.TeleportTo(hakiNPCPos)
                 task.wait(0.5)
-                (GetCommF() or {}):InvokeServer("UnlockHaki")
+                ;(GetCommF() or {}):InvokeServer("UnlockHaki")
             end)
         end
     end)
@@ -1516,7 +1516,7 @@ function Functions.StartAutoUnlockTemple(config)
             if not config.AutoUnlockTemple then continue end
             pcall(function()
                 -- Comprar Ancient One Quest
-                (GetCommF() or {}):InvokeServer("AncientOneQuest", "StartQuest")
+                ;(GetCommF() or {}):InvokeServer("AncientOneQuest", "StartQuest")
                 task.wait(1)
                 -- TP para o Temple
                 Functions.TeleportTo(CFrame.new(28286, 14897, 103))
@@ -1531,7 +1531,7 @@ function Functions.StartAutoGodHuman(config)
         while task.wait(0.5) do
             if not config.AutoGodHuman then continue end
             pcall(function()
-                (GetCommF() or {}):InvokeServer("BuyGodhuman")
+                ;(GetCommF() or {}):InvokeServer("BuyGodhuman")
             end)
         end
     end)
@@ -1543,7 +1543,7 @@ function Functions.StartAutoDragonTaylor(config)
         while task.wait(0.5) do
             if not config.AutoDragonTaylor then continue end
             pcall(function()
-                (GetCommF() or {}):InvokeServer("BuyDragonTalon")
+                ;(GetCommF() or {}):InvokeServer("BuyDragonTalon")
             end)
         end
     end)
@@ -1555,7 +1555,7 @@ function Functions.StartAutoElectricClaw(config)
         while task.wait(0.5) do
             if not config.AutoElectricClaw then continue end
             pcall(function()
-                (GetCommF() or {}):InvokeServer("BuyElectricClaw")
+                ;(GetCommF() or {}):InvokeServer("BuyElectricClaw")
             end)
         end
     end)
@@ -1632,8 +1632,8 @@ function Functions.StartAutoSharkmanV2(config)
         while task.wait(0.5) do
             if not config.AutoSharkmanV2 then continue end
             pcall(function()
-                (GetCommF() or {}):InvokeServer("BuySharkmanKarate", true)
-                (GetCommF() or {}):InvokeServer("BuySharkmanKarate")
+                ;(GetCommF() or {}):InvokeServer("BuySharkmanKarate", true)
+                ;(GetCommF() or {}):InvokeServer("BuySharkmanKarate")
             end)
         end
     end)
@@ -1645,7 +1645,7 @@ function Functions.StartAutoDeathStep(config)
         while task.wait(0.5) do
             if not config.AutoDeathStep then continue end
             pcall(function()
-                (GetCommF() or {}):InvokeServer("BuyDeathStep")
+                ;(GetCommF() or {}):InvokeServer("BuyDeathStep")
             end)
         end
     end)
@@ -1685,7 +1685,7 @@ function Functions.StartAutoRaidLaw(config)
             if not config.AutoBuyChipRaidLaw then continue end
             pcall(function()
                 local SelectChip = config.SelectChipRaid or "Flame"
-                (GetCommF() or {}):InvokeServer("RaidsNpc", "Select", SelectChip)
+                ;(GetCommF() or {}):InvokeServer("RaidsNpc", "Select", SelectChip)
             end)
         end
     end)
@@ -1708,16 +1708,16 @@ function Functions.StartAutoRaidLaw(config)
                 if game.PlaceId == 4442272183 then -- Sea 2
                     Functions.TeleportTo(CFrame.new(-6438.73535, 250.645355, -4501.50684))
                     task.wait(0.3)
-                    (GetCommF() or {}):InvokeServer("SetSpawnPoint")
+                    ;(GetCommF() or {}):InvokeServer("SetSpawnPoint")
                     pcall(function()
                         fireclickdetector(workspace.Map.CircleIsland.RaidSummon2.Button.Main.ClickDetector)
                     end)
                 elseif game.PlaceId == 7449423635 then -- Sea 3
-                    (GetCommF() or {}):InvokeServer("requestEntrance",
+                    ;(GetCommF() or {}):InvokeServer("requestEntrance",
                         Vector3.new(-5075.50927734375, 314.5155029296875, -3150.0224609375))
                     task.wait(0.3)
                     Functions.TeleportTo(CFrame.new(-5017.40869, 314.844055, -2823.0127))
-                    (GetCommF() or {}):InvokeServer("SetSpawnPoint")
+                    ;(GetCommF() or {}):InvokeServer("SetSpawnPoint")
                     pcall(function()
                         fireclickdetector(workspace.Map["Boat Castle"].RaidSummon2.Button.Main.ClickDetector)
                     end)
@@ -1794,7 +1794,7 @@ function Functions.StartAutoAwakenAbilities(config)
         while task.wait(0.1) do
             if not config.AutoAwakenAbilities then continue end
             pcall(function()
-                (GetCommF() or {}):InvokeServer("Awakener", "Awaken")
+                ;(GetCommF() or {}):InvokeServer("Awakener", "Awaken")
             end)
         end
     end)
@@ -1819,7 +1819,7 @@ function Functions.StartAutoLoadFruitCheap(config)
             if not config.AutoFruit then continue end
             pcall(function()
                 for _, fruitName in ipairs(cheapFruits) do
-                    (GetCommF() or {}):InvokeServer("LoadFruit", fruitName)
+                    ;(GetCommF() or {}):InvokeServer("LoadFruit", fruitName)
                 end
             end)
         end
@@ -1938,7 +1938,7 @@ function Functions.StartAutoBuyTTK(config)
                     -- Ir ao NPC da quest Saber
                     Functions.TeleportTo(CFrame.new(-6763.52734375, 6.72978878, -5890.28515625))
                     task.wait(1)
-                    (GetCommF() or {}):InvokeServer("StartQuest", "SaberQuest", 1)
+                    ;(GetCommF() or {}):InvokeServer("StartQuest", "SaberQuest", 1)
                 end
             end)
         end
@@ -1957,7 +1957,7 @@ function Functions.StartAutoDarkBladeV2(config)
                     -- Ir ao NPC para upgrade
                     Functions.TeleportTo(CFrame.new(-1830.2, 10.5, -1713.4))
                     task.wait(0.5)
-                    (GetCommF() or {}):InvokeServer("UpgradeDarkBlade")
+                    ;(GetCommF() or {}):InvokeServer("UpgradeDarkBlade")
                 end
             end)
         end
@@ -1978,7 +1978,7 @@ function Functions.StartAutoSea2(config)
                     Functions.TeleportTo(pos1)
                 until (pos1.Position - Player.Character.HumanoidRootPart.Position).Magnitude <= 3 or not config.AutoSea2
                 task.wait(0.5)
-                (GetCommF() or {}):InvokeServer("TravelToSea", 2)
+                ;(GetCommF() or {}):InvokeServer("TravelToSea", 2)
             end)
         end
     end)
@@ -2003,7 +2003,7 @@ function Functions.StartAutoSea3(config)
                                 v.HumanoidRootPart.CanCollide = false
                                 v.HumanoidRootPart.Size = Vector3.new(50, 50, 50)
                                 Functions.TeleportTo(v.HumanoidRootPart.CFrame * CFrame.new(0, 30, 0))
-                                (GetCommF() or {}):InvokeServer("TravelZou")
+                                ;(GetCommF() or {}):InvokeServer("TravelZou")
                                 pcall(function() sethiddenproperty(Player, "SimulationRadius", math.huge) end)
                             until not config.AutoSea3 or v.Humanoid.Health <= 0 or not v.Parent
                         end
@@ -2166,7 +2166,7 @@ function Functions.StartSailBoat(config)
                     local char = Player.Character
                     if char and (CFrame.new(-16927.451171875, 9.0863618850708, 433.8642883300781).Position
                                - char.HumanoidRootPart.Position).Magnitude <= 10 then
-                        (GetCommF() or {}):InvokeServer("BuyBoat", "PirateBrigade")
+                        ;(GetCommF() or {}):InvokeServer("BuyBoat", "PirateBrigade")
                     end
                     return
                 end
@@ -2555,7 +2555,7 @@ function Functions.StartAutoStoreFruit(config)
                 for _, v in ipairs(Player.Backpack:GetChildren()) do
                     if v:IsA("Tool") and v.Name:find("Fruit") then
                         local firstName = v.Name:gsub(" Fruit", "")
-                        (GetCommF() or {}):InvokeServer(
+                        ;(GetCommF() or {}):InvokeServer(
                             "StoreFruit",
                             firstName .. "-" .. firstName,
                             v
@@ -2627,7 +2627,7 @@ function Functions.StartAutoFruit(config)
         while task.wait(1) do
             if not config.AutoFruit then continue end
             pcall(function()
-                (GetCommF() or {}):InvokeServer("LoadFruit")
+                ;(GetCommF() or {}):InvokeServer("LoadFruit")
             end)
         end
     end)
@@ -2642,7 +2642,7 @@ function Functions.StartAutoBuyEnhancement(config)
         while task.wait(1) do
             if not config.AutoBuyEnhancementColour then continue end
             pcall(function()
-                (GetCommF() or {}):InvokeServer("BuyEnhancementColour")
+                ;(GetCommF() or {}):InvokeServer("BuyEnhancementColour")
             end)
         end
     end)
@@ -2654,11 +2654,11 @@ function Functions.StartAutoBuyLegendarySword(config)
             if not config.AutoBuyLegendarySword then continue end
             pcall(function()
                 -- Compra as 3 espadas lendarias do dealer (Sea 2)
-                (GetCommF() or {}):InvokeServer("LegendarySwordDealer", "1")
+                ;(GetCommF() or {}):InvokeServer("LegendarySwordDealer", "1")
                 task.wait(0.1)
-                (GetCommF() or {}):InvokeServer("LegendarySwordDealer", "2")
+                ;(GetCommF() or {}):InvokeServer("LegendarySwordDealer", "2")
                 task.wait(0.1)
-                (GetCommF() or {}):InvokeServer("LegendarySwordDealer", "3")
+                ;(GetCommF() or {}):InvokeServer("LegendarySwordDealer", "3")
             end)
         end
     end)
@@ -2667,7 +2667,7 @@ end
 -- Comprar itens da loja (botao direto)
 function Functions.BuyItem(itemName)
     pcall(function()
-        (GetCommF() or {}):InvokeServer("BuyItem", itemName)
+        ;(GetCommF() or {}):InvokeServer("BuyItem", itemName)
     end)
 end
 
@@ -2685,14 +2685,14 @@ function Functions.BuyFightingStyle(style)
     local remote = styleMap[style]
     if remote then
         pcall(function()
-            (GetCommF() or {}):InvokeServer(remote)
+            ;(GetCommF() or {}):InvokeServer(remote)
         end)
     end
 end
 
 function Functions.BuyBlackbeardItem(itemType, slot)
     pcall(function()
-        (GetCommF() or {}):InvokeServer("BlackbeardReward", itemType, slot or "1")
+        ;(GetCommF() or {}):InvokeServer("BlackbeardReward", itemType, slot or "1")
     end)
 end
 
@@ -2712,7 +2712,7 @@ function Functions.StartAutoBarista(config)
             if not config.AutoBarista then continue end
             pcall(function()
                 local colorIndex = hakiColors[config.HakiColor] or 1
-                (GetCommF() or {}):InvokeServer("Barista", colorIndex)
+                ;(GetCommF() or {}):InvokeServer("Barista", colorIndex)
             end)
         end
     end)
@@ -3002,7 +3002,7 @@ end
 
 function Functions.OpenInventory()
     pcall(function()
-        (GetCommF() or {}):InvokeServer("getInventoryWeapons")
+        ;(GetCommF() or {}):InvokeServer("getInventoryWeapons")
         task.wait(1)
         Player.PlayerGui.Main.Inventory.Visible = true
     end)
@@ -3010,7 +3010,7 @@ end
 
 function Functions.OpenFruitInventory()
     pcall(function()
-        (GetCommF() or {}):InvokeServer("getInventoryFruits")
+        ;(GetCommF() or {}):InvokeServer("getInventoryFruits")
         Player.PlayerGui.Main.FruitInventory.Visible = true
     end)
 end
@@ -3023,14 +3023,14 @@ end
 
 function Functions.OpenTitles()
     pcall(function()
-        (GetCommF() or {}):InvokeServer("getTitles")
+        ;(GetCommF() or {}):InvokeServer("getTitles")
         Player.PlayerGui.Main.Titles.Visible = true
     end)
 end
 
 function Functions.JoinTeam(teamName)
     pcall(function()
-        (GetCommF() or {}):InvokeServer("SetTeam", teamName)
+        ;(GetCommF() or {}):InvokeServer("SetTeam", teamName)
     end)
 end
 
@@ -3674,7 +3674,7 @@ function Functions.StoreFruit()
     for _, v in pairs(Player.Backpack:GetChildren()) do
         if v:IsA("Tool") and string.find(v.Name, "Fruit") then
             pcall(function()
-                (GetCommF() or {}):InvokeServer(
+                ;(GetCommF() or {}):InvokeServer(
                     "StoreFruit",
                     v:GetAttribute("OriginalName"),
                     v
@@ -4109,7 +4109,7 @@ end
 -- RedeemCode - Resgatar um codigo
 function Functions.RedeemCode(code)
     pcall(function()
-        (GetCommF() or {}):InvokeServer("RedeemCode", code)
+        ;(GetCommF() or {}):InvokeServer("RedeemCode", code)
     end)
 end
 
@@ -4247,7 +4247,7 @@ function Functions.StartAutoAwakeningFruit(config)
             if not config.AutoAwakenAbilities then continue end
             
             pcall(function()
-                (GetCommF() or {}):InvokeServer("Awakener", "Awaken")
+                ;(GetCommF() or {}):InvokeServer("Awakener", "Awaken")
             end)
         end
     end)
@@ -4275,7 +4275,7 @@ function Functions.StartAutoLoadFruit(config)
                 
                 for _, fruit in ipairs(cheapFruits) do
                     pcall(function()
-                        (GetCommF() or {}):InvokeServer("LoadFruit", fruit)
+                        ;(GetCommF() or {}):InvokeServer("LoadFruit", fruit)
                     end)
                     task.wait(0.1)
                 end
