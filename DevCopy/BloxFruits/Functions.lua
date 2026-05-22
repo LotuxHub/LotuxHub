@@ -4190,10 +4190,6 @@ function Functions.StartAutoKillFishCrew(config)
     end)
 end
 
--- Mais funcoes uteis do Tiroreal...
-print("[Lotux Hub] Mais funcoes do Tiroreal integradas!")
-
-
 -- =====================================================
 -- FUNCOES AVANCADAS DO TIROREAL - PARTE 2
 -- =====================================================
