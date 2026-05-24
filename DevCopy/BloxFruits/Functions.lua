@@ -5471,27 +5471,38 @@ function Functions.TravelToSubmergedIsland()
     local hrp = char:FindFirstChild("HumanoidRootPart")
     if not hrp then return false end
 
-    -- 1. Ir ate o portal do Boat Castle se estiver longe
+    -- 1. Teleporta direto para perto do NPC do Boat Castle
     if (hrp.Position - SUBMERGED_NPC_POS).Magnitude > 50 then
-        -- Usa o remote do portal do castelo
+        hrp.CFrame = CFrame.new(SUBMERGED_NPC_POS)
+        task.wait(1)
+
+        -- Tenta disparar o remote do portal do castelo (opcional, nao bloqueia)
         pcall(function()
-            local net = game:GetService("ReplicatedStorage"):WaitForChild("Modules"):WaitForChild("Net")
-            local rf  = net:WaitForChild("RF/BoatCastleTeleporters")
-            rf:InvokeServer("InitiateTeleport",
-                workspace:WaitForChild("Map"):WaitForChild("Boat Castle"):WaitForChild("MapTeleportC"))
+            local net = game:GetService("ReplicatedStorage"):FindFirstChild("Modules")
+            if not net then return end
+            net = net:FindFirstChild("Net")
+            if not net then return end
+            local rf = net:FindFirstChild("RF/BoatCastleTeleporters")
+            if not rf then return end
+            local mapFolder = workspace:FindFirstChild("Map")
+            if not mapFolder then return end
+            local boatCastle = mapFolder:FindFirstChild("Boat Castle")
+            if not boatCastle then return end
+            local teleportC = boatCastle:FindFirstChild("MapTeleportC")
+            if not teleportC then return end
+            rf:InvokeServer("InitiateTeleport", teleportC)
         end)
-        task.wait(2)
-        -- Se ainda nao chegou, tween ate o NPC manualmente
-        if (hrp.Position - SUBMERGED_NPC_POS).Magnitude > 200 then
-            hrp.CFrame = CFrame.new(SUBMERGED_NPC_POS)
-            task.wait(1)
-        end
+        task.wait(1)
     end
 
     -- 2. Disparar o remote de viagem para Submerged Island
     pcall(function()
-        local net = game:GetService("ReplicatedStorage"):WaitForChild("Modules"):WaitForChild("Net")
-        local rf  = net:WaitForChild("RF/SubmarineWorkerSpeak")
+        local net = game:GetService("ReplicatedStorage"):FindFirstChild("Modules")
+        if not net then return end
+        net = net:FindFirstChild("Net")
+        if not net then return end
+        local rf = net:FindFirstChild("RF/SubmarineWorkerSpeak")
+        if not rf then return end
         rf:InvokeServer("TravelToSubmergedIsland")
     end)
 
@@ -5510,5 +5521,5 @@ _G.AutoKatakuriV2Loop = Functions.AutoKatakuriV2Loop
 _G.AutoClick = Functions.FastAttackAdvanced
 
 print("UI loaded")
-print("Functions Updated Loaded v2.1.5")
+print("Functions Updated Loaded v2.1.7")
 return Functions
