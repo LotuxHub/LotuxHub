@@ -2194,42 +2194,60 @@ end
 
 -- Auto Pirate Raid (Sea 3)
 function Functions.StartAutoPirateRaid(config)
-    local CFrameBoss = CFrame.new(-5496.17432, 313.768921, -2841.53027)
+    local CFrameBoss    = CFrame.new(-5496.17432, 313.768921, -2841.53027)
+    local raidCenter    = Vector3.new(-5539.31, 313.80, -2972.37)
+    local RAID_RADIUS   = 500
+    local MOB_RADIUS    = 3000
 
     task.spawn(function()
-        while task.wait() do
+        while task.wait(0.1) do
             if not config.AutoPirateRaid then continue end
             pcall(function()
                 local char = Player.Character
                 local hrp  = char and char:FindFirstChild("HumanoidRootPart")
                 if not hrp then return end
 
-                local raidCenter = CFrame.new(-5539.3115234375, 313.800537109375, -2972.372314453125)
-                if (raidCenter.Position - hrp.Position).Magnitude <= 500 then
-                    for _, v in ipairs(workspace.Enemies:GetChildren()) do
-                        if v:FindFirstChild("HumanoidRootPart") and v:FindFirstChild("Humanoid")
-                           and v.Humanoid.Health > 0
-                           and (v.HumanoidRootPart.Position - hrp.Position).Magnitude < 2000 then
-                            repeat task.wait()
-                                Functions.AutoHaki()
-                                Functions.EquipWeapon(config.SelectedWeaponName)
-                                v.HumanoidRootPart.CanCollide = false
-                                v.HumanoidRootPart.Size = Vector3.new(60, 60, 60)
-                                Functions.TeleportTo(v.HumanoidRootPart.CFrame * CFrame.new(0, 30, 0))
-                                VirtualUser:CaptureController()
-                                VirtualUser:Button1Down(Vector2.new(1280, 672))
-                                pcall(function() sethiddenproperty(Player, "SimulationRadius", math.huge) end)
-                            until v.Humanoid.Health <= 0 or not v.Parent or not config.AutoPirateRaid
-                        end
-                    end
-                else
+                -- Se nao esta na area da raid, teleporta ate la
+                if (raidCenter - hrp.Position).Magnitude > RAID_RADIUS then
                     Functions.TeleportTo(CFrameBoss)
+                    task.wait(1)
+                    return
+                end
+
+                -- Procura mobs vivos na area da raid
+                local mobFound = false
+                for _, v in ipairs(workspace.Enemies:GetChildren()) do
+                    if not config.AutoPirateRaid then break end
+                    if v:FindFirstChild("HumanoidRootPart")
+                       and v:FindFirstChild("Humanoid")
+                       and v.Humanoid.Health > 0
+                       and (v.HumanoidRootPart.Position - raidCenter).Magnitude < MOB_RADIUS then
+
+                        mobFound = true
+                        repeat
+                            task.wait(0.05)
+                            if not config.AutoPirateRaid then break end
+                            Functions.AutoHaki()
+                            Functions.EquipWeapon(config, nil)
+                            v.HumanoidRootPart.CanCollide = false
+                            v.HumanoidRootPart.Size = Vector3.new(60, 60, 60)
+                            Functions.TeleportTo(v.HumanoidRootPart.CFrame * CFrame.new(0, 30, 0))
+                            VirtualUser:CaptureController()
+                            VirtualUser:Button1Down(Vector2.new(1280, 672))
+                            pcall(function() sethiddenproperty(Player, "SimulationRadius", math.huge) end)
+                        until v.Humanoid.Health <= 0 or not v.Parent or not config.AutoPirateRaid
+                    end
+                end
+
+                -- Nenhum mob ainda: fica no centro aguardando spawn
+                if not mobFound then
+                    Functions.TeleportTo(CFrame.new(raidCenter))
+                    task.wait(1)
                 end
             end)
         end
     end)
 end
-
 -- Auto Farm Chocola Island
 function Functions.StartAutoFarmChocola(config)
     task.spawn(function()

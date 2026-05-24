@@ -1432,6 +1432,25 @@ Settings:AddToggle({ Title = T("ui_auto_jump"), Default = true, Callback = funct
 Settings:AddSlider({ Title = T("ui_jump"), Min = 50, Max = 200, Default = 50,
     Callback = function(v) Config.Jump = v; if Humanoid then Humanoid.JumpPower = v end end })
 
+Settings:AddSection("PvP / Kill Aura")
+Settings:AddToggle({ Title = "Kill Aura", Default = false,
+    Callback = function(v)
+        Config.KillAura = v
+        Notify({ Title = v and "Kill Aura ON" or "Kill Aura OFF", Image = IMG, Type = v and "Warning" or "Info", Duration = 2 })
+    end })
+Settings:AddSlider({ Title = "Kill Aura Raio (studs)", Min = 100, Max = 5000, Default = 1000,
+    Callback = function(v) Config.KillAuraRadius = v end })
+Settings:AddToggle({ Title = "Auto Enable PvP", Default = false,
+    Callback = function(v)
+        Config.EnabledPvP = v
+        pcall(function() (CommF_ or {}):InvokeServer("EnablePvP", v) end)
+        Notify({ Title = v and "PvP ATIVADO" or "PvP Desativado", Image = IMG, Type = v and "Warning" or "Info", Duration = 2 })
+    end })
+Settings:AddToggle({ Title = "Aimbot (Gun)", Default = false,
+    Callback = function(v) Config.AimbotGun = v end })
+Settings:AddToggle({ Title = "Aimbot (Skills)", Default = false,
+    Callback = function(v) Config.AimbotSkill = v end })
+
 Settings:AddSection("Visual")
 local _uiScaleDebounce = nil
 Settings:AddSlider({
@@ -2525,4 +2544,4 @@ Notify({
     Type        = "Success",
 })
 
-print("UI Loaded v2.4.2")
+print("UI Loaded v2.4.6")
