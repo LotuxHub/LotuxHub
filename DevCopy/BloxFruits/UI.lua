@@ -788,17 +788,9 @@ task.spawn(function()
 
                 if Config.AutoBusoHaki then Functions.AutoHaki() end
 
-                local equipped = false
-                for retry = 1, 5 do
-                    Functions.ResolveWeaponNow(Config)
-                    if Config.SelectedWeaponName and Config.SelectedWeaponName ~= "" then
-                        equipped = Functions.EquipWeapon(Config, NotAutoEquip)
-                        if equipped then break end
-                    end
-                    task.wait(0.5)
-                end
+                local equipped = Functions.EquipWeapon(Config, NotAutoEquip)
                 if not equipped then
-                    warn("[AutoFarmNearest] Nenhuma arma disponível para o tipo: " .. tostring(Config.FarmWeapon))
+                    warn("[AutoFarmNearest] Nenhuma arma do tipo '" .. tostring(Config.FarmWeapon) .. "' encontrada no Backpack.")
                 end
 
                 currentTarget = mob
@@ -884,17 +876,9 @@ task.spawn(function()
                     pcall(function() (CommF_ or {}):InvokeServer("StartQuest", quest.NameQuest, quest.QuestLv) end)
                     task.wait(0.5)
 
-                    local equipped = false
-                    for retry = 1, 5 do
-                        Functions.ResolveWeaponNow(Config)
-                        if Config.SelectedWeaponName and Config.SelectedWeaponName ~= "" then
-                            equipped = Functions.EquipWeapon(Config, NotAutoEquip)
-                            if equipped then break end
-                        end
-                        task.wait(0.5)
-                    end
+                    local equipped = Functions.EquipWeapon(Config, NotAutoEquip)
                     if not equipped then
-                        warn("[AutoFarm] Não foi possível equipar nenhuma arma do tipo: " .. tostring(Config.FarmWeapon))
+                        warn("[AutoFarm] Nenhuma arma do tipo '" .. tostring(Config.FarmWeapon) .. "' encontrada no Backpack.")
                     end
                 else
                     local questIsCorrect = string.find(questTitle, quest.Mob, 1, true) ~= nil
@@ -911,9 +895,7 @@ task.spawn(function()
                             if hrp and hum and hum.Health > 0 then
                                 if Config.AutoBusoHaki then Functions.AutoHaki() end
 
-                                if Config.SelectedWeaponName and Config.SelectedWeaponName ~= "" then
-                                    Functions.EquipWeapon(Config, NotAutoEquip)
-                                end
+                                Functions.EquipWeapon(Config, NotAutoEquip)
 
                                 currentTarget = mob
                                 NoClip.value = true
