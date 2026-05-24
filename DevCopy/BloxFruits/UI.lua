@@ -646,6 +646,15 @@ local function GetSea()
     if _G.OverrideSea then return _G.OverrideSea end
     local sea = GetSeaByPlaceId()
     if sea then return sea end
+    -- Fallback: PlaceId não reconhecido, tenta detectar pelo level
+    local ok, level = pcall(function() return Player.Data.Level.Value end)
+    if ok and level then
+        if level >= 1500 then return 3
+        elseif level >= 700 then return 2
+        else return 1 end
+    end
+    warn("[GetSea] PlaceId " .. tostring(game.PlaceId) .. " não reconhecido, usando Sea 1 como fallback.")
+    return 1
 end
 
 local CurrentSea = GetSea()
