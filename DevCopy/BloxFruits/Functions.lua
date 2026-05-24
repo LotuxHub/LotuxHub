@@ -796,24 +796,42 @@ function Functions.FastAttack(targetMob, config, notAutoEquipRef)
         return
     end
 
-    -- Metodo 2: RE/RegisterAttack + RE/RegisterHit (frutas/skills)
+    -- Metodo 2: RE/RegisterAttack + RE/RegisterHit
+    -- Formato correto igual ao Tiroreal: BasePart=Head, OthersEnemies={{mob, Head}, ...}
     local Net = ReplicatedStorage:FindFirstChild("Modules") and ReplicatedStorage.Modules:FindFirstChild("Net")
     if Net then
         local RegisterAttack = Net:FindFirstChild("RE/RegisterAttack")
         local RegisterHit    = Net:FindFirstChild("RE/RegisterHit")
         if RegisterAttack and RegisterHit then
-            local parts = {}
-            for _, part in pairs(targetMob:GetChildren()) do
-                if part:IsA("BasePart") then table.insert(parts, {targetMob, part}) end
-            end
             local head = targetMob:FindFirstChild("Head") or hrpTarget
-            if head and #parts > 0 then
+            if head then
+                -- OthersEnemies: lista de {model, Head} de todos inimigos no raio
+                local OthersEnemies = {}
+                local Enemies = workspace:FindFirstChild("Enemies")
+                if Enemies then
+                    for _, enemy in ipairs(Enemies:GetChildren()) do
+                        if enemy ~= char then
+                            local eHead = enemy:FindFirstChild("Head")
+                            local eHum  = enemy:FindFirstChildOfClass("Humanoid")
+                            if eHead and eHum and eHum.Health > 0 then
+                                local d = (eHead.Position - charHrp.Position).Magnitude
+                                if d < 500 then
+                                    table.insert(OthersEnemies, {enemy, eHead})
+                                end
+                            end
+                        end
+                    end
+                end
+                -- Garante que o alvo principal está na lista
+                if #OthersEnemies == 0 then
+                    table.insert(OthersEnemies, {targetMob, head})
+                end
                 local ok, err = pcall(function()
                     RegisterAttack:FireServer(0)
-                    RegisterHit:FireServer(head, parts)
+                    RegisterHit:FireServer(head, OthersEnemies)
                 end)
                 if ok then
-                    print("[FastAttack] Metodo: RegisterAttack+RegisterHit | alvo: " .. targetMob.Name)
+                    print("[FastAttack] Metodo: RegisterAttack+RegisterHit | alvo: " .. targetMob.Name .. " | hits: " .. #OthersEnemies)
                 else
                     warn("[FastAttack] RegisterHit falhou: " .. tostring(err))
                 end
@@ -5568,5 +5586,5 @@ _G.AutoKatakuriV2Loop = Functions.AutoKatakuriV2Loop
 _G.AutoClick = Functions.FastAttackAdvanced
 
 print("UI loaded")
-print("Functions Updated Loaded v2.4")
+print("Functions Updated Loaded v2.5")
 return Functions
