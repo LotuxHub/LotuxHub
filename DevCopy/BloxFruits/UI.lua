@@ -702,52 +702,100 @@ end)
 -- =====================================================
 local currentTarget = nil
 
+local _acLastLog = ""
+local _acLogCount = 0
+local function _acLog(msg)
+    if msg ~= _acLastLog then
+        _acLastLog = msg
+        _acLogCount = 0
+        print("[AutoClick] " .. msg)
+    else
+        _acLogCount = _acLogCount + 1
+        if _acLogCount % 50 == 0 then
+            print("[AutoClick] (repetindo " .. _acLogCount .. "x) " .. msg)
+        end
+    end
+end
+
 task.spawn(function()
     while task.wait(0.12) do
         if not Config.AutoClick then continue end
+
         local char = Player.Character
-        if not char or not HumanoidRootPart then continue end
-        if Humanoid and Humanoid.Health <= 0 then continue end
+        if not char then
+            _acLog("SKIP: Player.Character e nil")
+            continue
+        end
+        local localHrp = char:FindFirstChild("HumanoidRootPart")
+        local localHum = char:FindFirstChildOfClass("Humanoid")
+        if not localHrp then
+            _acLog("SKIP: HumanoidRootPart nao encontrado no char")
+            continue
+        end
+        if not localHum then
+            _acLog("SKIP: Humanoid nao encontrado no char")
+            continue
+        end
+        if localHum.Health <= 0 then
+            _acLog("SKIP: Player morto (Health <= 0)")
+            continue
+        end
 
         local bestTarget, bestDist = nil, math.huge
 
         local enemies = workspace:FindFirstChild("Enemies")
-        if enemies then
-            for _, obj in ipairs(enemies:GetChildren()) do
-                if obj:IsA("Model") and obj ~= char then
-                    local hum = obj:FindFirstChildOfClass("Humanoid")
-                    local hrp = obj:FindFirstChild("HumanoidRootPart")
-                    if hum and hrp and hum.Health > 0 then
-                        local d = (hrp.Position - HumanoidRootPart.Position).Magnitude
-                        if d < bestDist then bestDist = d; bestTarget = obj end
+        if not enemies then
+            _acLog("SKIP: workspace.Enemies nao existe")
+            continue
+        end
+
+        local totalEnemies = 0
+        for _, obj in ipairs(enemies:GetChildren()) do
+            if obj:IsA("Model") and obj ~= char then
+                local hum = obj:FindFirstChildOfClass("Humanoid")
+                local hrp = obj:FindFirstChild("HumanoidRootPart")
+                if hum and hrp and hum.Health > 0 then
+                    totalEnemies = totalEnemies + 1
+                    local d = (hrp.Position - localHrp.Position).Magnitude
+                    if d < bestDist then bestDist = d; bestTarget = obj end
+                end
+            end
+        end
+
+        if Config.KillAura or Config.EnabledPvP then
+            for _, otherPlayer in ipairs(Players:GetPlayers()) do
+                if otherPlayer ~= Player then
+                    local otherChar = otherPlayer.Character
+                    if otherChar then
+                        local hum = otherChar:FindFirstChildOfClass("Humanoid")
+                        local hrp = otherChar:FindFirstChild("HumanoidRootPart")
+                        if hum and hrp and hum.Health > 0 then
+                            local d = (hrp.Position - localHrp.Position).Magnitude
+                            if d < bestDist then bestDist = d; bestTarget = otherChar end
+                        end
                     end
                 end
             end
         end
 
-        for _, otherPlayer in ipairs(Players:GetPlayers()) do
-            if otherPlayer ~= Player then
-                local otherChar = otherPlayer.Character
-                if otherChar then
-                    local hum = otherChar:FindFirstChildOfClass("Humanoid")
-                    local hrp = otherChar:FindFirstChild("HumanoidRootPart")
-                    if hum and hrp and hum.Health > 0 then
-                        local d = (hrp.Position - HumanoidRootPart.Position).Magnitude
-                        if d < bestDist then bestDist = d; bestTarget = otherChar end
-                    end
-                end
-            end
+        if not bestTarget then
+            _acLog("SKIP: Nenhum inimigo vivo encontrado (total na pasta: " .. totalEnemies .. ")")
+            continue
         end
 
-        if not bestTarget then continue end
         local hrpTarget = bestTarget:FindFirstChild("HumanoidRootPart")
-        if not hrpTarget then continue end
+        if not hrpTarget then
+            _acLog("SKIP: alvo '" .. bestTarget.Name .. "' sem HumanoidRootPart")
+            continue
+        end
 
-        -- FIX: NÃO rotaciona o personagem para o alvo (removido CFrame.lookAt)
-        -- O ataque funciona sem precisar virar o personagem
-        local dist = (hrpTarget.Position - HumanoidRootPart.Position).Magnitude
-        if dist > 25 then continue end
+        local dist = (hrpTarget.Position - localHrp.Position).Magnitude
+        if dist > 60 then
+            _acLog("SKIP: alvo '" .. bestTarget.Name .. "' longe demais (" .. math.floor(dist) .. " studs, max 60)")
+            continue
+        end
 
+        _acLog("ATACANDO: '" .. bestTarget.Name .. "' | dist: " .. math.floor(dist) .. " studs")
         Functions.FastAttack(bestTarget, Config, NotAutoEquip)
     end
 end)
@@ -2544,4 +2592,4 @@ Notify({
     Type        = "Success",
 })
 
-print("UI Loaded v2.4.6")
+print("UI Loaded v2.5.0")

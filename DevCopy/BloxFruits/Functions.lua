@@ -1934,28 +1934,41 @@ function Functions.StartAutoRaidLaw(config)
                     end
                 end
 
-                -- Matar inimigos próximos
+                -- Matar TODOS os inimigos próximos antes de avançar
+                local hadMob = false
                 for _, v in ipairs(workspace.Enemies:GetChildren()) do
+                    if not config.AutoRaidLaw then break end
                     if v:FindFirstChild("Humanoid") and v:FindFirstChild("HumanoidRootPart")
                        and v.Humanoid.Health > 0
-                       and (v.HumanoidRootPart.Position - hrp.Position).Magnitude <= 1000 then
-                        pcall(function()
+                       and (v.HumanoidRootPart.Position - hrp.Position).Magnitude <= 2000 then
+                        hadMob = true
+                        -- Fica atacando até mob morrer
+                        repeat
+                            task.wait(0.05)
+                            if not config.AutoRaidLaw then break end
                             Functions.AutoHaki()
-                            Functions.EquipWeapon(config.SelectedWeaponName)
-                            v.HumanoidRootPart.CanCollide = false
-                            v.HumanoidRootPart.Size = Vector3.new(50, 50, 50)
-                            Functions.TeleportTo(v.HumanoidRootPart.CFrame * CFrame.new(0, 30, 0))
-                            VirtualUser:CaptureController()
-                            VirtualUser:Button1Down(Vector2.new(1280, 672))
-                            pcall(function() sethiddenproperty(Player, "SimulationRadius", math.huge) end)
-                        end)
+                            Functions.EquipWeapon(config)
+                            pcall(function()
+                                v.HumanoidRootPart.CanCollide = false
+                                v.HumanoidRootPart.Size = Vector3.new(50, 50, 50)
+                                Functions.TeleportTo(v.HumanoidRootPart.CFrame * CFrame.new(0, 30, 0))
+                                VirtualUser:CaptureController()
+                                VirtualUser:Button1Down(Vector2.new(1280, 672))
+                                pcall(function() sethiddenproperty(Player, "SimulationRadius", math.huge) end)
+                            end)
+                        until not v.Parent
+                            or not v:FindFirstChild("Humanoid")
+                            or v.Humanoid.Health <= 0
+                            or not config.AutoRaidLaw
                     end
                 end
 
-                -- Avançar para próxima ilha
-                local next = getNextIsland()
-                if next then
-                    Functions.TeleportTo(CFrame.new(next.Position) * CFrame.new(0, 60, 0))
+                -- Só avança de ilha quando não tem mais mob vivo
+                if not hadMob then
+                    local nextIsland = getNextIsland()
+                    if nextIsland then
+                        Functions.TeleportTo(CFrame.new(nextIsland.Position) * CFrame.new(0, 60, 0))
+                    end
                 end
             end)
         end
@@ -5540,6 +5553,5 @@ _G.CheckItemBPCR = Functions.CheckItemBPCR
 _G.AutoKatakuriV2Loop = Functions.AutoKatakuriV2Loop
 _G.AutoClick = Functions.FastAttackAdvanced
 
-print("UI loaded")
-print("Functions Updated Loaded v2.2.5")
+print("Functions Updated Loaded v2.3.0")
 return Functions
