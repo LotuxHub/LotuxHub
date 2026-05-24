@@ -970,31 +970,13 @@ task.spawn(function()
                             end
                         else
                             currentTarget = nil
-                            -- Se for Submerged Island (Y muito baixo), nao voa diretamente
-                            -- pois o personagem tentaria atravessar o mar. Ja esta la via remote.
-                            local monY = quest.CFrameMon.Position.Y
-                            if monY < -500 then
-                                -- Ja esta na Submerged, so aguarda o mob spawnar
-                                print("[AutoFarm] Submerged: aguardando mob '" .. quest.Mob .. "' spawnar...")
-                                task.wait(2)
-                            else
-                                NoClip.value = true
-                                Functions.FlyToPosition(quest.CFrameMon * CFrame.new(0, Config.FlyOffset, 0),
-                                    TweenService, Config, isTeleporting, NotAutoEquip)
-                                NoClip.value = false
-
-                                local rs = game:GetService("ReplicatedStorage")
-                                if rs:FindFirstChild(quest.Mob) then
-                                    local rsMob = rs[quest.Mob]
-                                    local rsHrp = rsMob:FindFirstChild("HumanoidRootPart")
-                                    if rsHrp then
-                                        NoClip.value = true
-                                        Functions.FlyToPosition(rsHrp.CFrame * CFrame.new(0, 20, 0),
-                                            TweenService, Config, isTeleporting, NotAutoEquip)
-                                        NoClip.value = false
-                                    end
-                                end
-                            end
+                            -- Voa ate a posicao dos mobs (CFrameMon) com NoClip ativo
+                            -- Funciona tanto na superficie quanto na Submerged Island
+                            NoClip.value = true
+                            Functions.FlyToPosition(quest.CFrameMon * CFrame.new(0, Config.FlyOffset, 0),
+                                TweenService, Config, isTeleporting, NotAutoEquip)
+                            NoClip.value = false
+                            task.wait(1)
                         end
                     end
                 end
@@ -2543,4 +2525,4 @@ Notify({
     Type        = "Success",
 })
 
-print("UI Loaded v2.3.9")
+print("UI Loaded v2.4.2")
