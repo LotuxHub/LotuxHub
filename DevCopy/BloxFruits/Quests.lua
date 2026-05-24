@@ -274,6 +274,10 @@ local QuestList = {
     {Level=2675, Sea=3, Mob="Ocean Prophet",       NameQuest="SubmergedQuest2", QuestLv=2,
      CFrameQuest=CFrame.new(10612.3848,-2087.844,10053.8926),
      CFrameMon=CFrame.new(11056.144531,-2001.671699,10117.449218)},
+    -- TODO: substituir CFrameQuest e CFrameMon pelas coords reais in-game
+    {Level=2700, Sea=3, Mob="Grand Devotee",        NameQuest="SubmergedQuest3", QuestLv=2,
+     CFrameQuest=CFrame.new(10612.3848,-2087.844,10053.8926),
+     CFrameMon=CFrame.new(10900.000000,-2087.844000,10300.000000)},
 }
 
 local Islands = {
