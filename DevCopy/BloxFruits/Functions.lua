@@ -765,23 +765,38 @@ function Functions.FastAttack(targetMob, config, notAutoEquipRef)
     if not targetMob or not targetMob.Parent then return end
     local char = Player.Character
     if not char then return end
+    local charHrp = char:FindFirstChild("HumanoidRootPart")
+    if not charHrp then return end
 
     local tool = char:FindFirstChildOfClass("Tool")
     if not tool and config and config.SelectedWeaponName ~= "" then
         Functions.EquipWeapon(config.SelectedWeaponName, notAutoEquipRef)
         tool = char:FindFirstChildOfClass("Tool")
-        if not tool then return end
     end
 
+    -- Rotaciona personagem para o alvo antes de qualquer metodo de ataque
+    local hrpTarget = targetMob:FindFirstChild("HumanoidRootPart")
+    if hrpTarget then
+        pcall(function()
+            charHrp.CFrame = CFrame.lookAt(charHrp.Position, hrpTarget.Position)
+        end)
+    end
+
+    -- Metodo 1: LeftClickRemote (melee/sword)
     if tool and tool:FindFirstChild("LeftClickRemote") then
-        local hrp = targetMob:FindFirstChild("HumanoidRootPart")
-        if hrp then
-            local direction = (hrp.Position - char.HumanoidRootPart.Position).Unit
-            pcall(function() tool.LeftClickRemote:FireServer(direction, 1) end)
+        if hrpTarget then
+            local direction = (hrpTarget.Position - charHrp.Position).Unit
+            local ok, err = pcall(function() tool.LeftClickRemote:FireServer(direction, 1) end)
+            if ok then
+                print("[FastAttack] Metodo: LeftClickRemote | alvo: " .. targetMob.Name)
+            else
+                warn("[FastAttack] LeftClickRemote falhou: " .. tostring(err))
+            end
         end
         return
     end
 
+    -- Metodo 2: RE/RegisterAttack + RE/RegisterHit (frutas/skills)
     local Net = ReplicatedStorage:FindFirstChild("Modules") and ReplicatedStorage.Modules:FindFirstChild("Net")
     if Net then
         local RegisterAttack = Net:FindFirstChild("RE/RegisterAttack")
@@ -791,27 +806,39 @@ function Functions.FastAttack(targetMob, config, notAutoEquipRef)
             for _, part in pairs(targetMob:GetChildren()) do
                 if part:IsA("BasePart") then table.insert(parts, {targetMob, part}) end
             end
-            local head = targetMob:FindFirstChild("Head") or targetMob:FindFirstChild("HumanoidRootPart")
+            local head = targetMob:FindFirstChild("Head") or hrpTarget
             if head and #parts > 0 then
-                pcall(function()
+                local ok, err = pcall(function()
                     RegisterAttack:FireServer(0)
                     RegisterHit:FireServer(head, parts)
                 end)
+                if ok then
+                    print("[FastAttack] Metodo: RegisterAttack+RegisterHit | alvo: " .. targetMob.Name)
+                else
+                    warn("[FastAttack] RegisterHit falhou: " .. tostring(err))
+                end
                 return
             end
         end
     end
 
+    -- Metodo 3: RemoteFunctionShoot (guns)
     if tool and tool:FindFirstChild("RemoteFunctionShoot") then
-        local hrp = targetMob:FindFirstChild("HumanoidRootPart")
-        if hrp then
-            pcall(function()
-                tool.RemoteFunctionShoot:InvokeServer(hrp.Position, hrp)
+        if hrpTarget then
+            local ok, err = pcall(function()
+                tool.RemoteFunctionShoot:InvokeServer(hrpTarget.Position, hrpTarget)
             end)
+            if ok then
+                print("[FastAttack] Metodo: RemoteFunctionShoot | alvo: " .. targetMob.Name)
+            else
+                warn("[FastAttack] RemoteFunctionShoot falhou: " .. tostring(err))
+            end
         end
         return
     end
 
+    -- Metodo 4: VirtualUser Button1Down (fallback)
+    print("[FastAttack] Metodo: VirtualUser Button1Down | alvo: " .. targetMob.Name .. " | tool: " .. (tool and tool.Name or "NENHUMA"))
     pcall(function()
         VirtualUser:CaptureController()
         VirtualUser:Button1Down(Vector2.new(1280, 672))
@@ -1934,41 +1961,28 @@ function Functions.StartAutoRaidLaw(config)
                     end
                 end
 
-                -- Matar TODOS os inimigos próximos antes de avançar
-                local hadMob = false
+                -- Matar inimigos próximos
                 for _, v in ipairs(workspace.Enemies:GetChildren()) do
-                    if not config.AutoRaidLaw then break end
                     if v:FindFirstChild("Humanoid") and v:FindFirstChild("HumanoidRootPart")
                        and v.Humanoid.Health > 0
-                       and (v.HumanoidRootPart.Position - hrp.Position).Magnitude <= 2000 then
-                        hadMob = true
-                        -- Fica atacando até mob morrer
-                        repeat
-                            task.wait(0.05)
-                            if not config.AutoRaidLaw then break end
+                       and (v.HumanoidRootPart.Position - hrp.Position).Magnitude <= 1000 then
+                        pcall(function()
                             Functions.AutoHaki()
-                            Functions.EquipWeapon(config)
-                            pcall(function()
-                                v.HumanoidRootPart.CanCollide = false
-                                v.HumanoidRootPart.Size = Vector3.new(50, 50, 50)
-                                Functions.TeleportTo(v.HumanoidRootPart.CFrame * CFrame.new(0, 30, 0))
-                                VirtualUser:CaptureController()
-                                VirtualUser:Button1Down(Vector2.new(1280, 672))
-                                pcall(function() sethiddenproperty(Player, "SimulationRadius", math.huge) end)
-                            end)
-                        until not v.Parent
-                            or not v:FindFirstChild("Humanoid")
-                            or v.Humanoid.Health <= 0
-                            or not config.AutoRaidLaw
+                            Functions.EquipWeapon(config.SelectedWeaponName)
+                            v.HumanoidRootPart.CanCollide = false
+                            v.HumanoidRootPart.Size = Vector3.new(50, 50, 50)
+                            Functions.TeleportTo(v.HumanoidRootPart.CFrame * CFrame.new(0, 30, 0))
+                            VirtualUser:CaptureController()
+                            VirtualUser:Button1Down(Vector2.new(1280, 672))
+                            pcall(function() sethiddenproperty(Player, "SimulationRadius", math.huge) end)
+                        end)
                     end
                 end
 
-                -- Só avança de ilha quando não tem mais mob vivo
-                if not hadMob then
-                    local nextIsland = getNextIsland()
-                    if nextIsland then
-                        Functions.TeleportTo(CFrame.new(nextIsland.Position) * CFrame.new(0, 60, 0))
-                    end
+                -- Avançar para próxima ilha
+                local next = getNextIsland()
+                if next then
+                    Functions.TeleportTo(CFrame.new(next.Position) * CFrame.new(0, 60, 0))
                 end
             end)
         end
@@ -5553,5 +5567,6 @@ _G.CheckItemBPCR = Functions.CheckItemBPCR
 _G.AutoKatakuriV2Loop = Functions.AutoKatakuriV2Loop
 _G.AutoClick = Functions.FastAttackAdvanced
 
-print("Functions Updated Loaded v2.3.0")
+print("UI loaded")
+print("Functions Updated Loaded v2.4")
 return Functions
