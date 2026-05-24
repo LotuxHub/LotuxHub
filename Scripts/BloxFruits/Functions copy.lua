@@ -5443,72 +5443,10 @@ _G.SetHomePoint = Functions.SetHomePoint
 _G.WalkWater = Functions.WalkWater
 _G.SpinPositionLoop = Functions.SpinPositionLoop
 _G.TpEntrance = Functions.TpEntrance
-
--- =====================================================
--- SUBMERGED ISLAND - Teleporte para a ilha submersa
--- Fluxo: ir ao NPC do Boat Castle -> disparar remote -> checar se chegou
--- =====================================================
-
--- Posicoes chave
-local SUBMERGED_NPC_POS    = Vector3.new(-16271.37, 25.23, 1373.66)   -- NPC do Boat Castle
-local SUBMERGED_TIKI_POS   = Vector3.new(-16818.81, 58.30, 293.64)    -- Tiki Outpost (referencia)
-local SUBMERGED_CHECK_Y    = -500  -- Y abaixo disso = ja esta na ilha submersa
-
-local function IsOnSubmergedIsland()
-    local char = Player.Character
-    if not char then return false end
-    local hrp = char:FindFirstChild("HumanoidRootPart")
-    if not hrp then return false end
-    return hrp.Position.Y < SUBMERGED_CHECK_Y
-end
-
-function Functions.TravelToSubmergedIsland()
-    -- Se ja esta la embaixo, nao faz nada
-    if IsOnSubmergedIsland() then return true end
-
-    local char = Player.Character
-    if not char then return false end
-    local hrp = char:FindFirstChild("HumanoidRootPart")
-    if not hrp then return false end
-
-    -- 1. Ir ate o portal do Boat Castle se estiver longe
-    if (hrp.Position - SUBMERGED_NPC_POS).Magnitude > 50 then
-        -- Usa o remote do portal do castelo
-        pcall(function()
-            local net = game:GetService("ReplicatedStorage"):WaitForChild("Modules"):WaitForChild("Net")
-            local rf  = net:WaitForChild("RF/BoatCastleTeleporters")
-            rf:InvokeServer("InitiateTeleport",
-                workspace:WaitForChild("Map"):WaitForChild("Boat Castle"):WaitForChild("MapTeleportC"))
-        end)
-        task.wait(2)
-        -- Se ainda nao chegou, tween ate o NPC manualmente
-        if (hrp.Position - SUBMERGED_NPC_POS).Magnitude > 200 then
-            hrp.CFrame = CFrame.new(SUBMERGED_NPC_POS)
-            task.wait(1)
-        end
-    end
-
-    -- 2. Disparar o remote de viagem para Submerged Island
-    pcall(function()
-        local net = game:GetService("ReplicatedStorage"):WaitForChild("Modules"):WaitForChild("Net")
-        local rf  = net:WaitForChild("RF/SubmarineWorkerSpeak")
-        rf:InvokeServer("TravelToSubmergedIsland")
-    end)
-
-    -- 3. Aguarda teleporte (ate 10s)
-    local waited = 0
-    while not IsOnSubmergedIsland() and waited < 10 do
-        task.wait(0.5)
-        waited = waited + 0.5
-    end
-
-    return IsOnSubmergedIsland()
-end
-
 _G.CheckItemBPCR = Functions.CheckItemBPCR
 _G.AutoKatakuriV2Loop = Functions.AutoKatakuriV2Loop
 _G.AutoClick = Functions.FastAttackAdvanced
 
 print("UI loaded")
-print("Functions Updated Loaded v2.1.5")
+print("Functions Updated Loaded v2.1.3")
 return Functions

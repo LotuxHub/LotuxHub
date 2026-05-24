@@ -847,12 +847,7 @@ task.spawn(function()
                 local quest = Functions.GetQuestForLevel(QuestList, CurrentSea, Player)
                 if not quest then farmRunning = false; return end
 
-                -- Submerged Island (level 2600+): precisa de remote especial, nao requestEntrance
-                local isSubmerged = string.find(quest.NameQuest or "", "SubmergedQuest", 1, true) ~= nil
-                if isSubmerged then
-                    Functions.TravelToSubmergedIsland()
-                    task.wait(1)
-                elseif quest.RequestEntrance and HumanoidRootPart then
+                if quest.RequestEntrance and HumanoidRootPart then
                     if (quest.CFrameMon.Position - HumanoidRootPart.Position).Magnitude > 10000 then
                         pcall(function() (CommF_ or {}):InvokeServer("requestEntrance", quest.RequestEntrance) end)
                         task.wait(1)
@@ -1227,6 +1222,7 @@ Main:AddDropdown({
         if validos[weaponStr] then
             _G._FarmWeapon = weaponStr
         end
+        warn("[FarmWeapon] Mudou para: " .. tostring(_G._FarmWeapon))
         Config.SelectedWeaponName = ""
         -- Equipa a nova arma imediatamente
         task.spawn(function()
@@ -2516,4 +2512,4 @@ Notify({
     Type        = "Success",
 })
 
-print("UI Loaded v2.3.5")
+print("UI Loaded v2.3.3")
