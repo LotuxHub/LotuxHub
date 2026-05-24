@@ -5462,7 +5462,7 @@ local function IsOnSubmergedIsland()
     return hrp.Position.Y < SUBMERGED_CHECK_Y
 end
 
-function Functions.TravelToSubmergedIsland()
+function Functions.TravelToSubmergedIsland(config)
     -- Se ja esta la embaixo, nao faz nada
     if IsOnSubmergedIsland() then
         print("[TravelToSubmerged] Ja esta na Submerged Island.")
@@ -5480,13 +5480,11 @@ function Functions.TravelToSubmergedIsland()
 
     if distToNPC > 15 then
         print("[TravelToSubmerged] Voando ate o NPC da Tiki Outpost...")
-        local TweenSvc = game:GetService("TweenService")
-        local targetCF = CFrame.new(SUBMERGED_NPC_POS + Vector3.new(0, 5, 0))
-        local speed    = 300
-        local duration = math.clamp(distToNPC / speed, 0.5, 12)
-        local tween    = TweenSvc:Create(hrp, TweenInfo.new(duration, Enum.EasingStyle.Linear), { CFrame = targetCF })
-        tween:Play()
-        tween.Completed:Wait()
+        local TweenSvc  = game:GetService("TweenService")
+        local targetCF  = CFrame.new(SUBMERGED_NPC_POS + Vector3.new(0, 5, 0))
+        local fakeIsTp  = { value = false }
+        local fakeNoAuto = { value = false }
+        Functions.FlyToPosition(targetCF, TweenSvc, config, fakeIsTp, fakeNoAuto)
         task.wait(0.5)
         print("[TravelToSubmerged] Chegou no NPC.")
     end
@@ -5525,5 +5523,5 @@ _G.AutoKatakuriV2Loop = Functions.AutoKatakuriV2Loop
 _G.AutoClick = Functions.FastAttackAdvanced
 
 print("UI loaded")
-print("Functions Updated Loaded v2.2.1")
+print("Functions Updated Loaded v2.2.5")
 return Functions

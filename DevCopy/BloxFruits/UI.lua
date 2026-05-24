@@ -854,7 +854,7 @@ task.spawn(function()
                     local jaEstaLa = HumanoidRootPart and HumanoidRootPart.Position.Y < -500
                     if not jaEstaLa then
                         print("[AutoFarm] Indo para Submerged Island via remote...")
-                        local chegou = Functions.TravelToSubmergedIsland()
+                        local chegou = Functions.TravelToSubmergedIsland(Config)
                         if not chegou then
                             warn("[AutoFarm] Nao conseguiu chegar na Submerged Island, tentando novamente...")
                             farmRunning = false
@@ -2543,4 +2543,4 @@ Notify({
     Type        = "Success",
 })
 
-print("UI Loaded v2.3.7")
+print("UI Loaded v2.3.9")
