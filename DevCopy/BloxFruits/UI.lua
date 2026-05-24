@@ -1215,14 +1215,20 @@ Main:AddDropdown({
     Options  = { "Melee", "Sword", "Gun", "BloxFruits" },
     Default  = "Melee",
     Callback = function(v)
-        local weaponStr = tostring(v)
-        -- Garante que e uma opcao valida
-        if weaponStr == "Melee" or weaponStr == "Sword" or weaponStr == "Gun" or weaponStr == "BloxFruits" then
+        -- Extrai string do valor (a redzlib pode passar tabela ou string)
+        local weaponStr = type(v) == "table" and (v.Value or v[1] or v.Name or v.Text) or tostring(v)
+        -- Valida e seta _G._FarmWeapon
+        local validos = { Melee=true, Sword=true, Gun=true, BloxFruits=true }
+        if validos[weaponStr] then
             _G._FarmWeapon = weaponStr
         end
+        warn("[FarmWeapon] Mudou para: " .. tostring(_G._FarmWeapon))
         Config.SelectedWeaponName = ""
-        -- Equipa a nova arma imediatamente ao mudar o dropdown
-        Functions.EquipWeapon(Config, NotAutoEquip)
+        -- Equipa a nova arma imediatamente
+        task.spawn(function()
+            task.wait(0.1)
+            Functions.EquipWeapon(Config, NotAutoEquip)
+        end)
         Notify({ Title = "Farm Weapon: " .. (_G._FarmWeapon or "Melee"), Image = IMG, Type = "Info", Duration = 2 })
     end,
 })
@@ -2506,4 +2512,4 @@ Notify({
     Type        = "Success",
 })
 
-print("UI Loaded v2.3.1")
+print("UI Loaded v2.3.3")
