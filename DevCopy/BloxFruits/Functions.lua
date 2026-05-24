@@ -232,6 +232,27 @@ local BFWirelistSets = {
 -- no Backpack ou no Character (caso já esteja equipado)
 function Functions.ResolveWeaponNow(config)
     pcall(function()
+        -- Normaliza FarmWeapon caso a UI (redzlib) passe tabela no lugar de string
+        if type(config.FarmWeapon) == "table" then
+            local fw = config.FarmWeapon
+            local extracted = fw.Value or fw[1] or fw.Name or fw.Text or fw.Option or fw.Selected or fw.Item
+            if not extracted then
+                for k, v in pairs(fw) do
+                    if type(v) == "string" and (v == "Melee" or v == "Sword" or v == "Gun" or v == "BloxFruits") then
+                        extracted = v
+                        break
+                    end
+                end
+            end
+            if not extracted then
+                local keys = {}
+                for k, v in pairs(fw) do table.insert(keys, tostring(k) .. "=" .. tostring(v)) end
+                warn("[ResolveWeaponNow] FarmWeapon e tabela, campos: " .. table.concat(keys, " | "))
+            end
+            config.FarmWeapon = extracted or "Melee"
+        end
+        config.FarmWeapon = tostring(config.FarmWeapon)
+
         -- Mapeia FarmWeapon -> chave da BFWirelist
         local tipoMap = {
             ["Melee"]      = "Melee",
@@ -239,14 +260,8 @@ function Functions.ResolveWeaponNow(config)
             ["Gun"]        = "Gun",
             ["BloxFruits"] = "BloxFruits",
         }
-        -- Guard silencioso: evita spam se FarmWeapon ainda nao foi setado como string
-        if type(config.FarmWeapon) ~= "string" then
-            config.SelectedWeaponName = ""
-            return
-        end
         local chave = tipoMap[config.FarmWeapon]
         if not chave then
-            warn("[ResolveWeaponNow] FarmWeapon inválido: " .. tostring(config.FarmWeapon))
             config.SelectedWeaponName = ""
             return
         end
@@ -298,86 +313,85 @@ end
 local _NotAutoEquip = false
 
 function Functions.EquipWeapon(weaponName, notAutoEquipRef)
-    -- Se veio uma tabela (config), resolve inline
-    if type(weaponName) == "table" then
-        local cfg = weaponName
-        print("[EquipWeapon] Recebeu config | FarmWeapon: '" .. tostring(cfg.FarmWeapon) .. "' | SelectedWeaponName atual: '" .. tostring(cfg.SelectedWeaponName) .. "'")
-        if not cfg.SelectedWeaponName or cfg.SelectedWeaponName == "" then
-            print("[EquipWeapon] SelectedWeaponName vazio, chamando ResolveWeaponNow...")
-            Functions.ResolveWeaponNow(cfg)
-            print("[EquipWeapon] Após ResolveWeaponNow: '" .. tostring(cfg.SelectedWeaponName) .. "'")
-        end
-        weaponName = cfg.SelectedWeaponName or ""
-    end
-
-    print("[EquipWeapon] Tentando equipar: '" .. tostring(weaponName) .. "'")
-
-    if weaponName == "" then
-        warn("[EquipWeapon] ERRO: Nome da arma vazio. Nenhuma arma do tipo selecionado foi encontrada no inventário.")
-        -- Lista o que tem no Backpack para ajudar no debug
-        local itens = {}
-        for _, tool in pairs(Player.Backpack:GetChildren()) do
-            if tool:IsA("Tool") then
-                table.insert(itens, tool.Name)
-            end
-        end
-        warn("[EquipWeapon] Itens no Backpack: " .. (next(itens) and table.concat(itens, ", ") or "NENHUM"))
-        return false
-    end
-
     -- Respeita flag NotAutoEquip
-    if notAutoEquipRef and notAutoEquipRef.value then
-        warn("[EquipWeapon] BLOQUEADO: NotAutoEquip está ativo.")
-        return false
-    end
+    if notAutoEquipRef and notAutoEquipRef.value then return false end
 
     local char = Player.Character
-    if not char then
-        warn("[EquipWeapon] ERRO: Player.Character é nil (personagem não carregado).")
-        return false
-    end
-
+    if not char then return false end
     local hum = char:FindFirstChildOfClass("Humanoid")
-    if not hum then
-        warn("[EquipWeapon] ERRO: Humanoid não encontrado no personagem.")
-        return false
-    end
-    if hum.Health <= 0 then
-        warn("[EquipWeapon] ERRO: Personagem está morto (Health <= 0).")
-        return false
-    end
+    if not hum or hum.Health <= 0 then return false end
 
-    -- Se já está equipada, não faz nada
-    if char:FindFirstChild(weaponName) then
-        print("[EquipWeapon] '" .. weaponName .. "' já está equipada, nada a fazer.")
-        return true
-    end
+    -- Se recebeu config (tabela), descobre o tipo de arma e busca na wirelist
+    if type(weaponName) == "table" then
+        local cfg = weaponName
 
-    local tool = Player.Backpack:FindFirstChild(weaponName)
-    if tool then
-        task.wait(0.1)
-        local ok, err = pcall(function()
-            hum:EquipTool(tool)
-        end)
-        if ok then
-            print("[EquipWeapon] ✓ Equipado com sucesso: '" .. weaponName .. "'")
-            return true
-        else
-            warn("[EquipWeapon] ERRO ao chamar EquipTool: " .. tostring(err))
-            return false
+        -- Normaliza FarmWeapon caso seja tabela (bug da redzlib)
+        if type(cfg.FarmWeapon) == "table" then
+            local fw = cfg.FarmWeapon
+            local extracted = fw.Value or fw[1] or fw.Name or fw.Text or fw.Option or fw.Selected or fw.Item
+            if not extracted then
+                for k, v in pairs(fw) do
+                    if type(v) == "string" and (v == "Melee" or v == "Sword" or v == "Gun" or v == "BloxFruits") then
+                        extracted = v; break
+                    end
+                end
+            end
+            cfg.FarmWeapon = extracted or "Melee"
         end
-    else
-        warn("[EquipWeapon] ERRO: '" .. weaponName .. "' não encontrada no Backpack.")
-        -- Lista o que tem no Backpack para ajudar no debug
-        local itens = {}
+        cfg.FarmWeapon = tostring(cfg.FarmWeapon or "Melee")
+
+        local farmType = cfg.FarmWeapon
+        local lista = BFWirelistSets[farmType]
+
+        if not lista then return false end
+
+        -- Procura no Backpack um tool que esteja na wirelist do tipo selecionado
+        local toolFound = nil
         for _, tool in pairs(Player.Backpack:GetChildren()) do
-            if tool:IsA("Tool") then
-                table.insert(itens, tool.Name)
+            if tool:IsA("Tool") and lista[tool.Name] then
+                toolFound = tool
+                break
             end
         end
-        warn("[EquipWeapon] Itens no Backpack: " .. (next(itens) and table.concat(itens, ", ") or "NENHUM"))
+
+        -- Se nao achou no Backpack, verifica se ja esta equipado no Character
+        if not toolFound then
+            for _, tool in pairs(char:GetChildren()) do
+                if tool:IsA("Tool") and lista[tool.Name] then
+                    -- Ja esta equipado, atualiza SelectedWeaponName e retorna true
+                    cfg.SelectedWeaponName = tool.Name
+                    return true
+                end
+            end
+            warn("[EquipWeapon] Nenhuma arma do tipo '" .. farmType .. "' encontrada no Backpack.")
+            return false
+        end
+
+        -- Equipa o tool encontrado
+        cfg.SelectedWeaponName = toolFound.Name
+        local ok = pcall(function()
+            hum:EquipTool(toolFound)
+        end)
+        return ok
+    end
+
+    -- Se recebeu string direto (nome especifico da arma)
+    local name = tostring(weaponName or "")
+    if name == "" then return false end
+
+    -- Ja esta equipado?
+    if char:FindFirstChild(name) then return true end
+
+    local tool = Player.Backpack:FindFirstChild(name)
+    if not tool then
+        warn("[EquipWeapon] '" .. name .. "' nao encontrada no Backpack.")
         return false
     end
+
+    local ok = pcall(function()
+        hum:EquipTool(tool)
+    end)
+    return ok
 end
 
 function Functions.UnEquipWeapon(config, notAutoEquipRef)
@@ -5483,4 +5497,5 @@ _G.AutoKatakuriV2Loop = Functions.AutoKatakuriV2Loop
 _G.AutoClick = Functions.FastAttackAdvanced
 
 print("UI loaded")
+print("functions Loaded")
 return Functions
