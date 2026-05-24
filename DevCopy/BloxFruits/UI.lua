@@ -1208,14 +1208,20 @@ end)
 -- =====================================================
 local Main = Window:MakeTab({ Title = T("tab_main"), Icon = "menu" })
 
+-- Variavel separada para FarmWeapon (evita bug da redzlib que sobrescreve Config com tabela)
+_G._FarmWeapon = "Melee"
 Main:AddDropdown({
     Title    = T("ui_farm_weapon"),
     Options  = { "Melee", "Sword", "Gun", "BloxFruits" },
     Default  = "Melee",
     Callback = function(v)
-        Config.FarmWeapon         = tostring(v)
+        local weaponStr = tostring(v)
+        -- Garante que e uma opcao valida
+        if weaponStr == "Melee" or weaponStr == "Sword" or weaponStr == "Gun" or weaponStr == "BloxFruits" then
+            _G._FarmWeapon = weaponStr
+        end
         Config.SelectedWeaponName = ""
-        Notify({ Title = "Farm Weapon: " .. tostring(v), Image = IMG, Type = "Info", Duration = 2 })
+        Notify({ Title = "Farm Weapon: " .. (_G._FarmWeapon or "Melee"), Image = IMG, Type = "Info", Duration = 2 })
     end,
 })
 Main:AddDropdown({

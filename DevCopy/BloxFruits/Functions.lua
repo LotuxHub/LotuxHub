@@ -232,41 +232,16 @@ local BFWirelistSets = {
 -- no Backpack ou no Character (caso já esteja equipado)
 function Functions.ResolveWeaponNow(config)
     pcall(function()
-        -- Normaliza FarmWeapon caso a UI (redzlib) passe tabela no lugar de string
-        if type(config.FarmWeapon) == "table" then
-            local fw = config.FarmWeapon
-            local extracted = fw.Value or fw[1] or fw.Name or fw.Text or fw.Option or fw.Selected or fw.Item
-            if not extracted then
-                for k, v in pairs(fw) do
-                    if type(v) == "string" and (v == "Melee" or v == "Sword" or v == "Gun" or v == "BloxFruits") then
-                        extracted = v
-                        break
-                    end
-                end
-            end
-            if not extracted then
-                local keys = {}
-                for k, v in pairs(fw) do table.insert(keys, tostring(k) .. "=" .. tostring(v)) end
-                warn("[ResolveWeaponNow] FarmWeapon e tabela, campos: " .. table.concat(keys, " | "))
-            end
-            config.FarmWeapon = extracted or "Melee"
-        end
-        config.FarmWeapon = tostring(config.FarmWeapon)
+        -- Usa _G._FarmWeapon (setado pelo Callback da UI) em vez de config.FarmWeapon
+        -- Isso evita o bug da redzlib que sobrescreve config.FarmWeapon com tabela interna
+        local farmType = _G._FarmWeapon or "Melee"
 
-        -- Mapeia FarmWeapon -> chave da BFWirelist
-        local tipoMap = {
-            ["Melee"]      = "Melee",
-            ["Sword"]      = "Sword",
-            ["Gun"]        = "Gun",
-            ["BloxFruits"] = "BloxFruits",
-        }
-        local chave = tipoMap[config.FarmWeapon]
-        if not chave then
+        local lista = BFWirelistSets[farmType]
+        if not lista then
             config.SelectedWeaponName = ""
             return
         end
 
-        local lista = BFWirelistSets[chave]
         local found = false
 
         -- 1. Procura no Backpack
@@ -278,7 +253,7 @@ function Functions.ResolveWeaponNow(config)
             end
         end
 
-        -- 2. Se não achou, procura no Character (já equipado)
+        -- 2. Se nao achou, procura no Character (ja equipado)
         if not found and Player.Character then
             for _, tool in pairs(Player.Character:GetChildren()) do
                 if tool:IsA("Tool") and lista[tool.Name] then
@@ -290,14 +265,12 @@ function Functions.ResolveWeaponNow(config)
         end
 
         if not found then
-            warn("[ResolveWeaponNow] Nenhuma arma do tipo '" .. config.FarmWeapon .. "' encontrada no inventário.")
             config.SelectedWeaponName = ""
         end
     end)
 end
 
 -- StartWeaponResolver - Loop de fundo que mantem SelectedWeaponName atualizado
--- (complementa o ResolveWeaponNow; use os dois juntos)
 function Functions.StartWeaponResolver(config)
     task.spawn(function()
         while task.wait(0.3) do
@@ -321,58 +294,36 @@ function Functions.EquipWeapon(weaponName, notAutoEquipRef)
     local hum = char:FindFirstChildOfClass("Humanoid")
     if not hum or hum.Health <= 0 then return false end
 
-    -- Se recebeu config (tabela), descobre o tipo de arma e busca na wirelist
+    -- Se recebeu config (tabela), usa _G._FarmWeapon para buscar na wirelist
     if type(weaponName) == "table" then
         local cfg = weaponName
 
-        -- Normaliza FarmWeapon caso seja tabela (bug da redzlib)
-        if type(cfg.FarmWeapon) == "table" then
-            local fw = cfg.FarmWeapon
-            local extracted = fw.Value or fw[1] or fw.Name or fw.Text or fw.Option or fw.Selected or fw.Item
-            if not extracted then
-                for k, v in pairs(fw) do
-                    if type(v) == "string" and (v == "Melee" or v == "Sword" or v == "Gun" or v == "BloxFruits") then
-                        extracted = v; break
-                    end
-                end
-            end
-            cfg.FarmWeapon = extracted or "Melee"
-        end
-        cfg.FarmWeapon = tostring(cfg.FarmWeapon or "Melee")
-
-        local farmType = cfg.FarmWeapon
+        -- Pega o tipo de arma da variavel global (nunca contaminada pela redzlib)
+        local farmType = _G._FarmWeapon or "Melee"
         local lista = BFWirelistSets[farmType]
-
         if not lista then return false end
 
-        -- Procura no Backpack um tool que esteja na wirelist do tipo selecionado
-        local toolFound = nil
+        -- Verifica se ja tem algo do tipo equipado no Character
+        for _, tool in pairs(char:GetChildren()) do
+            if tool:IsA("Tool") and lista[tool.Name] then
+                cfg.SelectedWeaponName = tool.Name
+                return true
+            end
+        end
+
+        -- Procura no Backpack
         for _, tool in pairs(Player.Backpack:GetChildren()) do
             if tool:IsA("Tool") and lista[tool.Name] then
-                toolFound = tool
-                break
+                cfg.SelectedWeaponName = tool.Name
+                local ok = pcall(function()
+                    hum:EquipTool(tool)
+                end)
+                return ok
             end
         end
 
-        -- Se nao achou no Backpack, verifica se ja esta equipado no Character
-        if not toolFound then
-            for _, tool in pairs(char:GetChildren()) do
-                if tool:IsA("Tool") and lista[tool.Name] then
-                    -- Ja esta equipado, atualiza SelectedWeaponName e retorna true
-                    cfg.SelectedWeaponName = tool.Name
-                    return true
-                end
-            end
-            warn("[EquipWeapon] Nenhuma arma do tipo '" .. farmType .. "' encontrada no Backpack.")
-            return false
-        end
-
-        -- Equipa o tool encontrado
-        cfg.SelectedWeaponName = toolFound.Name
-        local ok = pcall(function()
-            hum:EquipTool(toolFound)
-        end)
-        return ok
+        warn("[EquipWeapon] Nenhuma arma do tipo '" .. farmType .. "' encontrada no Backpack.")
+        return false
     end
 
     -- Se recebeu string direto (nome especifico da arma)
@@ -5497,5 +5448,5 @@ _G.AutoKatakuriV2Loop = Functions.AutoKatakuriV2Loop
 _G.AutoClick = Functions.FastAttackAdvanced
 
 print("UI loaded")
-print("Functions Updated Loaded v2.1.2")
+print("Functions Updated Loaded v2.1.3")
 return Functions
