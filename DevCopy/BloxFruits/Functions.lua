@@ -239,6 +239,11 @@ function Functions.ResolveWeaponNow(config)
             ["Gun"]        = "Gun",
             ["BloxFruits"] = "BloxFruits",
         }
+        -- Guard silencioso: evita spam se FarmWeapon ainda nao foi setado como string
+        if type(config.FarmWeapon) ~= "string" then
+            config.SelectedWeaponName = ""
+            return
+        end
         local chave = tipoMap[config.FarmWeapon]
         if not chave then
             warn("[ResolveWeaponNow] FarmWeapon inválido: " .. tostring(config.FarmWeapon))
@@ -4199,7 +4204,7 @@ function Functions.StartAllLoops(config)
     Functions.StartAutoSea3(config)
 
     -- Sea 1/2
-    Functions.StartAutoSaber(config)
+    Functions.StartAutoBuyTTK(config)
     Functions.StartAutoDarkBladeV2(config)
     Functions.StartAutoSea2(config)
     Functions.StartAutoHakiV2(config)
