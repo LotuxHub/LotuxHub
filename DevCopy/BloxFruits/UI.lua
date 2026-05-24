@@ -1221,6 +1221,8 @@ Main:AddDropdown({
             _G._FarmWeapon = weaponStr
         end
         Config.SelectedWeaponName = ""
+        -- Equipa a nova arma imediatamente ao mudar o dropdown
+        Functions.EquipWeapon(Config, NotAutoEquip)
         Notify({ Title = "Farm Weapon: " .. (_G._FarmWeapon or "Melee"), Image = IMG, Type = "Info", Duration = 2 })
     end,
 })
@@ -2503,3 +2505,5 @@ Notify({
     Duration    = 5,
     Type        = "Success",
 })
+
+print("UI Loaded v2.3.1")
