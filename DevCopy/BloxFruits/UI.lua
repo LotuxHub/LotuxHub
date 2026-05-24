@@ -847,11 +847,25 @@ task.spawn(function()
                 local quest = Functions.GetQuestForLevel(QuestList, CurrentSea, Player)
                 if not quest then farmRunning = false; return end
 
-                -- Submerged Island (level 2600+): precisa de remote especial, nao requestEntrance
+                -- Submerged Island (level 2600+): usa remote especial, nao requestEntrance nem FlyTo
                 local isSubmerged = string.find(quest.NameQuest or "", "SubmergedQuest", 1, true) ~= nil
                 if isSubmerged then
-                    Functions.TravelToSubmergedIsland()
-                    task.wait(1)
+                    -- So viaja se ainda nao estiver la embaixo (Y < -500)
+                    local jaEstaLa = HumanoidRootPart and HumanoidRootPart.Position.Y < -500
+                    if not jaEstaLa then
+                        print("[AutoFarm] Indo para Submerged Island via remote...")
+                        local chegou = Functions.TravelToSubmergedIsland()
+                        if not chegou then
+                            warn("[AutoFarm] Nao conseguiu chegar na Submerged Island, tentando novamente...")
+                            farmRunning = false
+                            return
+                        end
+                        task.wait(1.5)
+                    end
+                    -- Atualiza HRP apos teleporte
+                    local char2 = Player.Character
+                    if not char2 then farmRunning = false; return end
+                    HumanoidRootPart = char2:FindFirstChild("HumanoidRootPart") or HumanoidRootPart
                 elseif quest.RequestEntrance and HumanoidRootPart then
                     if (quest.CFrameMon.Position - HumanoidRootPart.Position).Magnitude > 10000 then
                         pcall(function() (CommF_ or {}):InvokeServer("requestEntrance", quest.RequestEntrance) end)
@@ -869,11 +883,15 @@ task.spawn(function()
 
                 if not questVisible then
                     currentTarget = nil
-                    NoClip.value = false
 
                     if HumanoidRootPart and (quest.CFrameQuest.Position - HumanoidRootPart.Position).Magnitude > 8 then
+                        -- Mantem NoClip ativo se estiver na Submerged (Y < -500) para nao afundar
+                        local naSubmerged = HumanoidRootPart.Position.Y < -500
+                        if not naSubmerged then NoClip.value = false end
                         NoClip.value = true
                         Functions.FlyToPosition(quest.CFrameQuest, TweenService, Config, isTeleporting, NotAutoEquip)
+                        NoClip.value = false
+                    else
                         NoClip.value = false
                     end
 
@@ -952,20 +970,29 @@ task.spawn(function()
                             end
                         else
                             currentTarget = nil
-                            NoClip.value = true
-                            Functions.FlyToPosition(quest.CFrameMon * CFrame.new(0, Config.FlyOffset, 0),
-                                TweenService, Config, isTeleporting, NotAutoEquip)
-                            NoClip.value = false
+                            -- Se for Submerged Island (Y muito baixo), nao voa diretamente
+                            -- pois o personagem tentaria atravessar o mar. Ja esta la via remote.
+                            local monY = quest.CFrameMon.Position.Y
+                            if monY < -500 then
+                                -- Ja esta na Submerged, so aguarda o mob spawnar
+                                print("[AutoFarm] Submerged: aguardando mob '" .. quest.Mob .. "' spawnar...")
+                                task.wait(2)
+                            else
+                                NoClip.value = true
+                                Functions.FlyToPosition(quest.CFrameMon * CFrame.new(0, Config.FlyOffset, 0),
+                                    TweenService, Config, isTeleporting, NotAutoEquip)
+                                NoClip.value = false
 
-                            local rs = game:GetService("ReplicatedStorage")
-                            if rs:FindFirstChild(quest.Mob) then
-                                local rsMob = rs[quest.Mob]
-                                local rsHrp = rsMob:FindFirstChild("HumanoidRootPart")
-                                if rsHrp then
-                                    NoClip.value = true
-                                    Functions.FlyToPosition(rsHrp.CFrame * CFrame.new(0, 20, 0),
-                                        TweenService, Config, isTeleporting, NotAutoEquip)
-                                    NoClip.value = false
+                                local rs = game:GetService("ReplicatedStorage")
+                                if rs:FindFirstChild(quest.Mob) then
+                                    local rsMob = rs[quest.Mob]
+                                    local rsHrp = rsMob:FindFirstChild("HumanoidRootPart")
+                                    if rsHrp then
+                                        NoClip.value = true
+                                        Functions.FlyToPosition(rsHrp.CFrame * CFrame.new(0, 20, 0),
+                                            TweenService, Config, isTeleporting, NotAutoEquip)
+                                        NoClip.value = false
+                                    end
                                 end
                             end
                         end
@@ -2516,4 +2543,4 @@ Notify({
     Type        = "Success",
 })
 
-print("UI Loaded v2.3.5")
+print("UI Loaded v2.3.7")

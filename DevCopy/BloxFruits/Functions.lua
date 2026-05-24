@@ -5464,56 +5464,70 @@ end
 
 function Functions.TravelToSubmergedIsland()
     -- Se ja esta la embaixo, nao faz nada
-    if IsOnSubmergedIsland() then return true end
+    if IsOnSubmergedIsland() then
+        print("[TravelToSubmerged] Ja esta na Submerged Island.")
+        return true
+    end
 
     local char = Player.Character
     if not char then return false end
     local hrp = char:FindFirstChild("HumanoidRootPart")
     if not hrp then return false end
 
-    -- 1. Teleporta direto para perto do NPC do Boat Castle
-    if (hrp.Position - SUBMERGED_NPC_POS).Magnitude > 50 then
-        hrp.CFrame = CFrame.new(SUBMERGED_NPC_POS)
-        task.wait(1)
+    -- 1. Ir voando ate o NPC do Boat Castle (que fica perto do portal)
+    local distToNPC = (hrp.Position - SUBMERGED_NPC_POS).Magnitude
+    print("[TravelToSubmerged] Distancia ao NPC: " .. math.floor(distToNPC))
 
-        -- Tenta disparar o remote do portal do castelo (opcional, nao bloqueia)
-        pcall(function()
-            local net = game:GetService("ReplicatedStorage"):FindFirstChild("Modules")
-            if not net then return end
-            net = net:FindFirstChild("Net")
-            if not net then return end
-            local rf = net:FindFirstChild("RF/BoatCastleTeleporters")
-            if not rf then return end
-            local mapFolder = workspace:FindFirstChild("Map")
-            if not mapFolder then return end
-            local boatCastle = mapFolder:FindFirstChild("Boat Castle")
-            if not boatCastle then return end
-            local teleportC = boatCastle:FindFirstChild("MapTeleportC")
-            if not teleportC then return end
-            rf:InvokeServer("InitiateTeleport", teleportC)
-        end)
-        task.wait(1)
+    if distToNPC > 50 then
+        print("[TravelToSubmerged] Voando ate o NPC do Boat Castle...")
+        local TweenService = game:GetService("TweenService")
+        -- Voa direto para a posicao do NPC (acima para nao bater no chao)
+        local targetCF = CFrame.new(SUBMERGED_NPC_POS + Vector3.new(0, 5, 0))
+        local dist = distToNPC
+        local speed = 300
+        local duration = math.clamp(dist / speed, 0.5, 8)
+        local tween = TweenService:Create(hrp, TweenInfo.new(duration, Enum.EasingStyle.Linear), { CFrame = targetCF })
+        tween:Play()
+        tween.Completed:Wait()
+        task.wait(0.5)
     end
 
-    -- 2. Disparar o remote de viagem para Submerged Island
+    -- 2. Disparar o remote do portal do Boat Castle (leva pra area do NPC submarino)
+    print("[TravelToSubmerged] Disparando remote do portal do Boat Castle...")
     pcall(function()
-        local net = game:GetService("ReplicatedStorage"):FindFirstChild("Modules")
-        if not net then return end
-        net = net:FindFirstChild("Net")
-        if not net then return end
+        local net = game:GetService("ReplicatedStorage"):WaitForChild("Modules"):WaitForChild("Net")
+        local rf = net:FindFirstChild("RF/BoatCastleTeleporters")
+        if not rf then warn("[TravelToSubmerged] RF/BoatCastleTeleporters nao encontrado") return end
+        local teleportC = workspace:WaitForChild("Map"):WaitForChild("Boat Castle"):FindFirstChild("MapTeleportC")
+        if not teleportC then warn("[TravelToSubmerged] MapTeleportC nao encontrado") return end
+        rf:InvokeServer("InitiateTeleport", teleportC)
+    end)
+    task.wait(1.5)
+
+    -- 3. Disparar o remote de viagem para Submerged Island (NPC submarino)
+    print("[TravelToSubmerged] Disparando TravelToSubmergedIsland remote...")
+    pcall(function()
+        local net = game:GetService("ReplicatedStorage"):WaitForChild("Modules"):WaitForChild("Net")
         local rf = net:FindFirstChild("RF/SubmarineWorkerSpeak")
-        if not rf then return end
+        if not rf then warn("[TravelToSubmerged] RF/SubmarineWorkerSpeak nao encontrado") return end
         rf:InvokeServer("TravelToSubmergedIsland")
     end)
 
-    -- 3. Aguarda teleporte (ate 10s)
+    -- 4. Aguarda teleporte para Submerged (ate 15s)
+    print("[TravelToSubmerged] Aguardando teleporte...")
     local waited = 0
-    while not IsOnSubmergedIsland() and waited < 10 do
+    while not IsOnSubmergedIsland() and waited < 15 do
         task.wait(0.5)
         waited = waited + 0.5
     end
 
-    return IsOnSubmergedIsland()
+    if IsOnSubmergedIsland() then
+        print("[TravelToSubmerged] Chegou na Submerged Island!")
+        return true
+    else
+        warn("[TravelToSubmerged] Timeout - nao conseguiu chegar na Submerged Island apos " .. waited .. "s")
+        return false
+    end
 end
 
 _G.CheckItemBPCR = Functions.CheckItemBPCR
@@ -5521,5 +5535,5 @@ _G.AutoKatakuriV2Loop = Functions.AutoKatakuriV2Loop
 _G.AutoClick = Functions.FastAttackAdvanced
 
 print("UI loaded")
-print("Functions Updated Loaded v2.1.7")
+print("Functions Updated Loaded v2.2.0")
 return Functions
