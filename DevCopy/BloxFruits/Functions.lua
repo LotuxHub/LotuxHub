@@ -76,20 +76,192 @@ end
 -- WEAPON RESOLVER
 -- =====================================================
 
--- ResolveWeaponNow - Resolve o nome da arma IMEDIATAMENTE pelo ToolTip
--- Logica identica ao Tiroreal: chame isso inline antes de equipar
+-- =====================================================
+-- BFWIRELIST - Listas de nomes por tipo de arma
+-- Usadas pelo ResolveWeaponNow para identificar armas no Backpack
+-- =====================================================
+local BFWirelist = {
+    Melee = {
+        "Combat",
+        "Dark Step",
+        "Electric",
+        "Water Kung Fu",
+        "Black Leg",
+        "Electro",
+        "Fishman Karate",
+        "Superhuman",
+        "Dragon Talon",
+        "Death Step",
+        "Sharkman Karate",
+        "Electric Claw",
+        "Godhuman",
+        "Sanguine Art",
+    },
+    BloxFruits = {
+        "Kilo-Kilo",
+        "Rocket-Rocket",
+        "Spin-Spin",
+        "Smoke-Smoke",
+        "Blade-Blade",
+        "Spring-Spring",
+        "Bomb-Bomb",
+        "Spike-Spike",
+        "Revive-Revive",
+        "Diamond-Diamond",
+        "Flame-Flame",
+        "Ice-Ice",
+        "Sand-Sand",
+        "Dark-Dark",
+        "Eagle-Eagle",
+        "Door-Door",
+        "Rubber-Rubber",
+        "Ghost-Ghost",
+        "Light-Light",
+        "Magma-Magma",
+        "Quake-Quake",
+        "Love-Love",
+        "Creation-Creation",
+        "Spider-Spider",
+        "Sound-Sound",
+        "Portal-Portal",
+        "Pain-Pain",
+        "Lightning-Lightning",
+        "Blizzard-Blizzard",
+        "Buddha-Buddha",
+        "Phoenix-Phoenix",
+        "Gravity-Gravity",
+        "Shadow-Shadow",
+        "Venom-Venom",
+        "Soul-Soul",
+        "Spirit-Spirit",
+        "Control-Control",
+        "Dough-Dough",
+        "Gas-Gas",
+        "Mammoth-Mammoth",
+        "T-Rex-T-Rex",
+        "Dragon-Dragon",
+        "Tiger-Tiger",
+        "Yeti-Yeti",
+        "Kitsune-Kitsune",
+    },
+    Sword = {
+        "Katana",
+        "Cutlass",
+        "Dual Katana",
+        "Iron Mace",
+        "Shark Saw",
+        "Triple Katana",
+        "Twin Hooks",
+        "Pipe",
+        "Soul Cane",
+        "Trident",
+        "Longsword",
+        "Warden's Sword",
+        "Dual-Headed Blade",
+        "Flail",
+        "Gravity Blade",
+        "Dragon Trident",
+        "Bisento",
+        "Saber",
+        "Koko",
+        "Jitte",
+        "Pole (1st Form)",
+        "Pole (2nd Form)",
+        "Rengoku",
+        "Saddi",
+        "Shisui",
+        "Wando",
+        "Dark Dagger",
+        "Buddy Sword",
+        "Canvander",
+        "Midnight Blade",
+        "Oroshi",
+        "Saishi",
+        "Shizu",
+        "Shark Anchor",
+        "Spikey Trident",
+        "Tushita",
+        "Yama",
+        "Dragonheart",
+        "Fox Lamp",
+        "Dark Blade",
+        "True Triple Katana",
+        "Cursed Dual Katana",
+        "Hallow Scythe",
+    },
+    Gun = {
+        "Slingshot",
+        "Musket",
+        "Flintlock",
+        "Refined Slingshot",
+        "Refined Musket",
+        "Refined Flintlock",
+        "Dual Flintlock",
+        "Cannon",
+        "Magma Blaster",
+        "Acidum Rifle",
+        "Bizarre Rifle",
+        "Bazooka",
+        "Kabucha",
+        "Serpent Bow",
+        "Venom Bow",
+        "Dragonstorm",
+        "Skull Guitar",
+        "Soul Guitar",
+    },
+}
+
+-- Monta um set (tabela chave=nome) para lookup O(1)
+local function makeSet(list)
+    local set = {}
+    for _, name in ipairs(list) do
+        set[name] = true
+    end
+    return set
+end
+
+local BFWirelistSets = {
+    Melee      = makeSet(BFWirelist.Melee),
+    BloxFruits = makeSet(BFWirelist.BloxFruits),
+    Sword      = makeSet(BFWirelist.Sword),
+    Gun        = makeSet(BFWirelist.Gun),
+}
+
+-- ResolveWeaponNow - Resolve o nome da arma pela BFWirelist
+-- Verifica se o tool.Name existe na lista do tipo selecionado (FarmWeapon)
+-- no Backpack ou no Character (caso já esteja equipado)
 function Functions.ResolveWeaponNow(config)
     pcall(function()
-        local tipo = config.FarmWeapon
-        -- Normaliza o tooltip: remove espaços e converte para lower case
-        local normalized = tipo:lower():gsub("%s+", "")
-        if normalized == "bloxfruits" then normalized = "bloxfruit" end
+        -- Mapeia FarmWeapon -> chave da BFWirelist
+        local tipoMap = {
+            ["Melee"]      = "Melee",
+            ["Sword"]      = "Sword",
+            ["Gun"]        = "Gun",
+            ["BloxFruits"] = "BloxFruits",
+        }
+        local chave = tipoMap[config.FarmWeapon]
+        if not chave then
+            warn("[ResolveWeaponNow] FarmWeapon inválido: " .. tostring(config.FarmWeapon))
+            config.SelectedWeaponName = ""
+            return
+        end
 
+        local lista = BFWirelistSets[chave]
         local found = false
+
+        -- 1. Procura no Backpack
         for _, tool in pairs(Player.Backpack:GetChildren()) do
-            if tool:IsA("Tool") then
-                local tt = (tool.ToolTip or ""):lower():gsub("%s+", "")
-                if tt == normalized or tt == tipo:lower() or tool.Name:lower():find(normalized) then
+            if tool:IsA("Tool") and lista[tool.Name] then
+                config.SelectedWeaponName = tool.Name
+                found = true
+                break
+            end
+        end
+
+        -- 2. Se não achou, procura no Character (já equipado)
+        if not found and Player.Character then
+            for _, tool in pairs(Player.Character:GetChildren()) do
+                if tool:IsA("Tool") and lista[tool.Name] then
                     config.SelectedWeaponName = tool.Name
                     found = true
                     break
@@ -97,20 +269,8 @@ function Functions.ResolveWeaponNow(config)
             end
         end
 
-        if not found and Player.Character then
-            for _, tool in pairs(Player.Character:GetChildren()) do
-                if tool:IsA("Tool") then
-                    local tt = (tool.ToolTip or ""):lower():gsub("%s+", "")
-                    if tt == normalized or tt == tipo:lower() or tool.Name:lower():find(normalized) then
-                        config.SelectedWeaponName = tool.Name
-                        found = true
-                        break
-                    end
-                end
-            end
-        end
-
         if not found then
+            warn("[ResolveWeaponNow] Nenhuma arma do tipo '" .. config.FarmWeapon .. "' encontrada no inventário.")
             config.SelectedWeaponName = ""
         end
     end)
@@ -136,41 +296,81 @@ function Functions.EquipWeapon(weaponName, notAutoEquipRef)
     -- Se veio uma tabela (config), resolve inline
     if type(weaponName) == "table" then
         local cfg = weaponName
+        print("[EquipWeapon] Recebeu config | FarmWeapon: '" .. tostring(cfg.FarmWeapon) .. "' | SelectedWeaponName atual: '" .. tostring(cfg.SelectedWeaponName) .. "'")
         if not cfg.SelectedWeaponName or cfg.SelectedWeaponName == "" then
+            print("[EquipWeapon] SelectedWeaponName vazio, chamando ResolveWeaponNow...")
             Functions.ResolveWeaponNow(cfg)
+            print("[EquipWeapon] Após ResolveWeaponNow: '" .. tostring(cfg.SelectedWeaponName) .. "'")
         end
         weaponName = cfg.SelectedWeaponName or ""
     end
 
+    print("[EquipWeapon] Tentando equipar: '" .. tostring(weaponName) .. "'")
+
     if weaponName == "" then
-        warn("[EquipWeapon] Nome da arma vazio - verifique se você possui uma arma do tipo selecionado no inventário.")
+        warn("[EquipWeapon] ERRO: Nome da arma vazio. Nenhuma arma do tipo selecionado foi encontrada no inventário.")
+        -- Lista o que tem no Backpack para ajudar no debug
+        local itens = {}
+        for _, tool in pairs(Player.Backpack:GetChildren()) do
+            if tool:IsA("Tool") then
+                table.insert(itens, tool.Name)
+            end
+        end
+        warn("[EquipWeapon] Itens no Backpack: " .. (next(itens) and table.concat(itens, ", ") or "NENHUM"))
         return false
     end
 
     -- Respeita flag NotAutoEquip
     if notAutoEquipRef and notAutoEquipRef.value then
-        warn("[EquipWeapon] NotAutoEquip está ativo, não equipando.")
+        warn("[EquipWeapon] BLOQUEADO: NotAutoEquip está ativo.")
         return false
     end
 
     local char = Player.Character
-    if not char then return false end
+    if not char then
+        warn("[EquipWeapon] ERRO: Player.Character é nil (personagem não carregado).")
+        return false
+    end
+
     local hum = char:FindFirstChildOfClass("Humanoid")
-    if not hum or hum.Health <= 0 then return false end
+    if not hum then
+        warn("[EquipWeapon] ERRO: Humanoid não encontrado no personagem.")
+        return false
+    end
+    if hum.Health <= 0 then
+        warn("[EquipWeapon] ERRO: Personagem está morto (Health <= 0).")
+        return false
+    end
 
     -- Se já está equipada, não faz nada
     if char:FindFirstChild(weaponName) then
+        print("[EquipWeapon] '" .. weaponName .. "' já está equipada, nada a fazer.")
         return true
     end
 
     local tool = Player.Backpack:FindFirstChild(weaponName)
     if tool then
         task.wait(0.1)
-        hum:EquipTool(tool)
-        print("[EquipWeapon] Equipado: " .. weaponName)
-        return true
+        local ok, err = pcall(function()
+            hum:EquipTool(tool)
+        end)
+        if ok then
+            print("[EquipWeapon] ✓ Equipado com sucesso: '" .. weaponName .. "'")
+            return true
+        else
+            warn("[EquipWeapon] ERRO ao chamar EquipTool: " .. tostring(err))
+            return false
+        end
     else
-        warn("[EquipWeapon] Arma não encontrada no Backpack: " .. weaponName)
+        warn("[EquipWeapon] ERRO: '" .. weaponName .. "' não encontrada no Backpack.")
+        -- Lista o que tem no Backpack para ajudar no debug
+        local itens = {}
+        for _, tool in pairs(Player.Backpack:GetChildren()) do
+            if tool:IsA("Tool") then
+                table.insert(itens, tool.Name)
+            end
+        end
+        warn("[EquipWeapon] Itens no Backpack: " .. (next(itens) and table.concat(itens, ", ") or "NENHUM"))
         return false
     end
 end
