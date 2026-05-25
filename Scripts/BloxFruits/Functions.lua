@@ -457,7 +457,67 @@ end
 
 local _isTeleporting = false
 
-function Functions.FlyToPosition(targetCF, tweenSvc, config, isTeleportingRef, notAutoEquipRef)
+function Functions.FlyToPosition(targetCF,tweenSvc,config,isTeleportingRef,notAutoEquipRef)
+	local Char=Player.Character;
+	local Hrp=Char and Char:FindFirstChild'HumanoidRootPart';
+	local Hum=Char and Char:FindFirstChildOfClass'Humanoid';
+	if not Char or not Hrp or not Hum or Hum.Health<=0 then return end;
+	local Distance=(targetCF.Position-Hrp.Position).Magnitude;
+	if Distance<2 then return end;
+	local Pt=Char:FindFirstChild'PartTele';
+	if not Pt then
+		Pt=Instance.new'Part';
+		Pt.Name='PartTele';
+		Pt.Size=Vector3.new(10,1,10);
+		Pt.Anchored=true;
+		Pt.Transparency=1;
+		Pt.CanCollide=false;
+		Pt.CFrame=Hrp.CFrame;
+		Pt.Parent=Char;
+	end;
+	if isTeleportingRef then
+		isTeleportingRef.value=true;
+	end;
+	_isTeleporting=true;
+	local Speed=tonumber(config and config.FlySpeed)or 300;
+	local Dur=math.clamp(Distance/Speed,.05,60);
+	local Ts=tweenSvc or TweenService;
+	local Tween=Ts:Create(
+		Pt,
+		TweenInfo.new(Dur,Enum.EasingStyle.Linear),
+		{CFrame=targetCF}
+	);
+	local Conn;
+	Conn=RunService.Heartbeat:Connect(function()
+		if not _isTeleporting then
+			Conn:Disconnect();
+			return;
+		end;
+		local C=Player.Character;
+		local Chrp=C and C:FindFirstChild'HumanoidRootPart';
+		local Part=C and C:FindFirstChild'PartTele';
+		if not Chrp or not Part then
+			Conn:Disconnect();
+			return;
+		end;
+		local _,Yaw,_=Chrp.CFrame:ToOrientation();
+		Chrp.CFrame=CFrame.new(Part.Position)*CFrame.Angles(0,Yaw,0);
+	end);
+	Tween:Play();
+	Tween.Completed:Wait();
+	_isTeleporting=false;
+	if isTeleportingRef then
+		isTeleportingRef.value=false;
+	end;
+	if Conn then
+		Conn:Disconnect();
+	end;
+	if Pt then
+		Pt:Destroy();
+	end;
+end
+
+--[[function Functions.FlyToPosition(targetCF, tweenSvc, config, isTeleportingRef, notAutoEquipRef)
     local char = Player.Character
     local hrp  = char and char:FindFirstChild("HumanoidRootPart")
     local hum  = char and char:FindFirstChildOfClass("Humanoid")
@@ -524,7 +584,7 @@ function Functions.FlyToPosition(targetCF, tweenSvc, config, isTeleportingRef, n
     if char:FindFirstChild("PartTele") then
         char.PartTele:Destroy()
     end
-end
+end]]
 
 function Functions.TeleportTo(pos)
     local char = Player.Character
