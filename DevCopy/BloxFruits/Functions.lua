@@ -6028,5 +6028,5 @@ _G.AutoClick = Functions.FastAttackAdvanced
 
 print("UI loaded")
 print("Functions Updated Loaded v9FDLF-FKDF")
-print("1779733079")
+
 return Functions
