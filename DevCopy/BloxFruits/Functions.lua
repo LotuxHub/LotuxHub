@@ -6086,7 +6086,6 @@ _G.CheckItemBPCR = Functions.CheckItemBPCR
 _G.AutoKatakuriV2Loop = Functions.AutoKatakuriV2Loop
 _G.AutoClick = Functions.FastAttackAdvanced
 
-print("UI loaded")
-print("Functions Updated Loaded v9FDLF-FKDF")
+print("[LotuxHub]Functions Updated Loaded v12KND-1KSNA")
 
 return Functions
