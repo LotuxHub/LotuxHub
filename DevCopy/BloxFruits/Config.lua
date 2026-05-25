@@ -229,4 +229,5 @@ local Config = {
     MonFarm             = "",
 }
 
+print("[LotuxHub]Configuration Loaded")
 return Config
