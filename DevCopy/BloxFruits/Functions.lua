@@ -2398,6 +2398,22 @@ function Functions.StartAutoPirateRaid(config)
     local RAID_RADIUS   = 500
     local MOB_RADIUS    = 3000
 
+    -- Refs de controle do TweenFly (mesmo padrao do AutoRaidLaw / AutoFarm)
+    local _raidIsTp    = { value = false }
+    local _raidNoEquip = { value = false }
+
+    -- TweenFly local igual ao padrao do AutoRaidLaw
+    local function RaidFlyTo(targetCF)
+        local char = Player.Character
+        local hrp  = char and char:FindFirstChild("HumanoidRootPart")
+        if not hrp then return end
+        local dist = (targetCF.Position - hrp.Position).Magnitude
+        if dist < 5 then return end
+        -- Offset de altura para nao ficar preso no chao
+        local safeCF = CFrame.new(targetCF.Position + Vector3.new(0, config.FlyOffset or 15, 0))
+        Functions.FlyToPosition(safeCF, TweenService, config, _raidIsTp, _raidNoEquip)
+    end
+
     task.spawn(function()
         while task.wait(0.1) do
             if not config.AutoPirateRaid then continue end
@@ -2406,10 +2422,10 @@ function Functions.StartAutoPirateRaid(config)
                 local hrp  = char and char:FindFirstChild("HumanoidRootPart")
                 if not hrp then return end
 
-                -- Se nao esta na area da raid, teleporta ate la
+                -- Se nao esta na area da raid, usa TweenFly para chegar la
                 if (raidCenter - hrp.Position).Magnitude > RAID_RADIUS then
-                    Functions.TeleportTo(CFrameBoss)
-                    task.wait(1)
+                    RaidFlyTo(CFrameBoss)
+                    task.wait(0.5)
                     return
                 end
 
@@ -2417,30 +2433,35 @@ function Functions.StartAutoPirateRaid(config)
                 local mobFound = false
                 for _, v in ipairs(workspace.Enemies:GetChildren()) do
                     if not config.AutoPirateRaid then break end
-                    if v:FindFirstChild("HumanoidRootPart")
-                       and v:FindFirstChild("Humanoid")
-                       and v.Humanoid.Health > 0
-                       and (v.HumanoidRootPart.Position - raidCenter).Magnitude < MOB_RADIUS then
+                    local vHrp = v:FindFirstChild("HumanoidRootPart")
+                    local vHum = v:FindFirstChild("Humanoid")
+                    if vHrp and vHum and vHum.Health > 0
+                       and (vHrp.Position - raidCenter).Magnitude < MOB_RADIUS then
 
                         mobFound = true
+
+                        -- Voa ate o mob com TweenFly (igual AutoRaidLaw)
+                        RaidFlyTo(vHrp.CFrame * CFrame.new(0, 30, 0))
+
                         repeat
                             task.wait(0.05)
                             if not config.AutoPirateRaid then break end
                             Functions.AutoHaki()
-                            Functions.EquipWeapon(config, nil)
-                            v.HumanoidRootPart.CanCollide = false
-                            v.HumanoidRootPart.Size = Vector3.new(60, 60, 60)
-                            Functions.TeleportTo(v.HumanoidRootPart.CFrame * CFrame.new(0, 30, 0))
+                            Functions.EquipWeapon(config, _raidNoEquip)
+                            vHrp.CanCollide = false
+                            vHrp.Size = Vector3.new(60, 60, 60)
+                            -- Mantem posicao com TweenFly continuo enquanto ataca
+                            RaidFlyTo(vHrp.CFrame * CFrame.new(0, 30, 0))
                             VirtualUser:CaptureController()
                             VirtualUser:Button1Down(Vector2.new(1280, 672))
                             pcall(function() sethiddenproperty(Player, "SimulationRadius", math.huge) end)
-                        until v.Humanoid.Health <= 0 or not v.Parent or not config.AutoPirateRaid
+                        until vHum.Health <= 0 or not v.Parent or not config.AutoPirateRaid
                     end
                 end
 
-                -- Nenhum mob ainda: fica no centro aguardando spawn
+                -- Nenhum mob ainda: usa TweenFly para o centro e aguarda spawn
                 if not mobFound then
-                    Functions.TeleportTo(CFrame.new(raidCenter))
+                    RaidFlyTo(CFrame.new(raidCenter + Vector3.new(0, 15, 0)))
                     task.wait(1)
                 end
             end)
@@ -5823,5 +5844,5 @@ _G.AutoKatakuriV2Loop = Functions.AutoKatakuriV2Loop
 _G.AutoClick = Functions.FastAttackAdvanced
 
 print("UI loaded")
-print("Functions Updated Loaded v2.9")
+print("Functions Updated Loaded v3WB4-2FKJ")
 return Functions
