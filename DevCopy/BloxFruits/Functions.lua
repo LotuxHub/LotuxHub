@@ -5972,7 +5972,8 @@ function Functions.TravelToSubmergedIsland(config)
         warn("[TravelToSubmerged] Timeout apos " .. waited .. "s - nao foi teleportado. Verifique se o nivel e suficiente (2600+).")
         return false
     end
-    
+end
+
 function Functions.TravelToSubmergedIsland(config)
     -- Se ja esta la embaixo, nao faz nada
     if IsOnSubmergedIsland() then
