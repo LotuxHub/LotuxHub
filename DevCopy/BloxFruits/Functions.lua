@@ -774,13 +774,7 @@ function Functions.FastAttack(targetMob, config, notAutoEquipRef)
         tool = char:FindFirstChildOfClass("Tool")
     end
 
-    -- Rotaciona personagem para o alvo antes de qualquer metodo de ataque
     local hrpTarget = targetMob:FindFirstChild("HumanoidRootPart")
-    if hrpTarget then
-        pcall(function()
-            charHrp.CFrame = CFrame.lookAt(charHrp.Position, hrpTarget.Position)
-        end)
-    end
 
     -- Metodo 1: LeftClickRemote (melee/sword)
     if tool and tool:FindFirstChild("LeftClickRemote") then
@@ -788,7 +782,6 @@ function Functions.FastAttack(targetMob, config, notAutoEquipRef)
             local direction = (hrpTarget.Position - charHrp.Position).Unit
             local ok, err = pcall(function() tool.LeftClickRemote:FireServer(direction, 1) end)
             if ok then
-                print("[FastAttack] Metodo: LeftClickRemote | alvo: " .. targetMob.Name)
             else
                 warn("[FastAttack] LeftClickRemote falhou: " .. tostring(err))
             end
@@ -831,7 +824,6 @@ function Functions.FastAttack(targetMob, config, notAutoEquipRef)
                     RegisterHit:FireServer(head, OthersEnemies)
                 end)
                 if ok then
-                    print("[FastAttack] Metodo: RegisterAttack+RegisterHit | alvo: " .. targetMob.Name .. " | hits: " .. #OthersEnemies)
                 else
                     warn("[FastAttack] RegisterHit falhou: " .. tostring(err))
                 end
@@ -847,7 +839,6 @@ function Functions.FastAttack(targetMob, config, notAutoEquipRef)
                 tool.RemoteFunctionShoot:InvokeServer(hrpTarget.Position, hrpTarget)
             end)
             if ok then
-                print("[FastAttack] Metodo: RemoteFunctionShoot | alvo: " .. targetMob.Name)
             else
                 warn("[FastAttack] RemoteFunctionShoot falhou: " .. tostring(err))
             end
@@ -856,7 +847,6 @@ function Functions.FastAttack(targetMob, config, notAutoEquipRef)
     end
 
     -- Metodo 4: VirtualUser Button1Down (fallback)
-    print("[FastAttack] Metodo: VirtualUser Button1Down | alvo: " .. targetMob.Name .. " | tool: " .. (tool and tool.Name or "NENHUMA"))
     pcall(function()
         VirtualUser:CaptureController()
         VirtualUser:Button1Down(Vector2.new(1280, 672))
@@ -1697,7 +1687,6 @@ function Functions.StartAutoTryLuck(config)
                 local CommF_ = game:GetService("ReplicatedStorage"):WaitForChild("Remotes"):WaitForChild("CommF_")
                 local result = CommF_:InvokeServer("Cousin", "Buy", "DLCBoxData")
                 if result then
-                    print("[AutoTryLuck] Girou fruta! Resultado: " .. tostring(result))
                 else
                     warn("[AutoTryLuck] Sem Beli suficiente ou cooldown ativo.")
                 end
@@ -3255,6 +3244,93 @@ function Functions.SetHideLeaderboard(enabled)
     end)
 end
 
+-- =====================================================
+-- DISABLE GAME NOTIFY (suprime notificacoes do Blox Fruits)
+-- =====================================================
+
+local _notifyConn = nil
+
+function Functions.SetDisableGameNotify(enabled)
+    if enabled then
+        -- Hook StarterGui:SetCore para bloquear notificacoes do jogo
+        pcall(function()
+            -- Suprime notificacoes via metodo de override
+            local oldSetCore = StarterGui.SetCore
+            StarterGui.SetCore = function(self, coreType, ...)
+                -- Bloqueia SendNotification (popups do jogo)
+                if coreType == "SendNotification" then return end
+                return oldSetCore(self, coreType, ...)
+            end
+        end)
+
+        -- Tambem remove GUIs de notificacao existentes do PlayerGui
+        pcall(function()
+            local function removeNotifyGuis()
+                local pg = Player.PlayerGui
+                for _, gui in ipairs(pg:GetChildren()) do
+                    if gui.Name == "Notification"
+                    or gui.Name == "NotificationGui"
+                    or gui.Name == "BloxFruitNotification"
+                    or gui.Name == "SystemMessage" then
+                        gui:Destroy()
+                    end
+                end
+            end
+
+            removeNotifyGuis()
+
+            -- Monitora novos GUIs e remove os de notificacao
+            if _notifyConn then _notifyConn:Disconnect() end
+            _notifyConn = Player.PlayerGui.ChildAdded:Connect(function(child)
+                if child.Name == "Notification"
+                or child.Name == "NotificationGui"
+                or child.Name == "BloxFruitNotification"
+                or child.Name == "SystemMessage" then
+                    task.wait()
+                    pcall(function() child:Destroy() end)
+                end
+            end)
+        end)
+
+        -- Bloqueia via ReplicatedStorage se o jogo usar remote de notify
+        pcall(function()
+            local remotes = game:GetService("ReplicatedStorage"):FindFirstChild("Remotes")
+            if remotes then
+                local notifyRemote = remotes:FindFirstChild("Notify")
+                               or remotes:FindFirstChild("SendNotification")
+                               or remotes:FindFirstChild("CommE")
+                if notifyRemote and notifyRemote:IsA("RemoteEvent") then
+                    notifyRemote.OnClientEvent:Connect(function(notifyType)
+                        -- Intercepta e ignora (nao faz nada)
+                        if notifyType == "Notification" or notifyType == "Notify" then
+                            return
+                        end
+                    end)
+                end
+            end
+        end)
+    else
+        -- Desativa monitoramento
+        if _notifyConn then
+            _notifyConn:Disconnect()
+            _notifyConn = nil
+        end
+    end
+end
+
+function Functions.StartDisableGameNotify(config)
+    task.spawn(function()
+        while task.wait(0.5) do
+            pcall(function()
+                local notify = Player.PlayerGui:FindFirstChild("Notifications")
+                if notify then
+                    notify.Enabled = not config.DisableGameNotify
+                end
+            end)
+        end
+    end)
+end
+
 function Functions.OpenInventory()
     pcall(function()
         CF("getInventoryWeapons")
@@ -4304,6 +4380,9 @@ function Functions.StartAllLoops(config)
 
     -- Player
     Functions.StartSafeMode(config)
+
+    -- Notificacoes
+    Functions.StartDisableGameNotify(config)
 end
 
 
@@ -5544,7 +5623,6 @@ end
 function Functions.TravelToSubmergedIsland(config)
     -- Se ja esta la embaixo, nao faz nada
     if IsOnSubmergedIsland() then
-        print("[TravelToSubmerged] Ja esta na Submerged Island.")
         return true
     end
 
@@ -5555,21 +5633,17 @@ function Functions.TravelToSubmergedIsland(config)
 
     -- 1. Voa diretamente pro NPC da Tiki Outpost (de qualquer lugar do mapa)
     local distToNPC = (hrp.Position - SUBMERGED_NPC_POS).Magnitude
-    print("[TravelToSubmerged] Distancia ao NPC da Tiki Outpost: " .. math.floor(distToNPC))
 
     if distToNPC > 15 then
-        print("[TravelToSubmerged] Voando ate o NPC da Tiki Outpost...")
         local TweenSvc  = game:GetService("TweenService")
         local targetCF  = CFrame.new(SUBMERGED_NPC_POS + Vector3.new(0, 5, 0))
         local fakeIsTp  = { value = false }
         local fakeNoAuto = { value = false }
         Functions.FlyToPosition(targetCF, TweenSvc, config, fakeIsTp, fakeNoAuto)
         task.wait(0.5)
-        print("[TravelToSubmerged] Chegou no NPC.")
     end
 
     -- 2. Dispara o remote do NPC -> TravelToSubmergedIsland
-    print("[TravelToSubmerged] Disparando RF/SubmarineWorkerSpeak -> TravelToSubmergedIsland...")
     pcall(function()
         local net = game:GetService("ReplicatedStorage"):WaitForChild("Modules"):WaitForChild("Net")
         local rf  = net:FindFirstChild("RF/SubmarineWorkerSpeak")
@@ -5581,7 +5655,6 @@ function Functions.TravelToSubmergedIsland(config)
     end)
 
     -- 3. Aguarda teleporte para a Submerged Island (ate 15s)
-    print("[TravelToSubmerged] Aguardando teleporte para Submerged Island...")
     local waited = 0
     while not IsOnSubmergedIsland() and waited < 15 do
         task.wait(0.5)
@@ -5589,7 +5662,6 @@ function Functions.TravelToSubmergedIsland(config)
     end
 
     if IsOnSubmergedIsland() then
-        print("[TravelToSubmerged] Chegou na Submerged Island! (Y = " .. math.floor(hrp.Position.Y) .. ")")
         return true
     else
         warn("[TravelToSubmerged] Timeout apos " .. waited .. "s - nao foi teleportado. Verifique se o nivel e suficiente (2600+).")
@@ -5602,5 +5674,5 @@ _G.AutoKatakuriV2Loop = Functions.AutoKatakuriV2Loop
 _G.AutoClick = Functions.FastAttackAdvanced
 
 print("UI loaded")
-print("Functions Updated Loaded v2.6")
+print("Functions Updated Loaded v2.7")
 return Functions
