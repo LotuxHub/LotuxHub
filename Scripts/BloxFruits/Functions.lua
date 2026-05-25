@@ -489,7 +489,7 @@ function Functions.FlyToPosition(targetCF, tweenSvc, config, isTeleportingRef, n
             Con:Disconnect();
             return
         end;
-        local ,yaw,_=hrp.CFrame:ToOrientation();
+        local Pitch,yaw,Roll=hrp.CFrame:ToOrientation();
         hrp.CFrame=CFrame.new(Char.PartTele.Position)*CFrame.Angles(0,yaw,0);
     end)
 end;
