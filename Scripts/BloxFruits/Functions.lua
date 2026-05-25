@@ -482,7 +482,8 @@ function Functions.FlyToPosition(targetCF, tweenSvc, config, isTeleportingRef, n
             local c = Player.Character
             if c and c:FindFirstChild("HumanoidRootPart") and c:FindFirstChild("PartTele") then
                 local cHrp = c.HumanoidRootPart
-                local _, yaw, _ = cHrp.CFrame:ToOrientation()
+                    --local _, yaw, _ = cHrp.CFrame:ToOrientation()
+                local Pitch,yaw,Roll=cHrp.CFrame:ToOrientation()
                 cHrp.CFrame = CFrame.new(c.PartTele.CFrame.Position) * CFrame.Angles(0, yaw, 0)
             end
         end)
