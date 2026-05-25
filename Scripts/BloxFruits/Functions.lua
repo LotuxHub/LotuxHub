@@ -455,17 +455,16 @@ end
 -- FLY / TELEPORT
 -- =====================================================
 
-local _isTeleporting = false --458
+local _isTeleporting = false
 
 function Functions.FlyToPosition(targetCF, tweenSvc, config, isTeleportingRef, notAutoEquipRef)
-    local char = Player.Character
-    local hrp  = char and char:FindFirstChild("HumanoidRootPart")
-    local hum  = char and char:FindFirstChildOfClass("Humanoid")
+    local Char=Player.Character or Player.Character:Wait();
+    local hrp=Char and Char:FindFirstChild'HumanoidRootPart'
+    local Hum=Char and Char:FindFirstChild'Humanoid';
     if not char or not hrp or not hum or hum.Health <= 0 then return end
 
     local distance = (targetCF.Position - hrp.Position).Magnitude
     if distance < 2 then return end
-
     if not char:FindFirstChild("PartTele") then
         local pt        = Instance.new("Part", char)
         pt.Size         = Vector3.new(10, 1, 10)
@@ -474,59 +473,26 @@ function Functions.FlyToPosition(targetCF, tweenSvc, config, isTeleportingRef, n
         pt.Transparency = 1
         pt.CanCollide   = false
         pt.CFrame       = hrp.CFrame
-
-        pt:GetPropertyChangedSignal("CFrame"):Connect(function()
-            local isTp = (isTeleportingRef and isTeleportingRef.value) or _isTeleporting
-            if not isTp then return end
-            task.wait()
-            local c = Player.Character
-            if c and c:FindFirstChild("HumanoidRootPart") and c:FindFirstChild("PartTele") then
-                local cHrp = c.HumanoidRootPart
-                    --local _, yaw, _ = cHrp.CFrame:ToOrientation()
-                local Pitch,yaw,Roll=cHrp.CFrame:ToOrientation()
-                cHrp.CFrame = CFrame.new(c.PartTele.CFrame.Position) * CFrame.Angles(0, yaw, 0)
-            end
-        end)
     end
-
-    if isTeleportingRef then isTeleportingRef.value = true end -- 492
-    _isTeleporting = true
-
-    local speed = tonumber(config and config.FlySpeed) or 300
-    local dur   = math.clamp(distance / speed, 0.05, 60.0)
-
-    local ts    = tweenSvc or TweenService
-    local tween = ts:Create(
-        char.PartTele,
-        TweenInfo.new(dur, Enum.EasingStyle.Linear),
-        { CFrame = targetCF }
-    )
-    tween:Play()
-
-    local conn
-    conn = RunService.Heartbeat:Connect(function()
-        local c    = Player.Character
-        local cHrp = c and c:FindFirstChild("HumanoidRootPart")
-        local pt   = c and c:FindFirstChild("PartTele")
-        if cHrp and pt then
-            --local _, currentYaw, _ = cHrp.CFrame:ToOrientation()
-            local Pitch,currentYaw,Roll=cHrp.CFrame:ToOrientation()
-            cHrp.CFrame = CFrame.new(pt.CFrame.Position) * CFrame.Angles(0, currentYaw, 0)
-        else
-            conn:Disconnect()
-        end
+    if isTeleportingRef then
+        isTeleportingRef.value=true;
+    end;
+    isTeleportingRef=true;
+    local Speed=tonumber(config and config.FlySpeed)or 300;
+    local Dur=math.clamp(Distance/Speed,.05,60);
+    local tS=tweenSvc or TweenService;
+    local Tween=tS:Create(Pt,TweenInfo.new(Dur,Enum.EasingStyle.Linear),{CFrame=targetCF});
+    local Con=nil
+    Con=RunService.Heartbeat:connect(function()
+        if not isTeleporting then Con:Disconnect();return end;
+        if not hrp or Char:WaitForChild'PartTele' then
+            Con:Disconnect();
+            return
+        end;
+        local ,yaw,_=hrp.CFrame:ToOrientation();
+        hrp.CFrame=CFrame.new(Char.PartTele.Position)*CFrame.Angles(0,yaw,0);
     end)
-
-    tween.Completed:Wait()
-    conn:Disconnect()
-
-    if isTeleportingRef then isTeleportingRef.value = false end
-    _isTeleporting = false
-
-    if char:FindFirstChild("PartTele") then
-        char.PartTele:Destroy()
-    end
-end
+end;
 
 function Functions.TeleportTo(pos)
     local char = Player.Character
@@ -6006,6 +5972,54 @@ function Functions.TravelToSubmergedIsland(config)
         warn("[TravelToSubmerged] Timeout apos " .. waited .. "s - nao foi teleportado. Verifique se o nivel e suficiente (2600+).")
         return false
     end
+    
+function Functions.TravelToSubmergedIsland(config)
+    -- Se ja esta la embaixo, nao faz nada
+    if IsOnSubmergedIsland() then
+        return true
+    end
+
+    local char = Player.Character
+    if not char then return false end
+    local hrp = char:FindFirstChild("HumanoidRootPart")
+    if not hrp then return false end
+
+    -- 1. Voa diretamente pro NPC da Tiki Outpost (de qualquer lugar do mapa)
+    local distToNPC = (hrp.Position - SUBMERGED_NPC_POS).Magnitude
+
+    if distToNPC > 15 then
+        local TweenSvc  = game:GetService("TweenService")
+        local targetCF  = CFrame.new(SUBMERGED_NPC_POS + Vector3.new(0, 5, 0))
+        local fakeIsTp  = { value = false }
+        local fakeNoAuto = { value = false }
+        Functions.FlyToPosition(targetCF, TweenSvc, config, fakeIsTp, fakeNoAuto)
+        task.wait(0.5)
+    end
+
+    -- 2. Dispara o remote do NPC -> TravelToSubmergedIsland
+    pcall(function()
+        local net = game:GetService("ReplicatedStorage"):WaitForChild("Modules"):WaitForChild("Net")
+        local rf  = net:FindFirstChild("RF/SubmarineWorkerSpeak")
+        if not rf then
+            warn("[TravelToSubmerged] RF/SubmarineWorkerSpeak nao encontrado!")
+            return
+        end
+        rf:InvokeServer("TravelToSubmergedIsland")
+    end)
+
+    -- 3. Aguarda teleporte para a Submerged Island (ate 15s)
+    local waited = 0
+    while not IsOnSubmergedIsland() and waited < 15 do
+        task.wait(0.5)
+        waited = waited + 0.5
+    end
+
+    if IsOnSubmergedIsland() then
+        return true
+    else
+        warn("[TravelToSubmerged] Timeout apos " .. waited .. "s - nao foi teleportado. Verifique se o nivel e suficiente (2600+).")
+        return false
+    end
 end
 
 _G.CheckItemBPCR = Functions.CheckItemBPCR
@@ -6013,5 +6027,5 @@ _G.AutoKatakuriV2Loop = Functions.AutoKatakuriV2Loop
 _G.AutoClick = Functions.FastAttackAdvanced
 
 print("UI loaded")
-print("Functions Updated Loaded v6FLSA-1LDA")
+print("Functions Updated Loaded v9FDLF-FKDF")
 return Functions
