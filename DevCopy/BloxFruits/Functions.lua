@@ -2393,92 +2393,203 @@ end
 
 -- Auto Pirate Raid (Sea 3)
 function Functions.StartAutoPirateRaid(config)
-    local CFrameBoss  = CFrame.new(-5496.17432, 313.768921, -2841.53027)
-    local raidCenter  = Vector3.new(-5539.31, 313.80, -2972.37)
-    local RAID_RADIUS = 500
-    local MOB_RADIUS  = 3000
+    -- =====================================================
+    -- AUTO PIRATE RAID - reescrito
+    -- Fluxo: voa ate ilha atual -> espera mobs -> mata ->
+    --        checa proxima ilha (RaidIsland1..5) -> voa ate ela -> repete
+    -- Usa PartTele para hover no ar (nao cai apos o voo)
+    -- =====================================================
 
-    -- ── Refs de controle identicas ao AutoRaidLaw ──
+    local ISLAND_COUNT   = 5
+    local MOB_SEARCH_R   = 2500   -- raio de busca de mobs ao redor da ilha atual
+    local HOVER_Y_OFFSET = 40     -- altura acima do centro da ilha para flutuar/esperar
+
+    -- Refs de controle do FlyToPosition (mesmo padrao do resto do script)
     local _raidIsTp    = { value = false }
     local _raidNoEquip = { value = false }
 
-    -- ── RaidFlyTo identico ao AutoRaidLaw: usa anchorY para nao voar pra cima nem cair ──
+    -- ── Cria/mantem o PartTele no ar para o char nao cair apos o voo ──
+    local function EnsurePartTele()
+        local char = Player.Character
+        local hrp  = char and char:FindFirstChild("HumanoidRootPart")
+        if not char or not hrp then return end
+        if not char:FindFirstChild("PartTele") then
+            local pt        = Instance.new("Part", char)
+            pt.Name         = "PartTele"
+            pt.Size         = Vector3.new(10, 1, 10)
+            pt.Anchored     = true
+            pt.Transparency = 1
+            pt.CanCollide   = false
+            pt.CFrame       = hrp.CFrame
+            -- Cola o HRP no PartTele enquanto _raidIsTp.value for true
+            pt:GetPropertyChangedSignal("CFrame"):Connect(function()
+                if not _raidIsTp.value then return end
+                task.wait()
+                local c = Player.Character
+                if c and c:FindFirstChild("HumanoidRootPart") and c:FindFirstChild("PartTele") then
+                    local cHrp = c.HumanoidRootPart
+                    local _, yaw, _ = cHrp.CFrame:ToOrientation()
+                    cHrp.CFrame = CFrame.new(c.PartTele.CFrame.Position) * CFrame.Angles(0, yaw, 0)
+                end
+            end)
+        end
+    end
+
+    -- ── Destrói o PartTele (libera o char para gravidade normal) ──
+    local function DestroyPartTele()
+        local char = Player.Character
+        if char and char:FindFirstChild("PartTele") then
+            char.PartTele:Destroy()
+        end
+    end
+
+    -- ── Hover: mantém o char flutuando em targetCF sem cair ──
+    -- Cria o PartTele, posiciona ele no alvo e deixa ancorado (nao destroi)
+    local function HoverAt(targetCF)
+        local char = Player.Character
+        local hrp  = char and char:FindFirstChild("HumanoidRootPart")
+        if not char or not hrp then return end
+        EnsurePartTele()
+        local pt = char:FindFirstChild("PartTele")
+        if not pt then return end
+        _raidIsTp.value = true
+        pt.CFrame = targetCF
+        -- Cola o HRP imediatamente no PartTele via Heartbeat enquanto hover ativo
+        local conn
+        conn = RunService.Heartbeat:Connect(function()
+            local c   = Player.Character
+            local cPt = c and c:FindFirstChild("PartTele")
+            local cHrp = c and c:FindFirstChild("HumanoidRootPart")
+            if cPt and cHrp and _raidIsTp.value then
+                local _, yaw, _ = cHrp.CFrame:ToOrientation()
+                cHrp.CFrame = CFrame.new(cPt.CFrame.Position) * CFrame.Angles(0, yaw, 0)
+            else
+                conn:Disconnect()
+            end
+        end)
+    end
+
+    -- ── StopHover: para de flutuar e remove o PartTele ──
+    local function StopHover()
+        _raidIsTp.value = false
+        DestroyPartTele()
+    end
+
+    -- ── RaidFlyTo: usa FlyToPosition com o PartTele (igual ao resto do script) ──
+    -- Nao adiciona offset extra de Y - o caller ja passa o Y correto
     local function RaidFlyTo(targetCF)
         local char = Player.Character
         local hrp  = char and char:FindFirstChild("HumanoidRootPart")
-        if not hrp then return end
-        local anchorY = hrp.Position.Y + 10
-        local safeCF  = CFrame.new(
-            targetCF.Position.X,
-            math.max(targetCF.Position.Y, anchorY),
-            targetCF.Position.Z
-        )
-        Functions.FlyToPosition(safeCF, TweenService, config, _raidIsTp, _raidNoEquip)
+        if not char or not hrp then return end
+        -- Garante que PartTele nao existe antes (FlyToPosition cria o proprio)
+        DestroyPartTele()
+        _raidIsTp.value = false
+        Functions.FlyToPosition(targetCF, TweenService, config, _raidIsTp, _raidNoEquip)
+        -- Apos o voo o FlyToPosition destroi o PartTele; recriar para hover
     end
 
-    -- ── AnchorPlayerMidAir identico ao AutoRaidLaw: BodyVelocity no Y para nao cair ──
-    local function AnchorPlayerMidAir()
-        pcall(function()
-            local char = Player.Character
-            local hrp  = char and char:FindFirstChild("HumanoidRootPart")
-            if not hrp then return end
-            if not hrp:FindFirstChild("RaidAnchor") then
-                local bv    = Instance.new("BodyVelocity")
-                bv.Name     = "RaidAnchor"
-                bv.Parent   = hrp
-                bv.MaxForce = Vector3.new(0, 100000, 0)
-                bv.Velocity = Vector3.new(0, 0, 0)
+    -- ── GetIsland: retorna o Part/Model da ilha de raid pelo numero (1-5) ──
+    local function GetIsland(n)
+        local raidMap = workspace:FindFirstChild("Map")
+                    and workspace.Map:FindFirstChild("RaidMap")
+        if not raidMap then return nil end
+        return raidMap:FindFirstChild("RaidIsland" .. n)
+    end
+
+    -- ── GetIslandCenter: retorna CFrame do centro da ilha + HOVER_Y_OFFSET ──
+    local function GetIslandCenter(island)
+        if not island then return nil end
+        -- Se for Model, usa PrimaryPart ou HumanoidRootPart ou calcula AABB
+        if island:IsA("Model") then
+            if island.PrimaryPart then
+                return CFrame.new(island.PrimaryPart.Position + Vector3.new(0, HOVER_Y_OFFSET, 0))
             end
-        end)
-    end
-
-    local function RemoveAnchor()
-        pcall(function()
-            local char = Player.Character
-            local hrp  = char and char:FindFirstChild("HumanoidRootPart")
-            if hrp and hrp:FindFirstChild("RaidAnchor") then
-                hrp.RaidAnchor:Destroy()
+            -- Fallback: primeiro BasePart filho
+            for _, p in ipairs(island:GetDescendants()) do
+                if p:IsA("BasePart") then
+                    return CFrame.new(p.Position + Vector3.new(0, HOVER_Y_OFFSET, 0))
+                end
             end
-        end)
+        elseif island:IsA("BasePart") then
+            return CFrame.new(island.Position + Vector3.new(0, HOVER_Y_OFFSET, 0))
+        end
+        return nil
     end
 
+    -- ── GetMobsNearIsland: lista mobs vivos perto de uma ilha ──
+    local function GetMobsNearIsland(islandCenter)
+        local mobs = {}
+        local enemies = workspace:FindFirstChild("Enemies")
+        if not enemies or not islandCenter then return mobs end
+        for _, v in ipairs(enemies:GetChildren()) do
+            local vHrp = v:FindFirstChild("HumanoidRootPart")
+            local vHum = v:FindFirstChild("Humanoid")
+            if vHrp and vHum and vHum.Health > 0
+               and (vHrp.Position - islandCenter).Magnitude <= MOB_SEARCH_R then
+                table.insert(mobs, v)
+            end
+        end
+        return mobs
+    end
+
+    -- =====================================================
+    -- LOOP PRINCIPAL
+    -- =====================================================
     task.spawn(function()
+        local currentIsland = 1   -- ilha atual (1 a 5)
+
         while task.wait(0.1) do
             if not config.AutoPirateRaid then
-                RemoveAnchor()
+                StopHover()
+                currentIsland = 1
                 continue
             end
+
             pcall(function()
                 local char = Player.Character
                 local hrp  = char and char:FindFirstChild("HumanoidRootPart")
                 local hum  = char and char:FindFirstChildOfClass("Humanoid")
-                if not hrp or not hum or hum.Health <= 0 then return end
+                if not char or not hrp or not hum or hum.Health <= 0 then return end
 
-                -- ── Se nao esta na area da raid, usa TweenFly para chegar la ──
-                if (raidCenter - hrp.Position).Magnitude > RAID_RADIUS then
-                    AnchorPlayerMidAir()
-                    RaidFlyTo(CFrameBoss)
-                    RemoveAnchor()
-                    task.wait(0.5)
+                -- ── 1. Pega a ilha atual ──
+                local island = GetIsland(currentIsland)
+
+                -- Se a ilha nao existe ainda (ainda nao spawnou), aguarda no ar
+                if not island then
+                    -- Tenta a primeira ilha como fallback
+                    island = GetIsland(1)
+                    if not island then
+                        StopHover()
+                        task.wait(1)
+                        return
+                    end
+                    currentIsland = 1
+                end
+
+                local islandCF     = GetIslandCenter(island)
+                if not islandCF then task.wait(1); return end
+                local islandCenter = islandCF.Position - Vector3.new(0, HOVER_Y_OFFSET, 0)
+
+                -- ── 2. Se esta longe da ilha atual, voa ate ela ──
+                if (hrp.Position - islandCF.Position).Magnitude > 200 then
+                    RaidFlyTo(islandCF)
+                    task.wait(0.3)
                     return
                 end
 
-                -- ── Procura mobs vivos na area da raid ──
-                local enemies = workspace:FindFirstChild("Enemies")
-                if not enemies then return end
+                -- ── 3. Procura mobs na ilha atual ──
+                local mobs = GetMobsNearIsland(islandCenter)
 
-                local mobFound = false
-                for _, v in ipairs(enemies:GetChildren()) do
-                    if not config.AutoPirateRaid then break end
-                    local vHrp = v:FindFirstChild("HumanoidRootPart")
-                    local vHum = v:FindFirstChild("Humanoid")
-                    if vHrp and vHum and vHum.Health > 0
-                       and (vHrp.Position - raidCenter).Magnitude < MOB_RADIUS then
+                if #mobs > 0 then
+                    -- Tem mobs: mata todos
+                    StopHover()
+                    for _, v in ipairs(mobs) do
+                        if not config.AutoPirateRaid then break end
+                        local vHrp = v:FindFirstChild("HumanoidRootPart")
+                        local vHum = v:FindFirstChild("Humanoid")
+                        if not vHrp or not vHum or vHum.Health <= 0 then continue end
 
-                        mobFound = true
-                        RemoveAnchor()
-
-                        -- Voa ate o mob com TweenFly (identico AutoRaidLaw)
+                        -- Voa ate o mob
                         RaidFlyTo(vHrp.CFrame * CFrame.new(0, 30, 0))
 
                         -- Ataca em loop ate morrer
@@ -2499,14 +2610,26 @@ function Functions.StartAutoPirateRaid(config)
                             or v.Humanoid.Health <= 0
                             or not config.AutoPirateRaid
                     end
-                end
 
-                -- ── Nenhum mob: ancora no ar e aguarda spawn (identico AutoRaidLaw) ──
-                if not mobFound then
-                    AnchorPlayerMidAir()
-                    RaidFlyTo(CFrame.new(raidCenter.X, raidCenter.Y + 60, raidCenter.Z))
-                    RemoveAnchor()
-                    task.wait(1)
+                else
+                    -- Sem mobs na ilha atual: checa se a proxima ilha ja spawnou
+                    if currentIsland < ISLAND_COUNT then
+                        local nextIsland = GetIsland(currentIsland + 1)
+                        if nextIsland then
+                            -- Proxima ilha spawnou: avanca
+                            currentIsland = currentIsland + 1
+                            local nextCF = GetIslandCenter(nextIsland)
+                            if nextCF then
+                                RaidFlyTo(nextCF)
+                            end
+                            return
+                        end
+                    end
+
+                    -- Proxima ilha ainda nao spawnou (ou ja e a ultima):
+                    -- flutua no centro da ilha atual esperando mobs/proxima ilha
+                    HoverAt(islandCF)
+                    task.wait(0.5)
                 end
             end)
         end
@@ -5888,5 +6011,5 @@ _G.AutoKatakuriV2Loop = Functions.AutoKatakuriV2Loop
 _G.AutoClick = Functions.FastAttackAdvanced
 
 print("UI loaded")
-print("Functions Updated Loaded v424FK-KSAW")
+print("Functions Updated Loaded v6FLSA-1LDA")
 return Functions
