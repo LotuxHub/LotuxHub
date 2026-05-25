@@ -1960,10 +1960,7 @@ function Functions.StartAutoFactory(config)
     end)
 end
 
--- Auto Raid Law (Sea 2) - CORRIGIDO igual Tiroreal
-function Functions.StartAutoRaidLaw(config)
-
-    -- Nomes de todos os bosses de chip raid do Blox Fruits
+function Functions.StartAutoRaid(config)
     local RAID_BOSS_NAMES = {
         "Flame Master",
         "Ice Admiral",
@@ -1991,23 +1988,16 @@ function Functions.StartAutoRaidLaw(config)
         "[Raid Boss] Dough Master",
         "[Raid Boss] Phoenix Master",
     }
-
-    -- Set para lookup O(1)
     local RAID_BOSS_SET = {}
     for _, name in ipairs(RAID_BOSS_NAMES) do
         RAID_BOSS_SET[name] = true
     end
-
-    -- Helper: tween fly até um CFrame dentro da raid (sem cair)
     local _raidIsTp   = { value = false }
     local _raidNoEquip = { value = false }
-
     local function RaidFlyTo(targetCF)
         local char = Player.Character
         local hrp  = char and char:FindFirstChild("HumanoidRootPart")
         if not hrp then return end
-
-        -- Ancora o HRP no Y atual para nao cair durante o voo
         local anchorY = hrp.Position.Y + 10
         local safeCF  = CFrame.new(
             targetCF.Position.X,
@@ -2016,8 +2006,6 @@ function Functions.StartAutoRaidLaw(config)
         )
         Functions.FlyToPosition(safeCF, TweenService, config, _raidIsTp, _raidNoEquip)
     end
-
-    -- Helper: ancora o player no ar para nao cair enquanto aguarda spawn
     local function AnchorPlayerMidAir()
         pcall(function()
             local char = Player.Character
@@ -2032,7 +2020,6 @@ function Functions.StartAutoRaidLaw(config)
             end
         end)
     end
-
     local function RemoveAnchor()
         pcall(function()
             local char = Player.Character
@@ -2042,8 +2029,6 @@ function Functions.StartAutoRaidLaw(config)
             end
         end)
     end
-
-    -- Helper: pega próxima ilha da raid (ordem 1->5, a mais próxima ainda viva)
     local function GetNextRaidIsland(hrp)
         local loc = workspace._WorldOrigin and workspace._WorldOrigin:FindFirstChild("Locations")
         if not loc then return nil end
@@ -2058,8 +2043,6 @@ function Functions.StartAutoRaidLaw(config)
         end
         return nil
     end
-
-    -- Helper: verifica se tem boss de raid vivo no workspace.Enemies
     local function FindRaidBoss()
         local enemies = workspace:FindFirstChild("Enemies")
         if not enemies then return nil end
@@ -2074,26 +2057,18 @@ function Functions.StartAutoRaidLaw(config)
         end
         return nil
     end
-
-    -- =============================================
-    -- Loop 1: Comprar chip automaticamente
-    -- =============================================
     task.spawn(function()
         while task.wait(0.5) do
-            if not config.AutoBuyChipRaidLaw then continue end
+            if not config.AutoBuyChipRaid then continue end
             pcall(function()
                 local SelectChip = config.SelectChipRaid or "Flame"
                 CF("RaidsNpc", "Select", SelectChip)
             end)
         end
     end)
-
-    -- =============================================
-    -- Loop 2: Iniciar raid automaticamente
-    -- =============================================
     task.spawn(function()
         while task.wait(0.5) do
-            if not config.AutoStartRaidLaw then continue end
+            if not config.AutoStartRaid then continue end
             pcall(function()
                 local timerGui = Player.PlayerGui.Main and Player.PlayerGui.Main:FindFirstChild("Timer")
                 if timerGui and timerGui.Visible then return end
@@ -2128,13 +2103,9 @@ function Functions.StartAutoRaidLaw(config)
             end)
         end
     end)
-
-    -- =============================================
-    -- Loop 3: Farm Raid principal
-    -- =============================================
     task.spawn(function()
         while task.wait(0.1) do
-            if not config.AutoRaidLaw then
+            if not config.AutoRaid then
                 RemoveAnchor()
                 continue
             end
@@ -2143,18 +2114,14 @@ function Functions.StartAutoRaidLaw(config)
                 local hrp  = char and char:FindFirstChild("HumanoidRootPart")
                 local hum  = char and char:FindFirstChildOfClass("Humanoid")
                 if not hrp or not hum or hum.Health <= 0 then return end
-
-                -- ── PRIORIDADE 1: Boss de raid vivo → mata instantaneamente ──
                 local boss = FindRaidBoss()
                 if boss then
                     RemoveAnchor()
                     local bossHrp = boss:FindFirstChild("HumanoidRootPart")
                     local bossHum = boss:FindFirstChild("Humanoid")
                     if bossHrp and bossHum and bossHum.Health > 0 then
-                        -- Voa até o boss
                         RaidFlyTo(bossHrp.CFrame * CFrame.new(0, 30, 0))
                         task.wait(0.1)
-                        -- Mata instantaneamente via SimulationRadius
                         repeat
                             task.wait(0.05)
                             pcall(function()
@@ -2166,30 +2133,25 @@ function Functions.StartAutoRaidLaw(config)
                         until not boss.Parent
                             or not boss:FindFirstChild("Humanoid")
                             or boss.Humanoid.Health <= 0
-                            or not config.AutoRaidLaw
+                            or not config.AutoRaid
                     end
                     return
                 end
-
-                -- ── PRIORIDADE 2: Mobs normais vivos na área ──
                 local enemies = workspace:FindFirstChild("Enemies")
                 if not enemies then return end
-
                 local hadMob = false
                 for _, v in ipairs(enemies:GetChildren()) do
-                    if not config.AutoRaidLaw then break end
+                    if not config.AutoRaid then break end
                     local vHrp = v:FindFirstChild("HumanoidRootPart")
                     local vHum = v:FindFirstChild("Humanoid")
                     if vHrp and vHum and vHum.Health > 0
                        and (vHrp.Position - hrp.Position).Magnitude <= 2500 then
                         hadMob = true
                         RemoveAnchor()
-                        -- Voa até o mob com TweenFly
                         RaidFlyTo(vHrp.CFrame * CFrame.new(0, 30, 0))
-                        -- Ataca em loop até morrer
                         repeat
                             task.wait(0.05)
-                            if not config.AutoRaidLaw then break end
+                            if not config.AutoRaid then break end
                             Functions.AutoHaki()
                             Functions.EquipWeapon(config)
                             pcall(function()
@@ -2202,15 +2164,12 @@ function Functions.StartAutoRaidLaw(config)
                         until not v.Parent
                             or not v:FindFirstChild("Humanoid")
                             or v.Humanoid.Health <= 0
-                            or not config.AutoRaidLaw
+                            or not config.AutoRaid
                     end
                 end
-
-                -- ── PRIORIDADE 3: Nenhum mob → avança para próxima ilha ──
                 if not hadMob then
                     local nextIsland = GetNextRaidIsland(hrp)
                     if nextIsland then
-                        -- Ancora no ar enquanto o tween voa (evita cair no mar)
                         AnchorPlayerMidAir()
                         local targetCF = CFrame.new(
                             nextIsland.Position.X,
@@ -2220,7 +2179,6 @@ function Functions.StartAutoRaidLaw(config)
                         RaidFlyTo(targetCF)
                         RemoveAnchor()
                     else
-                        -- Sem ilha próxima: ancora no ar aguardando respawn
                         AnchorPlayerMidAir()
                         task.wait(1)
                     end
