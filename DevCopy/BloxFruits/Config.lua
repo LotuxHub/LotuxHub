@@ -229,5 +229,5 @@ local Config = {
     MonFarm             = "",
 }
 
-print("[LotuxHub]Configuration Loaded")
+print("[LotuxHub]Configuration Loaded v2LFDA")
 return Config
