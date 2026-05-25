@@ -5823,5 +5823,5 @@ _G.AutoKatakuriV2Loop = Functions.AutoKatakuriV2Loop
 _G.AutoClick = Functions.FastAttackAdvanced
 
 print("UI loaded")
-print("Functions Updated Loaded v2.9)
+print("Functions Updated Loaded v2.9")
 return Functions
