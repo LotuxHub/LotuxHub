@@ -456,7 +456,85 @@ end
 -- =====================================================
 
 local _isTeleporting = false
+
 function Functions.FlyToPosition(targetCF, tweenSvc, config, isTeleportingRef, notAutoEquipRef)
+    -- Guarda cancelamento do voo anterior
+    if Functions._flyCancel then
+        Functions._flyCancel()
+        Functions._flyCancel = nil
+    end
+
+    local char = Player.Character
+    local hrp  = char and char:FindFirstChild("HumanoidRootPart")
+    local hum  = char and char:FindFirstChildOfClass("Humanoid")
+    if not char or not hrp or not hum or hum.Health <= 0 then return end
+
+    local distance = (targetCF.Position - hrp.Position).Magnitude
+    if distance < 2 then return end
+
+    -- [FIX 5] PartTele no Workspace, não no Character
+    local pt        = Instance.new("Part")
+    pt.Size         = Vector3.new(10, 1, 10)
+    pt.Name         = "PartTele"
+    pt.Anchored     = true
+    pt.Transparency = 1
+    pt.CanCollide   = false
+    pt.CFrame       = hrp.CFrame
+    pt.Parent       = workspace
+
+    if isTeleportingRef then isTeleportingRef.value = true end
+    _isTeleporting = true
+
+    local speed = tonumber(config and config.FlySpeed) or 300
+    local dur   = math.clamp(distance / speed, 0.05, 60.0)
+    local ts    = tweenSvc or TweenService
+
+    local tween = ts:Create(
+        pt,
+        TweenInfo.new(dur, Enum.EasingStyle.Linear),
+        { CFrame = targetCF }
+    )
+
+    -- [FIX 3 e 1] Apenas Heartbeat move o HRP — sem GetPropertyChangedSignal
+    local conn
+    conn = RunService.Heartbeat:Connect(function()
+        local c    = Player.Character
+        local cHrp = c and c:FindFirstChild("HumanoidRootPart")
+
+        if cHrp and pt and pt.Parent then
+            -- [FIX] Preserva yaw atual do jogador
+            local _, currentYaw, _ = cHrp.CFrame:ToOrientation()
+            cHrp.CFrame = CFrame.new(pt.CFrame.Position) * CFrame.Angles(0, currentYaw, 0)
+        else
+            conn:Disconnect()
+        end
+    end)
+
+    -- [FIX 6] Expõe cancelamento externo
+    local cancelled = false
+    Functions._flyCancel = function()
+        cancelled = true
+        tween:Cancel()
+        conn:Disconnect()
+        if pt and pt.Parent then pt:Destroy() end
+        if isTeleportingRef then isTeleportingRef.value = false end
+        _isTeleporting = false
+    end
+
+    tween:Play()
+    tween.Completed:Wait()
+
+    -- Só finaliza se não foi cancelado externamente
+    if not cancelled then
+        Functions._flyCancel = nil
+        conn:Disconnect()
+        if pt and pt.Parent then pt:Destroy() end
+        if isTeleportingRef then isTeleportingRef.value = false end
+        _isTeleporting = false
+    end
+end
+
+--[[function Functions.FlyToPosition(targetCF, tweenSvc, config, isTeleportingRef, notAutoEquipRef)
     local char = Player.Character
     local hrp  = char and char:FindFirstChild("HumanoidRootPart")
     local hum  = char and char:FindFirstChildOfClass("Humanoid")
@@ -523,43 +601,7 @@ function Functions.FlyToPosition(targetCF, tweenSvc, config, isTeleportingRef, n
     if char:FindFirstChild("PartTele") then
         char.PartTele:Destroy()
     end
-end
---[[function Functions.FlyToPosition(targetCF, tweenSvc, config, isTeleportingRef, notAutoEquipRef)
-    local Char=Player.Character or Player.Character:Wait();
-    local hrp=Char and Char:FindFirstChild'HumanoidRootPart'
-    local Hum=Char and Char:FindFirstChild'Humanoid';
-    if not char or not hrp or not hum or hum.Health <= 0 then return end
-
-    local distance = (targetCF.Position - hrp.Position).Magnitude
-    if distance < 2 then return end
-    if not char:FindFirstChild("PartTele") then
-        local pt        = Instance.new("Part", char)
-        pt.Size         = Vector3.new(10, 1, 10)
-        pt.Name         = "PartTele"
-        pt.Anchored     = true
-        pt.Transparency = 1
-        pt.CanCollide   = false
-        pt.CFrame       = hrp.CFrame
-    end
-    if isTeleportingRef then
-        isTeleportingRef.value=true;
-    end;
-    isTeleportingRef=true;
-    local Speed=tonumber(config and config.FlySpeed)or 300;
-    local Dur=math.clamp(Distance/Speed,.05,60);
-    local tS=tweenSvc or TweenService;
-    local Tween=tS:Create(Pt,TweenInfo.new(Dur,Enum.EasingStyle.Linear),{CFrame=targetCF});
-    local Con=nil
-    Con=RunService.Heartbeat:connect(function()
-        if not isTeleporting then Con:Disconnect();return end;
-        if not hrp or Char:WaitForChild'PartTele' then
-            Con:Disconnect();
-            return
-        end;
-        local _,yaw,_=hrp.CFrame:ToOrientation();
-        hrp.CFrame=CFrame.new(Char.PartTele.Position)*CFrame.Angles(0,yaw,0);
-    end)
-end;]]
+end]]
 
 function Functions.TeleportTo(pos)
     local char = Player.Character
