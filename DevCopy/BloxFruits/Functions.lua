@@ -4680,7 +4680,7 @@ function Functions.StartAllLoops(config)
 
     -- Sea 2
     Functions.StartAutoFactory(config)
-    Functions.StartAutoRaidLaw(config)
+    Functions.StartAutoRaid(config)
     Functions.StartAutoDarkBeard(config)
     Functions.StartAutoGrayBeard(config)
     Functions.StartAutoSharkmanV2(config)
@@ -6086,6 +6086,5 @@ _G.CheckItemBPCR = Functions.CheckItemBPCR
 _G.AutoKatakuriV2Loop = Functions.AutoKatakuriV2Loop
 _G.AutoClick = Functions.FastAttackAdvanced
 
-print("[LotuxHub]Functions Updated Loaded v12KND-1KSNA")
-
+print("[LotuxHub]Functions Updated Loaded v13FDLS-FDSSFG")
 return Functions
