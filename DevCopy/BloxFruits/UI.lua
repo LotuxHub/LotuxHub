@@ -2126,7 +2126,7 @@ end)
 local FruitRaidTab = Window:MakeTab({ Title = T("tab_fruitraid"), Icon = "apple" })
 
 FruitRaidTab:AddSection("Fruit")
-FruitRaidTab:AddToggle({ Title = "Auto Random Fruit",         Default = false, Callback = function(v) _G.AutoRandomFruit   = v end })
+FruitRaidTab:AddToggle({ Title = "Auto Random Fruit", Default = false, Callback = function(v) Config.AutoTryLuck = v end })
 FruitRaidTab:AddToggle({ Title = "Auto Drop Fruit",           Default = false, Callback = function(v) _G.AutoDropFruit     = v end })
 FruitRaidTab:AddToggle({ Title = "Auto Store Fruit (guardar no storage)", Default = false,
     Callback = function(v)
@@ -2592,4 +2592,4 @@ Notify({
     Type        = "Success",
 })
 
-print("UI Loaded v2.5.0")
+print("UI Loaded v2.6.2")
