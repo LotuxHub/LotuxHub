@@ -112,7 +112,7 @@ local Config = {
     AutoFruit           = false,    -- Carregar frutas baratas via LoadFruit remote
     AutoFarmFruits      = false,    -- Farm mobs usando frutas (mastery)
     SelectFruitFarm     = "Farm Level Mastery", -- Opcao de farm de frutas
-    SelectChipRaid      + "Flame    "
+    SelectChipRaid      + "Flame"
 
     -- =====================================================
     -- EXTRAS
