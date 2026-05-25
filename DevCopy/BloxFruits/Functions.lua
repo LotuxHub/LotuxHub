@@ -2393,45 +2393,82 @@ end
 
 -- Auto Pirate Raid (Sea 3)
 function Functions.StartAutoPirateRaid(config)
-    local CFrameBoss    = CFrame.new(-5496.17432, 313.768921, -2841.53027)
-    local raidCenter    = Vector3.new(-5539.31, 313.80, -2972.37)
-    local RAID_RADIUS   = 500
-    local MOB_RADIUS    = 3000
+    local CFrameBoss  = CFrame.new(-5496.17432, 313.768921, -2841.53027)
+    local raidCenter  = Vector3.new(-5539.31, 313.80, -2972.37)
+    local RAID_RADIUS = 500
+    local MOB_RADIUS  = 3000
 
-    -- Refs de controle do TweenFly (mesmo padrao do AutoRaidLaw / AutoFarm)
+    -- ── Refs de controle identicas ao AutoRaidLaw ──
     local _raidIsTp    = { value = false }
     local _raidNoEquip = { value = false }
 
-    -- TweenFly local igual ao padrao do AutoRaidLaw
+    -- ── RaidFlyTo identico ao AutoRaidLaw: usa anchorY para nao voar pra cima nem cair ──
     local function RaidFlyTo(targetCF)
         local char = Player.Character
         local hrp  = char and char:FindFirstChild("HumanoidRootPart")
         if not hrp then return end
-        local dist = (targetCF.Position - hrp.Position).Magnitude
-        if dist < 5 then return end
-        -- Offset de altura para nao ficar preso no chao
-        local safeCF = CFrame.new(targetCF.Position + Vector3.new(0, config.FlyOffset or 15, 0))
+        local anchorY = hrp.Position.Y + 10
+        local safeCF  = CFrame.new(
+            targetCF.Position.X,
+            math.max(targetCF.Position.Y, anchorY),
+            targetCF.Position.Z
+        )
         Functions.FlyToPosition(safeCF, TweenService, config, _raidIsTp, _raidNoEquip)
+    end
+
+    -- ── AnchorPlayerMidAir identico ao AutoRaidLaw: BodyVelocity no Y para nao cair ──
+    local function AnchorPlayerMidAir()
+        pcall(function()
+            local char = Player.Character
+            local hrp  = char and char:FindFirstChild("HumanoidRootPart")
+            if not hrp then return end
+            if not hrp:FindFirstChild("RaidAnchor") then
+                local bv    = Instance.new("BodyVelocity")
+                bv.Name     = "RaidAnchor"
+                bv.Parent   = hrp
+                bv.MaxForce = Vector3.new(0, 100000, 0)
+                bv.Velocity = Vector3.new(0, 0, 0)
+            end
+        end)
+    end
+
+    local function RemoveAnchor()
+        pcall(function()
+            local char = Player.Character
+            local hrp  = char and char:FindFirstChild("HumanoidRootPart")
+            if hrp and hrp:FindFirstChild("RaidAnchor") then
+                hrp.RaidAnchor:Destroy()
+            end
+        end)
     end
 
     task.spawn(function()
         while task.wait(0.1) do
-            if not config.AutoPirateRaid then continue end
+            if not config.AutoPirateRaid then
+                RemoveAnchor()
+                continue
+            end
             pcall(function()
                 local char = Player.Character
                 local hrp  = char and char:FindFirstChild("HumanoidRootPart")
-                if not hrp then return end
+                local hum  = char and char:FindFirstChildOfClass("Humanoid")
+                if not hrp or not hum or hum.Health <= 0 then return end
 
-                -- Se nao esta na area da raid, usa TweenFly para chegar la
+                -- ── Se nao esta na area da raid, usa TweenFly para chegar la ──
                 if (raidCenter - hrp.Position).Magnitude > RAID_RADIUS then
+                    AnchorPlayerMidAir()
                     RaidFlyTo(CFrameBoss)
+                    RemoveAnchor()
                     task.wait(0.5)
                     return
                 end
 
-                -- Procura mobs vivos na area da raid
+                -- ── Procura mobs vivos na area da raid ──
+                local enemies = workspace:FindFirstChild("Enemies")
+                if not enemies then return end
+
                 local mobFound = false
-                for _, v in ipairs(workspace.Enemies:GetChildren()) do
+                for _, v in ipairs(enemies:GetChildren()) do
                     if not config.AutoPirateRaid then break end
                     local vHrp = v:FindFirstChild("HumanoidRootPart")
                     local vHum = v:FindFirstChild("Humanoid")
@@ -2439,29 +2476,36 @@ function Functions.StartAutoPirateRaid(config)
                        and (vHrp.Position - raidCenter).Magnitude < MOB_RADIUS then
 
                         mobFound = true
+                        RemoveAnchor()
 
-                        -- Voa ate o mob com TweenFly (igual AutoRaidLaw)
+                        -- Voa ate o mob com TweenFly (identico AutoRaidLaw)
                         RaidFlyTo(vHrp.CFrame * CFrame.new(0, 30, 0))
 
+                        -- Ataca em loop ate morrer
                         repeat
                             task.wait(0.05)
                             if not config.AutoPirateRaid then break end
                             Functions.AutoHaki()
                             Functions.EquipWeapon(config, _raidNoEquip)
-                            vHrp.CanCollide = false
-                            vHrp.Size = Vector3.new(60, 60, 60)
-                            -- Mantem posicao com TweenFly continuo enquanto ataca
-                            RaidFlyTo(vHrp.CFrame * CFrame.new(0, 30, 0))
-                            VirtualUser:CaptureController()
-                            VirtualUser:Button1Down(Vector2.new(1280, 672))
-                            pcall(function() sethiddenproperty(Player, "SimulationRadius", math.huge) end)
-                        until vHum.Health <= 0 or not v.Parent or not config.AutoPirateRaid
+                            pcall(function()
+                                vHrp.CanCollide = false
+                                vHrp.Size       = Vector3.new(60, 60, 60)
+                                pcall(function() sethiddenproperty(Player, "SimulationRadius", math.huge) end)
+                                VirtualUser:CaptureController()
+                                VirtualUser:Button1Down(Vector2.new(1280, 672))
+                            end)
+                        until not v.Parent
+                            or not v:FindFirstChild("Humanoid")
+                            or v.Humanoid.Health <= 0
+                            or not config.AutoPirateRaid
                     end
                 end
 
-                -- Nenhum mob ainda: usa TweenFly para o centro e aguarda spawn
+                -- ── Nenhum mob: ancora no ar e aguarda spawn (identico AutoRaidLaw) ──
                 if not mobFound then
-                    RaidFlyTo(CFrame.new(raidCenter + Vector3.new(0, 15, 0)))
+                    AnchorPlayerMidAir()
+                    RaidFlyTo(CFrame.new(raidCenter.X, raidCenter.Y + 60, raidCenter.Z))
+                    RemoveAnchor()
                     task.wait(1)
                 end
             end)
@@ -5844,5 +5888,5 @@ _G.AutoKatakuriV2Loop = Functions.AutoKatakuriV2Loop
 _G.AutoClick = Functions.FastAttackAdvanced
 
 print("UI loaded")
-print("Functions Updated Loaded v3WB4-2FKJ")
+print("Functions Updated Loaded v424FK-KSAW")
 return Functions
