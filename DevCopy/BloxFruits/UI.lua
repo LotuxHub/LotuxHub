@@ -2160,13 +2160,13 @@ FruitRaidTab:AddToggle({ Title = "Auto Buy Fruit Shop",       Default = false, C
 
 FruitRaidTab:AddSection("Raid")
 FruitRaidTab:AddDropdown({ Title = "Select Chip",
-    Options = { "Chip de Raid", "Microchip Law" }, Default = "Chip de Raid",
+    Options = { "Flame", "Ice", "Dark", "Light", "Buddha", "Magma", "Spider", "", "Dough", "Phoenix" }, Default = "Flame",
     Callback = function(v) _G.SelectedRaidChip = tostring(v) end })
-FruitRaidTab:AddToggle({ Title = "Auto Buy Chip (Beli)",      Default = false, Callback = function(v) Config.AutoBuyChipRaidLaw = v end })
+FruitRaidTab:AddToggle({ Title = "Auto Buy Chip (Beli)",      Default = false, Callback = function(v) Config.AutoBuyChipRaid = v end })
 FruitRaidTab:AddToggle({ Title = "Auto Buy Chip (Devil Fruit)", Default = false, Callback = function(v) _G.AutoBuyChipDF       = v end })
 FruitRaidTab:AddToggle({ Title = "Get Fruit In Inventory Below 1M", Default = false, Callback = function(v) _G.AutoGetFruitBelow1M = v end })
-FruitRaidTab:AddToggle({ Title = "Auto Start Raid",           Default = false, Callback = function(v) Config.AutoStartRaidLaw  = v end })
-FruitRaidTab:AddToggle({ Title = "Auto Farm Raid + Next Island", Default = false, Callback = function(v) Config.AutoRaidLaw    = v end })
+FruitRaidTab:AddToggle({ Title = "Auto Start Raid",           Default = false, Callback = function(v) Config.AutoStartRaid  = v end })
+FruitRaidTab:AddToggle({ Title = "Auto Farm Raid + Next Island", Default = false, Callback = function(v) Config.AutoRaid    = v end })
 FruitRaidTab:AddToggle({ Title = "Auto Awakening",            Default = false, Callback = function(v) _G.AutoAwakening        = v end })
 
 FruitRaidTab:AddSection("Items Law")
