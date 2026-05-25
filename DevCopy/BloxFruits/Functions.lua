@@ -458,12 +458,10 @@ end
 local _isTeleporting = false
 
 function Functions.FlyToPosition(targetCF, tweenSvc, config, isTeleportingRef, notAutoEquipRef)
-    -- Guarda cancelamento do voo anterior
     if Functions._flyCancel then
         Functions._flyCancel()
         Functions._flyCancel = nil
     end
-
     local char = Player.Character
     local hrp  = char and char:FindFirstChild("HumanoidRootPart")
     local hum  = char and char:FindFirstChildOfClass("Humanoid")
@@ -472,7 +470,6 @@ function Functions.FlyToPosition(targetCF, tweenSvc, config, isTeleportingRef, n
     local distance = (targetCF.Position - hrp.Position).Magnitude
     if distance < 2 then return end
 
-    -- [FIX 5] PartTele no Workspace, não no Character
     local pt        = Instance.new("Part")
     pt.Size         = Vector3.new(10, 1, 10)
     pt.Name         = "PartTele"
@@ -494,15 +491,12 @@ function Functions.FlyToPosition(targetCF, tweenSvc, config, isTeleportingRef, n
         TweenInfo.new(dur, Enum.EasingStyle.Linear),
         { CFrame = targetCF }
     )
-
-    -- [FIX 3 e 1] Apenas Heartbeat move o HRP — sem GetPropertyChangedSignal
     local conn
     conn = RunService.Heartbeat:Connect(function()
         local c    = Player.Character
         local cHrp = c and c:FindFirstChild("HumanoidRootPart")
 
         if cHrp and pt and pt.Parent then
-            -- [FIX] Preserva yaw atual do jogador
             local _, currentYaw, _ = cHrp.CFrame:ToOrientation()
             cHrp.CFrame = CFrame.new(pt.CFrame.Position) * CFrame.Angles(0, currentYaw, 0)
         else
@@ -510,7 +504,6 @@ function Functions.FlyToPosition(targetCF, tweenSvc, config, isTeleportingRef, n
         end
     end)
 
-    -- [FIX 6] Expõe cancelamento externo
     local cancelled = false
     Functions._flyCancel = function()
         cancelled = true
@@ -524,7 +517,6 @@ function Functions.FlyToPosition(targetCF, tweenSvc, config, isTeleportingRef, n
     tween:Play()
     tween.Completed:Wait()
 
-    -- Só finaliza se não foi cancelado externamente
     if not cancelled then
         Functions._flyCancel = nil
         conn:Disconnect()
