@@ -455,7 +455,7 @@ end
 -- FLY / TELEPORT
 -- =====================================================
 
-local _isTeleporting = false
+local _isTeleporting = false --458
 
 function Functions.FlyToPosition(targetCF, tweenSvc, config, isTeleportingRef, notAutoEquipRef)
     local char = Player.Character
@@ -489,7 +489,7 @@ function Functions.FlyToPosition(targetCF, tweenSvc, config, isTeleportingRef, n
         end)
     end
 
-    if isTeleportingRef then isTeleportingRef.value = true end
+    if isTeleportingRef then isTeleportingRef.value = true end -- 492
     _isTeleporting = true
 
     local speed = tonumber(config and config.FlySpeed) or 300
@@ -509,7 +509,8 @@ function Functions.FlyToPosition(targetCF, tweenSvc, config, isTeleportingRef, n
         local cHrp = c and c:FindFirstChild("HumanoidRootPart")
         local pt   = c and c:FindFirstChild("PartTele")
         if cHrp and pt then
-            local _, currentYaw, _ = cHrp.CFrame:ToOrientation()
+            --local _, currentYaw, _ = cHrp.CFrame:ToOrientation()
+            local Pitch,currentYaw,Roll=cHrp.CFrame:ToOrientation()
             cHrp.CFrame = CFrame.new(pt.CFrame.Position) * CFrame.Angles(0, currentYaw, 0)
         else
             conn:Disconnect()
