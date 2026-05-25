@@ -76,9 +76,9 @@ local Config = {
     -- =====================================================
     AutoSea3            = false,
     AutoFactory         = false,
-    AutoRaidLaw         = false,
-    AutoBuyChipRaidLaw  = false,
-    AutoStartRaidLaw    = false,
+    AutoRaid         = false,
+    AutoBuyChipRaid  = false,
+    AutoStartRaid   = false,
     AutoDarkBeard       = false,
     AutoSharkmanV2      = false,
     AutoDeathStep       = false,
@@ -112,6 +112,7 @@ local Config = {
     AutoFruit           = false,    -- Carregar frutas baratas via LoadFruit remote
     AutoFarmFruits      = false,    -- Farm mobs usando frutas (mastery)
     SelectFruitFarm     = "Farm Level Mastery", -- Opcao de farm de frutas
+    SelectChipRaid      + "Flame    "
 
     -- =====================================================
     -- EXTRAS
