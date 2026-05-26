@@ -6184,5 +6184,5 @@ _G.CheckItemBPCR = Functions.CheckItemBPCR
 _G.AutoKatakuriV2Loop = Functions.AutoKatakuriV2Loop
 _G.AutoClick = Functions.FastAttackAdvanced
 
-print("[LotuxHub]Functions Updated Loaded v14JCRZ-FGEQPL")
+print("[LotuxHub] Functions Updated Loaded v4NfFO-KMDA")
 return Functions
