@@ -753,7 +753,9 @@ function Functions.StartBringMobLoop(config, stateRef)
         while task.wait() do
             pcall(function()
                         for _mt,b in pairs(Workspace.Enemies:GetChildren())do
-    b:SetPrimaryPartCFrame(Workspace.Enemies:GetChildren()[1].PrimaryPart.CFrame)
+    if b and b.PrimaryPart then
+                                b.PrimaryPart.Anchored=true;b.PrimaryPart.CanCollide=true
+                                b:SetPrimaryPartCFrame(Workspace.Enemies:GetChildren()[1].PrimaryPart.CFrame);end
 end
                 --[[if not config.BringMob or not stateRef.StartBring or not stateRef.MonFarm then return end
                 local enemies = workspace:FindFirstChild("Enemies")
