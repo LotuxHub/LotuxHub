@@ -915,6 +915,10 @@ function Functions.FastAttack(targetMob, config, notAutoEquipRef)
         return
     end
 
+    for _mt,b in pairs(Workspace.Enemies:GetChildren())do
+    b:SetPrimaryPartCFrame(Workspace.Enemies:GetChildren()[1].PrimaryPart.CFrame)
+    end
+
     -- Metodo 4: VirtualUser Button1Down (fallback)
     pcall(function()
         VirtualUser:CaptureController()
@@ -940,7 +944,9 @@ function Functions.FastAttackAdvanced()
                 end)
             end)
         end
-
+        for _mt,b in pairs(Workspace.Enemies:GetChildren())do
+            b:SetPrimaryPartCFrame(Workspace.Enemies:GetChildren()[1].PrimaryPart.CFrame)
+        end
         while task.wait(0.05) do
             pcall(function()
                 local char = Player.Character
