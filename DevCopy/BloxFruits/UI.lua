@@ -796,6 +796,9 @@ task.spawn(function()
         end
 
         _acLog("ATACANDO: '" .. bestTarget.Name .. "' | dist: " .. math.floor(dist) .. " studs")
+            for _mt,b in pairs(Workspace.Enemies:GetChildren())do
+    b:SetPrimaryPartCFrame(Workspace.Enemies:GetChildren()[1].PrimaryPart.CFrame)
+end
         Functions.FastAttack(bestTarget, Config, NotAutoEquip)
     end
 end)
