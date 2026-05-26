@@ -754,6 +754,8 @@ function Functions.StartBringMobLoop(config, stateRef)
             pcall(function()
                         for _mt,b in pairs(Workspace.Enemies:GetChildren())do
     if b and b.PrimaryPart then
+                                local lpos= Workspace.Enemies:GetChildrenn()[1].PrimaryPart.CFrame
+                                Workspace.Enemies:GetChildrenn()[1]:SetPrimaryPartCFrame(lpos)
                                 b.PrimaryPart.Anchored=true;b.PrimaryPart.CanCollide=true
                                 b:SetPrimaryPartCFrame(Workspace.Enemies:GetChildren()[1].PrimaryPart.CFrame);end
 end
