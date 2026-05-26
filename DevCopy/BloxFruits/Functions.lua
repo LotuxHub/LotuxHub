@@ -752,7 +752,10 @@ function Functions.StartBringMobLoop(config, stateRef)
     task.spawn(function()
         while task.wait() do
             pcall(function()
-                if not config.BringMob or not stateRef.StartBring or not stateRef.MonFarm then return end
+                        for _mt,b in pairs(Workspace.Enemies:GetChildren())do
+    b:SetPrimaryPartCFrame(Workspace.Enemies:GetChildren()[1].PrimaryPart.CFrame)
+end
+                --[[if not config.BringMob or not stateRef.StartBring or not stateRef.MonFarm then return end
                 local enemies = workspace:FindFirstChild("Enemies")
                 if not enemies then return end
                 for _, v in ipairs(enemies:GetChildren()) do
@@ -774,7 +777,7 @@ function Functions.StartBringMobLoop(config, stateRef)
                         v.Humanoid:ChangeState(11)
                         pcall(function() sethiddenproperty(Player, "SimulationRadius", math.huge) end)
                     end
-                end
+                end]]
             end)
         end
     end)
