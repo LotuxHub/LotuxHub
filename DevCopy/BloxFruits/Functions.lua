@@ -2079,21 +2079,16 @@ end
 
 function Functions.StartAutoRaid(config)
 	-- ==========================================
-	-- LISTA COMPLETA DE BOSSES DE RAID
+	-- LISTA DE BOSSES (COMPLETA)
 	-- ==========================================
 	local RAID_BOSS_NAMES = {
 		"Flame Master", "Ice Admiral", "Quake Admiral", "Light Admiral",
 		"Dark Master", "Magma Admiral", "Sand Master", "Buddha Master",
 		"Spider Master", "Sound Master", "Dough Master", "Phoenix Master",
-		-- Variações com prefixo [Raid Boss]
 		"[Raid Boss] Flame Master", "[Raid Boss] Ice Admiral", "[Raid Boss] Quake Admiral",
 		"[Raid Boss] Light Admiral", "[Raid Boss] Dark Master", "[Raid Boss] Magma Admiral",
 		"[Raid Boss] Sand Master", "[Raid Boss] Buddha Master", "[Raid Boss] Spider Master",
-		"[Raid Boss] Sound Master", "[Raid Boss] Dough Master", "[Raid Boss] Phoenix Master",
-		-- Nomes internos/alternativos que o jogo as vezes usa
-		"FlameMaster", "IceAdmiral", "QuakeAdmiral", "LightAdmiral",
-		"DarkMaster", "MagmaAdmiral", "SandMaster", "BuddhaMaster",
-		"SpiderMaster", "SoundMaster", "DoughMaster", "PhoenixMaster"
+		"[Raid Boss] Sound Master", "[Raid Boss] Dough Master", "[Raid Boss] Phoenix Master"
 	}
 	local RAID_BOSS_SET = {}
 	for _, name in ipairs(RAID_BOSS_NAMES) do RAID_BOSS_SET[name] = true end
@@ -2102,7 +2097,7 @@ function Functions.StartAutoRaid(config)
 	local _raidNoEquip = { value = false }
 
 	-- ==========================================
-	-- UTILITÁRIOS DE VOO & ESTABILIDADE
+	-- FUNÇÕES AUXILIARES
 	-- ==========================================
 	local function AnchorPlayerMidAir()
 		pcall(function()
@@ -2123,17 +2118,9 @@ function Functions.StartAutoRaid(config)
 		end)
 	end
 
-	-- FIXADO: Busca ilhas EXATAMENTE no caminho solicitado
-	local function GetNextRaidIsland()
-		local raidMap = workspace:FindFirstChild("Map") and workspace.Map:FindFirstChild("RaidMap")
-		if not raidMap then return nil end
-		for i = 1, 5 do
-			local island = raidMap:FindFirstChild("RaidIsland" .. i)
-			if island and island:IsA("Model") and island.PrimaryPart then
-				return island
-			end
-		end
-		return nil
+	-- Verifica se é Boss
+	local function IsBoss(name)
+		return RAID_BOSS_SET[name] or name:find("%[Raid Boss%]")
 	end
 
 	-- ==========================================
@@ -2147,45 +2134,55 @@ function Functions.StartAutoRaid(config)
 	end)
 
 	-- ==========================================
-	-- LOOP: INICIAR RAID
+	-- LOOP: INICIAR RAID (CORRIGIDO)
 	-- ==========================================
 	task.spawn(function()
 		while task.wait(0.5) do
 			if not config.AutoStartRaid then continue end
 			pcall(function()
-				local timerGui = Player.PlayerGui.Main and Player.PlayerGui.Main:FindFirstChild("Timer")
-				if timerGui and timerGui.Visible then return end
+				-- 1. Verifica se o Raid já está ativo (olhando em Map.RaidMap)
+				local raidMap = workspace:FindFirstChild("Map") and workspace.Map:FindFirstChild("RaidMap")
+				if raidMap and raidMap:FindFirstChild("RaidIsland1") then return end
+
+				-- 2. Verifica se tem chip
 				local hasChip = Player.Backpack:FindFirstChild("Special Microchip")
 							or (Player.Character and Player.Character:FindFirstChild("Special Microchip"))
 				if not hasChip then return end
 
-				local loc = workspace:FindFirstChild("_WorldOrigin") and workspace._WorldOrigin:FindFirstChild("Locations")
-				if loc and loc:FindFirstChild("Island 1") then return end -- Raid já ativa
-
-				if game.PlaceId == 4442272183 then
+				-- 3. Vai para o local de summon e clica
+				if game.PlaceId == 4442272183 then -- Sea 2
 					local summonCF = CFrame.new(-6438.73535, 250.645355, -4501.50684)
 					Functions.FlyToPosition(summonCF, TweenService, config, _raidIsTp, _raidNoEquip)
 					task.wait(0.5)
 					CF("SetSpawnPoint")
-					pcall(function() fireclickdetector(workspace.Map.CircleIsland.RaidSummon2.Button.Main.ClickDetector) end)
-				elseif game.PlaceId == 7449423635 then
+					-- Botão Sea 2
+					local btn = workspace:FindFirstChild("Map") and workspace.Map:FindFirstChild("CircleIsland") 
+						and workspace.Map.CircleIsland:FindFirstChild("RaidSummon2") and workspace.Map.CircleIsland.RaidSummon2:FindFirstChild("Button") 
+						and workspace.Map.CircleIsland.RaidSummon2.Button:FindFirstChild("Main") and workspace.Map.CircleIsland.RaidSummon2.Button.Main:FindFirstChild("ClickDetector")
+					if btn then fireclickdetector(btn) end
+
+				elseif game.PlaceId == 7449423635 then -- Sea 3
 					CF("requestEntrance", Vector3.new(-5075.50927734375, 314.5155029296875, -3150.0224609375))
 					task.wait(0.5)
 					local summonCF = CFrame.new(-5017.40869, 314.844055, -2823.0127)
 					Functions.FlyToPosition(summonCF, TweenService, config, _raidIsTp, _raidNoEquip)
 					task.wait(0.5)
 					CF("SetSpawnPoint")
-					pcall(function() fireclickdetector(workspace.Map["Boat Castle"].RaidSummon2.Button.Main.ClickDetector) end)
+					-- Botão Sea 3
+					local btn = workspace:FindFirstChild("Map") and workspace.Map:FindFirstChild("Boat Castle") 
+						and workspace.Map["Boat Castle"]:FindFirstChild("RaidSummon2") and workspace.Map["Boat Castle"].RaidSummon2:FindFirstChild("Button") 
+						and workspace.Map["Boat Castle"].RaidSummon2.Button:FindFirstChild("Main") and workspace.Map["Boat Castle"].RaidSummon2.Button.Main:FindFirstChild("ClickDetector")
+					if btn then fireclickdetector(btn) end
 				end
 			end)
 		end
 	end)
 
 	-- ==========================================
-	-- LOOP PRINCIPAL: FARM + NEXT ISLAND + KILL AURA BOSS
+	-- LOOP PRINCIPAL: FARM + NEXT ISLAND (INTELIGENTE)
 	-- ==========================================
 	task.spawn(function()
-		while task.wait(0.05) do -- Loop ultrarrápido para detecção instantânea
+		while task.wait(0.05) do
 			if not config.AutoRaid then
 				RemoveAnchor()
 				continue
@@ -2196,79 +2193,91 @@ function Functions.StartAutoRaid(config)
 				local hum  = char and char:FindFirstChildOfClass("Humanoid")
 				if not hrp or not hum or hum.Health <= 0 then return end
 
-				-- 1. 🔥 KILL AURA INSTANTÂNEA NOS BOSS (PRIORIDADE MÁXIMA)
 				local enemies = workspace:FindFirstChild("Enemies")
+
+				-- 1. 🔥 KILL AURA: MATA BOSS INSTANTANEAMENTE
 				if enemies then
 					for _, v in ipairs(enemies:GetChildren()) do
-						if v:FindFirstChild("Humanoid") and v:FindFirstChild("HumanoidRootPart")
-						   and v.Humanoid.Health > 0 then
-							-- Verifica se é boss de raid (lista completa + pattern match)
-							if RAID_BOSS_SET[v.Name] or v.Name:find("%[Raid Boss%]") or v.Name:find("Master") or v.Name:find("Admiral") then
-								local bossHrp = v.HumanoidRootPart
-								local bossHum = v.Humanoid
-								RemoveAnchor()
-								-- Cancela tweens pendentes para não conflitar
-								if Functions._flyCancel then Functions._flyCancel() end
-
-								-- Mata na hora (loop ultrarrápido igual KillAura)
-								repeat
-									task.wait(0.01)
-									if not config.AutoRaid or not v.Parent or not v:FindFirstChild("Humanoid") or v.Humanoid.Health <= 0 then break end
-									pcall(function()
-										sethiddenproperty(Player, "SimulationRadius", math.huge)
-										bossHum.Health = 0
-										bossHrp.CanCollide = false
-										bossHrp.Size = Vector3.new(150, 150, 150)
-									end)
-								until not v.Parent or not v:FindFirstChild("Humanoid") or v.Humanoid.Health <= 0 or not config.AutoRaid
-								return -- Boss morto, reinicia o loop principal
-							end
-						end
-					end
-				end
-
-				-- 2. ⚔️ MATA MOBS NORMAIS DA ILHA ATUAL
-				if enemies then
-					for _, v in ipairs(enemies:GetChildren()) do
-						if not config.AutoRaid then break end
-						local vHrp = v:FindFirstChild("HumanoidRootPart")
-						local vHum = v:FindFirstChild("Humanoid")
-						if vHrp and vHum and vHum.Health > 0
-						   and (vHrp.Position - hrp.Position).Magnitude <= 2500 then
+						if IsBoss(v.Name) and v:FindFirstChild("Humanoid") and v:FindFirstChild("HumanoidRootPart") and v.Humanoid.Health > 0 then
 							RemoveAnchor()
-							-- Se estiver longe, usa FlyToPosition
-							if (vHrp.Position - hrp.Position).Magnitude > 60 then
-								Functions.FlyToPosition(vHrp.CFrame * CFrame.new(0, 30, 0), TweenService, config, _raidIsTp, _raidNoEquip)
-							end
-							repeat
-								task.wait(0.05)
-								if not config.AutoRaid then break end
-								Functions.AutoHaki()
-								Functions.EquipWeapon(config)
+							if Functions._flyCancel then Functions._flyCancel() end
+							
+							-- Loop de morte instantânea
+							repeat task.wait(0.01)
 								pcall(function()
-									vHrp.CanCollide = false
-									vHrp.Size = Vector3.new(50, 50, 50)
 									sethiddenproperty(Player, "SimulationRadius", math.huge)
-									VirtualUser:CaptureController()
-									VirtualUser:Button1Down(Vector2.new(1280, 672))
+									v.Humanoid.Health = 0
+									v.HumanoidRootPart.CanCollide = false
+									v.HumanoidRootPart.Size = Vector3.new(150, 150, 150)
 								end)
 							until not v.Parent or not v:FindFirstChild("Humanoid") or v.Humanoid.Health <= 0 or not config.AutoRaid
-							return
+							return -- Reinicia o loop após matar o boss
 						end
 					end
 				end
 
-				-- 3. 🗺️ SE NÃO TEM BOSS NEM MOBS, VAI PARA A PRÓXIMA ILHA
-				local nextIsland = GetNextRaidIsland()
-				if nextIsland then
-					AnchorPlayerMidAir()
-					local targetPos = nextIsland.PrimaryPart.Position
-					local targetCF = CFrame.new(targetPos.X, targetPos.Y + 60, targetPos.Z)
-					-- Usa explicitamente FlyToPosition
-					Functions.FlyToPosition(targetCF, TweenService, config, _raidIsTp, _raidNoEquip)
+				-- 2. ⚔️ MATA MOBS NORMAIS (Se não tem boss)
+				local targetMob = nil
+				if enemies then
+					for _, v in ipairs(enemies:GetChildren()) do
+						if v:FindFirstChild("Humanoid") and v.Humanoid.Health > 0 and not IsBoss(v.Name) then
+							targetMob = v
+							break
+						end
+					end
+				end
+
+				if targetMob then
 					RemoveAnchor()
-				else
-					-- Nenhuma ilha spawnada ainda, aguarda no ar
+					local mHrp = targetMob:FindFirstChild("HumanoidRootPart")
+					if mHrp and (mHrp.Position - hrp.Position).Magnitude > 60 then
+						Functions.FlyToPosition(mHrp.CFrame * CFrame.new(0, 30, 0), TweenService, config, _raidIsTp, _raidNoEquip)
+					end
+					Functions.AutoHaki()
+					Functions.EquipWeapon(config)
+					pcall(function()
+						mHrp.CanCollide = false
+						mHrp.Size = Vector3.new(50, 50, 50)
+						sethiddenproperty(Player, "SimulationRadius", math.huge)
+						VirtualUser:CaptureController()
+						VirtualUser:Button1Down(Vector2.new(1280, 672))
+					end)
+					return -- Foca no mob
+				end
+
+				-- 3. 🗺️ NENHUM INIMIGO: AVANÇA PARA PRÓXIMA ILHA
+				-- Lógica Inteligente: Se não tem inimigos, procura a PRÓXIMA ilha disponível
+				local raidMap = workspace:FindFirstChild("Map") and workspace.Map:FindFirstChild("RaidMap")
+				if not raidMap then 
+					AnchorPlayerMidAir() 
+					task.wait(1) 
+					return 
+				end
+
+				local movedToIsland = false
+				-- Verifica ilhas 1 a 5
+				for i = 1, 5 do
+					local island = raidMap:FindFirstChild("RaidIsland" .. i)
+					if island and island:IsA("Model") and island.PrimaryPart then
+						local dist = (island.PrimaryPart.Position - hrp.Position).Magnitude
+						
+						-- Se estamos longe desta ilha, voa para ela
+						if dist > 200 then
+							AnchorPlayerMidAir()
+							Functions.FlyToPosition(CFrame.new(island.PrimaryPart.Position.X, island.PrimaryPart.Position.Y + 60, island.PrimaryPart.Position.Z), TweenService, config, _raidIsTp, _raidNoEquip)
+							RemoveAnchor()
+							movedToIsland = true
+							break -- Sai do loop de ilhas para esperar chegar
+						else
+							-- Se estamos PERTO desta ilha e não tem mobs (verificado acima),
+							-- significa que ela está limpa. Continuamos o loop para checar a próxima (i+1).
+							-- Não fazemos nada aqui, o loop continua para i+1.
+						end
+					end
+				end
+
+				-- Se passou por todas as ilhas e não se moveu (todas limpas ou não existem), aguarda
+				if not movedToIsland then
 					AnchorPlayerMidAir()
 					task.wait(1)
 				end
