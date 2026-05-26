@@ -748,18 +748,63 @@ end
 
 Functions.BringMobFunc = Functions.BringMob
 
-function Functions.StartBringMobLoop(config, stateRef)
+function Functions.StartBringMobLoop(config,stateRef)
+    spawn(function()
+        while wait() do
+            if not config.BringMob or not stateRef.StartBring or not stateRef.MonFarm then
+                continue
+            end
+
+            local Enemies=Workspace:FindFirstChild'Enemies'
+            if not Enemies then
+                continue
+            end
+
+            pcall(function()
+                for _,v in ipairs(Enemies:GetChildren()) do
+                    local Hum=v:FindFirstChild'Humanoid'
+                    local HRP=v:FindFirstChild'HumanoidRootPart'
+
+                    if v.Name==stateRef.MonFarm and Hum and Hum.Health>0 and HRP then
+                        local Pos=stateRef.BringPos or HRP.CFrame
+
+                        HRP.CFrame=Pos
+                        HRP.CanCollide=false
+                        HRP.Transparency=1
+
+                        if HRP.Size~=Vector3.new(60,60,60) then
+                            HRP.Size=Vector3.new(60,60,60)
+                        end
+
+                        Hum.WalkSpeed=0
+                        Hum.JumpPower=0
+                        Hum:ChangeState(11)
+
+                        local Head=v:FindFirstChild'Head'
+                        if Head then
+                            Head.CanCollide=false
+                        end
+
+                        local Animator=Hum:FindFirstChild'Animator'
+                        if Animator then
+                            Animator.Enabled=false
+                        end
+                    end
+                end
+
+                pcall(function()
+                    sethiddenproperty(Player,'SimulationRadius',math.huge)
+                end)
+            end)
+        end
+    end)
+end
+
+--[[function Functions.StartBringMobLoop(config, stateRef) -- referencia
     task.spawn(function()
         while task.wait() do
             pcall(function()
-                        for _mt,b in pairs(Workspace.Enemies:GetChildren())do
-    if b and b.PrimaryPart then
-                                local lpos= Workspace.Enemies:GetChildrenn()[1].PrimaryPart.CFrame
-                                Workspace.Enemies:GetChildrenn()[1]:SetPrimaryPartCFrame(lpos)
-                                b.PrimaryPart.Anchored=true;b.PrimaryPart.CanCollide=true
-                                b:SetPrimaryPartCFrame(Workspace.Enemies:GetChildren()[1].PrimaryPart.CFrame);end
-end
-                --[[if not config.BringMob or not stateRef.StartBring or not stateRef.MonFarm then return end
+                if not config.BringMob or not stateRef.StartBring or not stateRef.MonFarm then return end
                 local enemies = workspace:FindFirstChild("Enemies")
                 if not enemies then return end
                 for _, v in ipairs(enemies:GetChildren()) do
@@ -781,11 +826,11 @@ end
                         v.Humanoid:ChangeState(11)
                         pcall(function() sethiddenproperty(Player, "SimulationRadius", math.huge) end)
                     end
-                end]]
+                end
             end)
         end
     end)
-end
+end]]
 
 -- =====================================================
 -- NOCLIP
