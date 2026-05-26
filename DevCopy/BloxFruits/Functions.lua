@@ -704,7 +704,7 @@ end
 -- BRING MOB
 -- =====================================================
 
-function Functions.BringMob(mobName, targetPosition, maxDist)
+--[[function Functions.BringMob(mobName, targetPosition, maxDist)--ref
     maxDist = maxDist or 350
     local char = Player.Character
     local hrp  = char and char:FindFirstChild("HumanoidRootPart")
@@ -742,6 +742,65 @@ function Functions.BringMob(mobName, targetPosition, maxDist)
 
             pcall(function() sethiddenproperty(Player, "SimulationRadius", math.huge) end)
             v.Humanoid:ChangeState(11)
+        end
+    end
+end]]
+
+function Functions.BringMob(mobName,targetPosition,maxDist)
+    maxDist=maxDist or 350
+
+    local Char=Player.Character
+    local HRP=Char and Char:FindFirstChild'HumanoidRootPart'
+    if not HRP then return end
+
+    pcall(function()
+        sethiddenproperty(Player,'SimulationRadius',math.huge)
+    end)
+
+    local Enemies=Workspace:FindFirstChild'Enemies'
+    if not Enemies then return end
+
+    for _,v in ipairs(Enemies:GetChildren()) do
+        local Hum=v:FindFirstChild'Humanoid'
+        local MobHRP=v:FindFirstChild'HumanoidRootPart'
+
+        if v.Name==mobName
+        and Hum
+        and MobHRP
+        and Hum.Health>0
+        and (MobHRP.Position-HRP.Position).Magnitude<=maxDist then
+
+            if targetPosition then
+                MobHRP.CFrame=targetPosition
+            end
+
+            Hum.WalkSpeed=0
+            Hum.JumpPower=0
+            Hum:ChangeState(11)
+
+            MobHRP.Transparency=1
+            MobHRP.CanCollide=false
+
+            local Head=v:FindFirstChild'Head'
+            if Head then
+                Head.CanCollide=false
+            end
+
+            local Animator=Hum:FindFirstChild'Animator'
+            if Animator then
+                Animator.Enabled=false
+            end
+
+            local Lock=MobHRP:FindFirstChild'Lock'
+
+            if not Lock then
+                Lock=Instance.new'BodyPosition'
+                Lock.Name='Lock'
+                Lock.MaxForce=Vector3.new(math.huge,math.huge,math.huge)
+                Lock.Parent=MobHRP
+            end
+
+            Lock.Position=targetPosition and targetPosition.Position or MobHRP.Position
         end
     end
 end
