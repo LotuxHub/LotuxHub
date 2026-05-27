@@ -702,20 +702,7 @@ end)
 -- =====================================================
 local currentTarget = nil
 
-local _acLastLog = ""
-local _acLogCount = 0
-local function _acLog(msg)
-    if msg ~= _acLastLog then
-        _acLastLog = msg
-        _acLogCount = 0
-        print("[AutoClick] " .. msg)
-    else
-        _acLogCount = _acLogCount + 1
-        if _acLogCount % 50 == 0 then
-            print("[AutoClick] (repetindo " .. _acLogCount .. "x) " .. msg)
-        end
-    end
-end
+local function _acLog(msg) end -- logs removidos
 
 task.spawn(function()
     while task.wait(0.12) do
@@ -2595,4 +2582,4 @@ Notify({
     Type        = "Success",
 })
 
-print("UI Loaded v3.4.2")
+print("UI Loaded v3.5.0")
