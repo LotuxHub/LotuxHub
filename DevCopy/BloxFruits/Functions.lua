@@ -2167,7 +2167,7 @@ function Functions.StartAutoRaid(config)
 				if raidMap and raidMap:FindFirstChild("RaidIsland1") then return end
 
 				if game.PlaceId == 4442272183 then -- Sea 2
-					local summonCF = CFrame.new(-6438.73535, 250.645355, -4501.50684)
+					local summonCF = CFrame.new(-6523.4746, 305.4380, -4741.3809)
 					SafeFlyTo(summonCF)
 					task.wait(0.5)
 					CF("SetSpawnPoint")
@@ -6167,5 +6167,5 @@ _G.CheckItemBPCR = Functions.CheckItemBPCR
 _G.AutoKatakuriV2Loop = Functions.AutoKatakuriV2Loop
 _G.AutoClick = Functions.FastAttackAdvanced
 
-print("[LotuxHub] Functions Updated Loaded v4WSSOF-LDAF")
+print("[LotuxHub] Functions Updated Loaded v4.2.3.42")
 return Functions
