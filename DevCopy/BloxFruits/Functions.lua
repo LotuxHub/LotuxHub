@@ -2145,7 +2145,7 @@ function Functions.StartAutoRaid(config)
 	task.spawn(function()
 		while task.wait(0.5) do
 			if not config.AutoBuyChipRaid then continue end
-			pcall(function() CF("RaidsNpc", "Select", config.SelectChipRaid or "Flame") end)
+			pcall(function() CF("RaidsNpc", "Select", _G.SelectedRaidChip or config.SelectChipRaid or "Flame") end)
 		end
 	end)
 
@@ -2166,13 +2166,13 @@ function Functions.StartAutoRaid(config)
 				local raidMap = workspace:FindFirstChild("Map") and workspace.Map:FindFirstChild("RaidMap")
 				if raidMap and raidMap:FindFirstChild("RaidIsland1") then return end
 
-				if game.PlaceId == 4442272183 then -- Sea 2
+				if World2 then -- Sea 2
 					local summonCF = CFrame.new(-6523.4746, 305.4380, -4741.3809)
 					SafeFlyTo(summonCF)
 					task.wait(0.5)
 					CF("SetSpawnPoint")
 					pcall(function() fireclickdetector(workspace.Map.CircleIsland.RaidSummon2.Button.Main.ClickDetector) end)
-				elseif game.PlaceId == 7449423635 then -- Sea 3
+				elseif World3 then -- Sea 3
 					CF("requestEntrance", Vector3.new(-5075.50927734375, 314.5155029296875, -3150.0224609375))
 					task.wait(0.5)
 					local summonCF = CFrame.new(-5017.40869, 314.844055, -2823.0127)
@@ -6167,5 +6167,5 @@ _G.CheckItemBPCR = Functions.CheckItemBPCR
 _G.AutoKatakuriV2Loop = Functions.AutoKatakuriV2Loop
 _G.AutoClick = Functions.FastAttackAdvanced
 
-print("[LotuxHub] Functions Updated Loaded v4.2.3.42")
+print("[LotuxHub] Functions Updated Loaded v2.21.2.43")
 return Functions
