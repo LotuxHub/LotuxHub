@@ -2232,13 +2232,21 @@ function Functions.StartAutoRaid(config)
 		while task.wait(1) do
 			if not config.AutoBuyChipRaid then continue end
 			pcall(function()
-				local chipFruit = (_G.SelectedRaidChip ~= nil and _G.SelectedRaidChip ~= "") and _G.SelectedRaidChip
-				             or (config.SelectChipRaid ~= nil and config.SelectChipRaid ~= "") and config.SelectChipRaid
-				             or "Flame"
+				-- _G.SelectedRaidChip pode vir como tabela da UI lib, extrai o valor correto
+				local rawChip = _G.SelectedRaidChip
+				local chipFruit
+				if type(rawChip) == "table" then
+					chipFruit = rawChip.Value or rawChip.value or rawChip[1] or rawChip.Name or rawChip.Option or "Flame"
+				elseif type(rawChip) == "string" and rawChip ~= "" then
+					chipFruit = rawChip
+				else
+					chipFruit = (config.SelectChipRaid ~= nil and config.SelectChipRaid ~= "") and config.SelectChipRaid or "Flame"
+				end
+				chipFruit = tostring(chipFruit)
 				config.SelectChipRaid = chipFruit
 				_G.SelectedRaidChip   = chipFruit
 
-				print("[BuyChip-Beli] Chip selecionado: " .. tostring(chipFruit))
+				print("[BuyChip-Beli] Chip selecionado: " .. chipFruit)
 
 				-- Verifica se já tem chip
 				local hasChip = Player.Backpack:FindFirstChild("Special Microchip")
@@ -2274,13 +2282,21 @@ function Functions.StartAutoRaid(config)
 		while task.wait(1) do
 			if not _G.AutoBuyChipDF then continue end
 			pcall(function()
-				local chipFruit = (_G.SelectedRaidChip ~= nil and _G.SelectedRaidChip ~= "") and _G.SelectedRaidChip
-				             or (config.SelectChipRaid ~= nil and config.SelectChipRaid ~= "") and config.SelectChipRaid
-				             or "Flame"
+				-- _G.SelectedRaidChip pode vir como tabela da UI lib, extrai o valor correto
+				local rawChip2 = _G.SelectedRaidChip
+				local chipFruit
+				if type(rawChip2) == "table" then
+					chipFruit = rawChip2.Value or rawChip2.value or rawChip2[1] or rawChip2.Name or rawChip2.Option or "Flame"
+				elseif type(rawChip2) == "string" and rawChip2 ~= "" then
+					chipFruit = rawChip2
+				else
+					chipFruit = (config.SelectChipRaid ~= nil and config.SelectChipRaid ~= "") and config.SelectChipRaid or "Flame"
+				end
+				chipFruit = tostring(chipFruit)
 				config.SelectChipRaid = chipFruit
 				_G.SelectedRaidChip   = chipFruit
 
-				print("[BuyChip-Fruta] Chip selecionado: " .. tostring(chipFruit))
+				print("[BuyChip-Fruta] Chip selecionado: " .. chipFruit)
 
 				-- Verifica se já tem chip
 				local hasChip = Player.Backpack:FindFirstChild("Special Microchip")
@@ -6427,5 +6443,5 @@ _G.TTSI  = Functions.TravelToSubmergedIsland -- TravelToSubmergedIsland
 
 print("[LotuxHub] _G aliases carregados v2.5")
 
-print("[LotuxHub] Functions Updated Loaded v2.4.26")
+print("[LotuxHub] Functions Updated Loaded v2.4.28")
 return Functions
