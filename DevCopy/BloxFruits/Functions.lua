@@ -526,7 +526,13 @@ function Functions.FlyToPosition(targetCF, tweenSvc, config, isTeleportingRef, n
     end
 end
 
-
+-- =====================================================
+-- FlyToRaid - Versao do FlyToPosition para uso exclusivo
+-- da raid: NAO destroi o PartTele ao terminar, mantendo
+-- o player suspenso no ar no centro da ilha.
+-- Chame DestroyRaidPart() explicitamente quando quiser
+-- destruir a part (ex: ao atacar um mob).
+-- =====================================================
 local _raidPart = nil  -- referencia unica ao PartTele da raid
 
 local function DestroyRaidPart()
@@ -562,8 +568,10 @@ function Functions.FlyToRaid(targetCF, config)
     end
 
     local pt    = _raidPart
-    local speed = tonumber(config and config.FlySpeed) or 300
-    local dur   = math.clamp(distance / speed, 0.05, 60.0)
+    -- RaidFlySpeed: velocidade controlada apenas para a raid (nao usa FlySpeed do farm)
+    -- Valor padrao 80 studs/s para dar tempo de ver o trajeto sem ser teleporte
+    local speed = tonumber(config and config.RaidFlySpeed) or 80
+    local dur   = math.clamp(distance / speed, 0.1, 120.0)
 
     local tween = TweenService:Create(
         pt,
@@ -2477,19 +2485,28 @@ function Functions.StartAutoRaid(config)
 				-- ---- DETECAO DE NOVA ILHA ----
 				-- Pega o maior numero de ilha que existe (1..5)
 				-- Assim quando RaidIsland2 aparecer o script avanca pra ela
+				-- Exige que a ilha tenha pelo menos 1 descendente BasePart
+				-- para evitar falso positivo de container vazio antes da raid comecar
 				local highestIsland = nil
 				local highestNum    = 0
 				for i = 1, 5 do
 					local isl = GetRaidIsland(i)
 					if isl then
-						highestIsland = isl
-						highestNum    = i
+						-- Confirma que a ilha tem conteudo (nao e container vazio)
+						local hasPart = false
+						for _, d in ipairs(isl:GetDescendants()) do
+							if d:IsA("BasePart") then hasPart = true; break end
+						end
+						if hasPart then
+							highestIsland = isl
+							highestNum    = i
+						end
 					end
 				end
 
-				-- Nenhuma ilha existe ainda: ancora e aguarda raid comecar
+				-- Nenhuma ilha existe ainda: raid nao comecou, nao faz nada
 				if not highestIsland then
-					AnchorPlayer()
+					-- Nao ancora nem move: apenas aguarda a raid comecar
 					currentIslandNum = 0
 					atCenter         = false
 					return
@@ -6551,5 +6568,5 @@ _G.TTSI  = Functions.TravelToSubmergedIsland -- TravelToSubmergedIsland
 
 print("[LotuxHub] _G aliases carregados v2.5")
 
-print("[LotuxHub] Functions Updated Loaded v2.4.30")
+print("[LotuxHub] Functions Updated Loaded v2.4.28")
 return Functions
