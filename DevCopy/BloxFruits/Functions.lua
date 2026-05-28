@@ -807,54 +807,113 @@ end
 
 Functions.BringMobFunc = Functions.BringMob
 
-function Functions.StartBringMobLoop(config,stateRef)
-    spawn(function()
-        while wait() do
-            if not config.BringMob or not stateRef.StartBring or not stateRef.MonFarm then
+-- =====================================================
+-- BRING MOB (CORRIGIDO)
+-- =====================================================
+-- Rastreia quais NPCs foram modificados para restaurar quando desativar
+local _bringModifiedNpcs = {}
+
+function Functions.StartBringMobLoop(config, stateRef)
+    task.spawn(function()
+        while task.wait(0.1) do
+            -- Checa se BringMob está ativo E se o farm está rodando
+            local shouldBring = config.BringMob
+                and stateRef.StartBring
+                and stateRef.MonFarm
+                and stateRef.MonFarm ~= ""
+
+            -- Se foi desativado: restaura NPCs modificados e limpa a lista
+            if not shouldBring then
+                if next(_bringModifiedNpcs) then
+                    for mob, origData in pairs(_bringModifiedNpcs) do
+                        pcall(function()
+                            if mob and mob.Parent then
+                                local Hum = mob:FindFirstChild("Humanoid")
+                                local HRP = mob:FindFirstChild("HumanoidRootPart")
+                                if Hum then
+                                    Hum.WalkSpeed = origData.walkSpeed or 16
+                                    Hum.JumpPower = origData.jumpPower or 50
+                                end
+                                if HRP then
+                                    HRP.Transparency = 0
+                                    HRP.CanCollide   = true
+                                    HRP.Size         = origData.hrpSize or Vector3.new(2, 2, 1)
+                                    local lock = HRP:FindFirstChild("Lock")
+                                    if lock then lock:Destroy() end
+                                end
+                                local head = mob:FindFirstChild("Head")
+                                if head then head.CanCollide = true end
+                                local anim = Hum and Hum:FindFirstChild("Animator")
+                                if anim then anim.Enabled = true end
+                            end
+                        end)
+                    end
+                    _bringModifiedNpcs = {}
+                end
                 continue
             end
 
-            local Enemies=Workspace:FindFirstChild'Enemies'
-            if not Enemies then
-                continue
-            end
+            local Enemies = workspace:FindFirstChild("Enemies")
+            if not Enemies then continue end
+
+            local Char = Player.Character
+            local HRP  = Char and Char:FindFirstChild("HumanoidRootPart")
+            if not HRP then continue end
 
             pcall(function()
-                for _,v in ipairs(Enemies:GetChildren()) do
-                    local Hum=v:FindFirstChild'Humanoid'
-                    local HRP=v:FindFirstChild'HumanoidRootPart'
-
-                    if v.Name==stateRef.MonFarm and Hum and Hum.Health>0 and HRP then
-                        local Pos=stateRef.BringPos or HRP.CFrame
-
-                        HRP.CFrame=Pos
-                        HRP.CanCollide=false
-                        HRP.Transparency=1
-
-                        if HRP.Size~=Vector3.new(60,60,60) then
-                            HRP.Size=Vector3.new(60,60,60)
-                        end
-
-                        Hum.WalkSpeed=0
-                        Hum.JumpPower=0
-                        Hum:ChangeState(11)
-
-                        local Head=v:FindFirstChild'Head'
-                        if Head then
-                            Head.CanCollide=false
-                        end
-
-                        local Animator=Hum:FindFirstChild'Animator'
-                        if Animator then
-                            Animator.Enabled=false
-                        end
-                    end
-                end
-
-                pcall(function()
-                    sethiddenproperty(Player,'SimulationRadius',math.huge)
-                end)
+                sethiddenproperty(Player, "SimulationRadius", math.huge)
             end)
+
+            local BringPos = stateRef.BringPos
+            local mobName  = stateRef.MonFarm
+
+            for _, v in ipairs(Enemies:GetChildren()) do
+                local Hum   = v:FindFirstChild("Humanoid")
+                local MobHRP = v:FindFirstChild("HumanoidRootPart")
+
+                if v.Name == mobName and Hum and MobHRP and Hum.Health > 0 then
+                    -- Salva dados originais só na primeira vez que vemos este mob
+                    if not _bringModifiedNpcs[v] then
+                        _bringModifiedNpcs[v] = {
+                            walkSpeed = Hum.WalkSpeed,
+                            jumpPower = Hum.JumpPower,
+                            hrpSize   = MobHRP.Size,
+                        }
+                        -- Limpa entry se o mob for destruído
+                        v.AncestryChanged:Connect(function(_, parent)
+                            if not parent then
+                                _bringModifiedNpcs[v] = nil
+                            end
+                        end)
+                    end
+
+                    if BringPos then
+                        MobHRP.CFrame = BringPos
+                    end
+
+                    Hum.WalkSpeed = 0
+                    Hum.JumpPower = 0
+                    Hum:ChangeState(11)
+                    MobHRP.Transparency = 1
+                    MobHRP.CanCollide   = false
+
+                    local Head = v:FindFirstChild("Head")
+                    if Head then Head.CanCollide = false end
+
+                    local Animator = Hum:FindFirstChild("Animator")
+                    if Animator then Animator.Enabled = false end
+
+                    -- Usa BodyPosition (não BodyVelocity) para fixar no lugar
+                    local Lock = MobHRP:FindFirstChild("Lock")
+                    if not Lock then
+                        Lock = Instance.new("BodyPosition")
+                        Lock.Name     = "Lock"
+                        Lock.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
+                        Lock.Parent   = MobHRP
+                    end
+                    Lock.Position = BringPos and BringPos.Position or MobHRP.Position
+                end
+            end
         end
     end)
 end
@@ -2127,22 +2186,38 @@ function Functions.StartAutoRaid(config)
 	-- ==========================================
 	-- âï¸ BUSCA A ILHA MAIS PROXIMA DO PLAYER
 	-- ==========================================
+	-- ==========================================
+	-- BUSCA A ILHA MAIS PROXIMA DO PLAYER (CORRIGIDA)
+	-- Usa PrimaryPart com fallback para qualquer BasePart da ilha
+	-- ==========================================
+	local function GetIslandPivotPos(island)
+		if island.PrimaryPart then return island.PrimaryPart.Position end
+		for _, p in ipairs(island:GetDescendants()) do
+			if p:IsA("BasePart") then return p.Position end
+		end
+		return nil
+	end
+
 	local function GetNextRaidIsland()
-		local raidMap = workspace:FindFirstChild("Map") and workspace.Map:FindFirstChild("RaidMap")
+		local map = workspace:FindFirstChild("Map")
+		local raidMap = map and map:FindFirstChild("RaidMap")
 		if not raidMap then return nil end
 		local char = Player.Character
 		local hrp  = char and char:FindFirstChild("HumanoidRootPart")
 		local nearest, nearestDist = nil, math.huge
 		for i = 1, 5 do
 			local island = raidMap:FindFirstChild("RaidIsland" .. i)
-			if island and island:IsA("Model") and island.PrimaryPart then
-				if hrp then
-					local d = (island.PrimaryPart.Position - hrp.Position).Magnitude
-					if d < nearestDist then
-						nearest, nearestDist = island, d
+			if island and island:IsA("Model") then
+				local pos = GetIslandPivotPos(island)
+				if pos then
+					if hrp then
+						local d = (pos - hrp.Position).Magnitude
+						if d < nearestDist then
+							nearest, nearestDist = island, d
+						end
+					else
+						return island
 					end
-				else
-					return island
 				end
 			end
 		end
@@ -2150,12 +2225,25 @@ function Functions.StartAutoRaid(config)
 	end
 
 	-- ==========================================
-	-- LOOP: COMPRAR CHIP
+	-- LOOP: COMPRAR CHIP (CORRIGIDO)
+	-- Usa _G.SelectedRaidChip (setado pelo dropdown da UI) ou config.SelectChipRaid como fallback.
+	-- O remote correto é: CommF_("RaidsNpc","Select","<FruitName>")
 	-- ==========================================
 	task.spawn(function()
 		while task.wait(0.5) do
 			if not config.AutoBuyChipRaid then continue end
-			pcall(function() CF("RaidsNpc", "Select", _G.SelectedRaidChip or config.SelectChipRaid or "Flame") end)
+			pcall(function()
+				-- Sincroniza: se a UI setou _G.SelectedRaidChip, usa ele; senão usa config
+				local chipFruit = _G.SelectedRaidChip or config.SelectChipRaid or "Flame"
+				-- Garante que config fique atualizado também
+				config.SelectChipRaid = chipFruit
+				-- Dispara o remote com os 3 argumentos corretos
+				local remotes = game:GetService("ReplicatedStorage"):FindFirstChild("Remotes")
+				if not remotes then return end
+				local commF = remotes:FindFirstChild("CommF_")
+				if not commF then return end
+				commF:InvokeServer("RaidsNpc", "Select", chipFruit)
+			end)
 		end
 	end)
 
@@ -2233,7 +2321,9 @@ function Functions.StartAutoRaid(config)
 					return
 				end
 
-				local centerPos = _currentIsland.PrimaryPart.Position
+				-- Usa PrimaryPart com fallback para qualquer BasePart (fix island sem PrimaryPart)
+				local centerPos = GetIslandPivotPos(_currentIsland)
+				if not centerPos then AnchorPlayer(); return end
 				local centerCF  = CFrame.new(centerPos.X, centerPos.Y + 60, centerPos.Z)
 
 				-- Se ainda nao foi pro centro, voa ate la
@@ -6203,6 +6293,78 @@ end
 _G.CheckItemBPCR = Functions.CheckItemBPCR
 _G.AutoKatakuriV2Loop = Functions.AutoKatakuriV2Loop
 _G.AutoClick = Functions.FastAttackAdvanced
+_G.FT   = Functions.FormatTime           -- FormatTime
+_G.DSea = Functions.DetectCurrentSea     -- DetectCurrentSea
+_G.RWN  = Functions.ResolveWeaponNow     -- ResolveWeaponNow
+_G.SWR  = Functions.StartWeaponResolver  -- StartWeaponResolver
+_G.EqW  = Functions.EquipWeapon          -- EquipWeapon
+_G.UqW  = Functions.UnEquipWeapon        -- UnEquipWeapon
+_G.EqAW = Functions.EquipAllWeapon       -- EquipAllWeapon
+_G.AH   = Functions.AutoHaki             -- AutoHaki
+_G.ABuso = Functions.ActivateBuso        -- ActivateBuso
+_G.SHL  = Functions.StartHakiLoop        -- StartHakiLoop
+_G.GNE  = Functions.GetNearestEnemy      -- GetNearestEnemy
+_G.FlyTo = Functions.FlyToPosition       -- FlyToPosition
+_G.TpTo  = Functions.TeleportTo          -- TeleportTo
+_G.TPP   = Functions.TPP                 -- TPP (tween teleport)
+_G.STP   = Functions.StopTeleport        -- StopTeleport
+_G.ToPos = Functions.ToPos               -- ToPos
+_G.CNT   = Functions.CheckNearestTeleporter -- CheckNearestTeleporter
+_G.ReqEnt = Functions.RequestEntrance    -- RequestEntrance
+_G.BringMob  = Functions.BringMob        -- BringMob
+_G.SBringL   = Functions.StartBringMobLoop -- StartBringMobLoop
+_G.ANC  = Functions.ApplyNoClip          -- ApplyNoClip
+_G.ENC  = Functions.EnableNoclip         -- EnableNoclip
+_G.DNC  = Functions.DisableNoclip        -- DisableNoclip
+_G.FA   = Functions.FastAttack           -- FastAttack
+_G.FAA  = Functions.FastAttackAdvanced   -- FastAttackAdvanced
+_G.PK   = Functions.PressKey             -- PressKey
+_G.SAS  = Functions.StartAutoSkill       -- StartAutoSkill
+_G.SAR  = Functions.StartAutoRace        -- StartAutoRace
+_G.SAQR = Functions.StartAutoQuestRace   -- StartAutoQuestRace
+_G.SADH = Functions.StartAutoDooHee      -- StartAutoDooHee
+_G.SABart = Functions.StartAutoBartilo   -- StartAutoBartilo
+_G.SADB  = Functions.StartAutoDarkBeard  -- StartAutoDarkBeard
+_G.SAGB  = Functions.StartAutoGrayBeard  -- StartAutoGrayBeard (se existir)
+_G.SAFact = Functions.StartAutoFactory   -- StartAutoFactory
+_G.SAR2  = Functions.StartAutoRaid       -- StartAutoRaid
+_G.SAPR  = Functions.StartAutoPirateRaid -- StartAutoPirateRaid
+_G.SALF  = Functions.StartAutoLoadFruitCheap -- StartAutoLoadFruitCheap
+_G.STF   = Functions.StartTweenFruit     -- StartTweenFruit
+_G.SGF   = Functions.StartGrabFruit      -- StartGrabFruit
+_G.SARI  = Functions.StartAutoRipIndra   -- StartAutoRipIndra
+_G.SABM  = Functions.StartAutoBigMom     -- StartAutoBigMom
+_G.SAFB  = Functions.StartAutoFarmBone   -- StartAutoFarmBone
+_G.SACP  = Functions.StartAutoCakePrince -- StartAutoCakePrince
+_G.SADK  = Functions.StartAutoDoughKing  -- StartAutoDoughKing
+_G.SAHV2 = Functions.StartAutoHakiV2     -- StartAutoHakiV2
+_G.SAUT  = Functions.StartAutoUnlockTemple -- StartAutoUnlockTemple
+_G.SAGH  = Functions.StartAutoGodHuman   -- StartAutoGodHuman
+_G.SADT  = Functions.StartAutoDragonTaylor -- StartAutoDragonTaylor
+_G.SAEC  = Functions.StartAutoElectricClaw -- StartAutoElectricClaw
+_G.SAPR2 = Functions.StartAutoPray       -- StartAutoPray
+_G.SATL  = Functions.StartAutoTryLuck    -- StartAutoTryLuck
+_G.SATB  = Functions.StartAutoTradeBone  -- StartAutoTradeBone
+_G.SAKV2 = Functions.AutoKatakuriV2Loop  -- AutoKatakuriV2Loop
+_G.SKA  = Functions.StartKillAura        -- StartKillAura
+_G.SAPH = Functions.StartAutoPlayerHunter -- StartAutoPlayerHunter
+_G.SSB  = Functions.StartSailBoat        -- StartSailBoat
+_G.SS2  = Functions.StartAutoSea2        -- StartAutoSea2
+_G.SS3  = Functions.StartAutoSea3        -- StartAutoSea3
+_G.SATTK = Functions.StartAutoBuyTTK     -- StartAutoBuyTTK
+_G.SADBV2 = Functions.StartAutoDarkBladeV2 -- StartAutoDarkBladeV2
+_G.SAFC = Functions.StartAutoFarmChocola -- StartAutoFarmChocola
+_G.RFog  = Functions.RemoveFog           -- RemoveFog
+_G.RLava = Functions.RemoveLava          -- RemoveLava
+_G.UESP  = Functions.UpdatePlayerESP     -- UpdatePlayerESP
+_G.UFESP = Functions.UpdateDevilFruitESP -- UpdateDevilFruitESP
+_G.UCESP = Functions.UpdateChestESP      -- UpdateChestESP
+_G.UBESP = Functions.UpdateBerriesESP    -- UpdateBerriesESP
+_G.UMESP = Functions.UpdateMirageESP     -- UpdateMirageESP
+_G.USESP = Functions.UpdateSeaBeastESP   -- UpdateSeaBeastESP
+_G.TTSI  = Functions.TravelToSubmergedIsland -- TravelToSubmergedIsland
+
+print("[LotuxHub] _G aliases carregados v2.5")
 
 print("[LotuxHub] Functions Updated Loaded v2.4.22")
 return Functions

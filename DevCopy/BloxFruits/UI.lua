@@ -1349,7 +1349,47 @@ Main:AddSlider({ Title = "Health Kill Mob (%)", Min = 1, Max = 100, Default = 30
     Callback = function(v) Config.HealthKillMob = v end })
 Main:AddDropdown({ Title = T("ui_selection_island"), Options = Islands[CurrentSea], Default = Islands[CurrentSea][1],
     Callback = function(v) Config.MasteryIsland = tostring(v) end })
-Main:AddToggle({ Title = T("ui_auto_mastery"), Default = false, Callback = function(v) Config.AutoFarmMastery = v end })
+Main:AddDropdown({
+    Title       = "Mastery Skills",
+    Options     = { "Z", "X", "C", "V", "F" },
+    Default     = {},
+    MultiSelect = true,
+    Callback    = function(v)
+        Config.MasterySkills = v
+    end,
+})
+Main:AddToggle({ Title = T("ui_auto_mastery"), Default = false,
+    Callback = function(v)
+        Config.AutoFarmMastery = v
+        if v then
+            task.spawn(function()
+                local keyMap = {
+                    Z = Enum.KeyCode.Z,
+                    X = Enum.KeyCode.X,
+                    C = Enum.KeyCode.C,
+                    V = Enum.KeyCode.V,
+                    F = Enum.KeyCode.F,
+                }
+                while Config.AutoFarmMastery do
+                    local skills = Config.MasterySkills or {}
+                    for key, _ in pairs(skills) do
+                        if not Config.AutoFarmMastery then break end
+                        local kc = keyMap[key]
+                        if kc then
+                            pcall(function()
+                                game:GetService("VirtualInputManager"):SendKeyEvent(true,  kc, false, game)
+                                task.wait(0.05)
+                                game:GetService("VirtualInputManager"):SendKeyEvent(false, kc, false, game)
+                            end)
+                            task.wait(0.3)
+                        end
+                    end
+                    task.wait(0.5)
+                end
+            end)
+        end
+        Notify({ Title = v and "Auto Mastery ON" or "Auto Mastery OFF", Image = IMG, Type = v and "Success" or "Info", Duration = 2 })
+    end })
 
 Main:AddSection("Collect Chest")
 Main:AddToggle({ Title = T("ui_farm_chest"), Default = false,
