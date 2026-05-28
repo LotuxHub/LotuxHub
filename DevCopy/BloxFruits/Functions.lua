@@ -6427,5 +6427,5 @@ _G.TTSI  = Functions.TravelToSubmergedIsland -- TravelToSubmergedIsland
 
 print("[LotuxHub] _G aliases carregados v2.5")
 
-print("[LotuxHub] Functions Updated Loaded v2.4.22")
+print("[LotuxHub] Functions Updated Loaded v2.4.26")
 return Functions
