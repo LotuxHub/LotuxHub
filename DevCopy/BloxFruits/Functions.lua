@@ -2238,21 +2238,30 @@ function Functions.StartAutoRaid(config)
 				config.SelectChipRaid = chipFruit
 				_G.SelectedRaidChip   = chipFruit
 
+				print("[BuyChip-Beli] Chip selecionado: " .. tostring(chipFruit))
+
 				-- Verifica se já tem chip
 				local hasChip = Player.Backpack:FindFirstChild("Special Microchip")
 				            or (Player.Character and Player.Character:FindFirstChild("Special Microchip"))
-				if hasChip then return end
+				if hasChip then
+					print("[BuyChip-Beli] Já tem Special Microchip no inventário, pulando.")
+					return
+				end
 
 				local remotes = game:GetService("ReplicatedStorage"):FindFirstChild("Remotes")
-				if not remotes then return end
+				if not remotes then warn("[BuyChip-Beli] Remotes não encontrado!") return end
 				local commF = remotes:FindFirstChild("CommF_")
-				if not commF then return end
+				if not commF then warn("[BuyChip-Beli] CommF_ não encontrado!") return end
 
 				-- 1. Select: escolhe a fruta do chip
-				commF:InvokeServer("RaidsNpc", "Select", chipFruit)
+				print("[BuyChip-Beli] Enviando Select: " .. chipFruit)
+				local selectResult = commF:InvokeServer("RaidsNpc", "Select", chipFruit)
+				print("[BuyChip-Beli] Resultado Select: " .. tostring(selectResult))
 				task.wait(0.5)
 				-- 2. Buy: compra com beli
-				commF:InvokeServer("RaidsNpc", "Buy")
+				print("[BuyChip-Beli] Enviando Buy...")
+				local buyResult = commF:InvokeServer("RaidsNpc", "Buy")
+				print("[BuyChip-Beli] Resultado Buy: " .. tostring(buyResult))
 			end)
 		end
 	end)
@@ -2271,21 +2280,30 @@ function Functions.StartAutoRaid(config)
 				config.SelectChipRaid = chipFruit
 				_G.SelectedRaidChip   = chipFruit
 
+				print("[BuyChip-Fruta] Chip selecionado: " .. tostring(chipFruit))
+
 				-- Verifica se já tem chip
 				local hasChip = Player.Backpack:FindFirstChild("Special Microchip")
 				            or (Player.Character and Player.Character:FindFirstChild("Special Microchip"))
-				if hasChip then return end
+				if hasChip then
+					print("[BuyChip-Fruta] Já tem Special Microchip no inventário, pulando.")
+					return
+				end
 
 				local remotes = game:GetService("ReplicatedStorage"):FindFirstChild("Remotes")
-				if not remotes then return end
+				if not remotes then warn("[BuyChip-Fruta] Remotes não encontrado!") return end
 				local commF = remotes:FindFirstChild("CommF_")
-				if not commF then return end
+				if not commF then warn("[BuyChip-Fruta] CommF_ não encontrado!") return end
 
 				-- 1. Select: escolhe a fruta do chip
-				commF:InvokeServer("RaidsNpc", "Select", chipFruit)
+				print("[BuyChip-Fruta] Enviando Select: " .. chipFruit)
+				local selectResult = commF:InvokeServer("RaidsNpc", "Select", chipFruit)
+				print("[BuyChip-Fruta] Resultado Select: " .. tostring(selectResult))
 				task.wait(0.5)
 				-- 2. BuyWithFruit: compra trocando uma fruta
-				commF:InvokeServer("RaidsNpc", "BuyWithFruit")
+				print("[BuyChip-Fruta] Enviando BuyWithFruit...")
+				local buyResult = commF:InvokeServer("RaidsNpc", "BuyWithFruit")
+				print("[BuyChip-Fruta] Resultado BuyWithFruit: " .. tostring(buyResult))
 			end)
 		end
 	end)
@@ -6409,5 +6427,5 @@ _G.TTSI  = Functions.TravelToSubmergedIsland -- TravelToSubmergedIsland
 
 print("[LotuxHub] _G aliases carregados v2.5")
 
-print("[LotuxHub] Functions Updated Loaded v2.4.25")
+print("[LotuxHub] Functions Updated Loaded v2.4.22")
 return Functions
