@@ -2125,18 +2125,28 @@ function Functions.StartAutoRaid(config)
 	end
 
 	-- ==========================================
-	-- âï¸ BUSCA ILHAS NO CAMINHO CORRETO (1 a 5)
+	-- âï¸ BUSCA A ILHA MAIS PROXIMA DO PLAYER
 	-- ==========================================
 	local function GetNextRaidIsland()
 		local raidMap = workspace:FindFirstChild("Map") and workspace.Map:FindFirstChild("RaidMap")
 		if not raidMap then return nil end
+		local char = Player.Character
+		local hrp  = char and char:FindFirstChild("HumanoidRootPart")
+		local nearest, nearestDist = nil, math.huge
 		for i = 1, 5 do
 			local island = raidMap:FindFirstChild("RaidIsland" .. i)
 			if island and island:IsA("Model") and island.PrimaryPart then
-				return island
+				if hrp then
+					local d = (island.PrimaryPart.Position - hrp.Position).Magnitude
+					if d < nearestDist then
+						nearest, nearestDist = island, d
+					end
+				else
+					return island
+				end
 			end
 		end
-		return nil
+		return nearest
 	end
 
 	-- ==========================================
@@ -2186,12 +2196,20 @@ function Functions.StartAutoRaid(config)
 	end)
 
 	-- ==========================================
-	-- LOOP PRINCIPAL: FARM + NEXT ISLAND + KILL AURA
+	-- LOOP PRINCIPAL: FARM RAID
+	-- Logica: voa pro centro da ilha mais proxima -> ancora no ar
+	--         -> espera mob spawnar -> mata -> volta pro centro
+	--         -> quando aparecer ilha mais proxima diferente, vai pra ela
 	-- ==========================================
 	task.spawn(function()
+		local _currentIsland = nil  -- ilha que o player esta atualmente
+		local _atCenter = false     -- flag: ja esta no centro da ilha
+
 		while task.wait(0.05) do
 			if not config.AutoRaid then
 				RemoveAnchor()
+				_currentIsland = nil
+				_atCenter = false
 				continue
 			end
 			pcall(function()
@@ -2200,14 +2218,40 @@ function Functions.StartAutoRaid(config)
 				local hum  = char and char:FindFirstChildOfClass("Humanoid")
 				if not hrp or not hum or hum.Health <= 0 then return end
 
+				-- Pega a ilha mais proxima do player
+				local nearestIsland = GetNextRaidIsland()
+
+				-- Se apareceu uma ilha diferente da atual, vai pro centro dela
+				if nearestIsland and nearestIsland ~= _currentIsland then
+					_currentIsland = nearestIsland
+					_atCenter = false
+				end
+
+				-- Se nao tem ilha, ancora e aguarda
+				if not _currentIsland then
+					AnchorPlayer()
+					return
+				end
+
+				local centerPos = _currentIsland.PrimaryPart.Position
+				local centerCF  = CFrame.new(centerPos.X, centerPos.Y + 60, centerPos.Z)
+
+				-- Se ainda nao foi pro centro, voa ate la
+				if not _atCenter then
+					AnchorPlayer()
+					Functions.FlyToPosition(centerCF, TweenService, config, _raidIsTp, _raidNoEquip)
+					_atCenter = true
+					return
+				end
+
 				local enemies = workspace:FindFirstChild("Enemies")
 
-				-- 1. 🔥 KILL AURA INSTANTÂNEA NOS BOSS (PRIORIDADE MÁXIMA)
+				-- 1. BOSS: kill aura instantanea (sempre, em qualquer ilha)
 				if enemies then
 					for _, v in ipairs(enemies:GetChildren()) do
 						if RAID_BOSS_SET[v.Name] or v.Name:find("%[Raid Boss%]") then
 							if v:FindFirstChild("Humanoid") and v:FindFirstChild("HumanoidRootPart") and v.Humanoid.Health > 0 then
-								RemoveAnchor() -- Remove âncora para iniciar combate
+								RemoveAnchor()
 								local bossHrp = v.HumanoidRootPart
 								local bossHum = v.Humanoid
 								if Functions._flyCancel then Functions._flyCancel() end
@@ -2219,51 +2263,44 @@ function Functions.StartAutoRaid(config)
 										bossHrp.Size = Vector3.new(150, 150, 150)
 									end)
 								until not v.Parent or not v:FindFirstChild("Humanoid") or v.Humanoid.Health <= 0 or not config.AutoRaid
+								_atCenter = false
 								return
 							end
 						end
 					end
 				end
 
-				-- 2. ⚔️ MATA MOBS NORMAIS DA ILHA ATUAL
+				-- 2. MOBS NORMAIS: todas as ilhas incluindo ilha 5
 				if enemies then
 					for _, v in ipairs(enemies:GetChildren()) do
 						if not config.AutoRaid then break end
 						local vHrp = v:FindFirstChild("HumanoidRootPart")
 						local vHum = v:FindFirstChild("Humanoid")
-						if vHrp and vHum and vHum.Health > 0 and (vHrp.Position - hrp.Position).Magnitude <= 2500 then
+						if vHrp and vHum and vHum.Health > 0 and (vHrp.Position - centerPos).Magnitude <= 2500 then
 							RemoveAnchor()
 							if (vHrp.Position - hrp.Position).Magnitude > 60 then
-								SafeFlyTo(vHrp.CFrame * CFrame.new(0, 30, 0))
+								Functions.FlyToPosition(vHrp.CFrame * CFrame.new(0, 30, 0), TweenService, config, _raidIsTp, _raidNoEquip)
 							end
 							repeat task.wait(0.05)
 								if not config.AutoRaid then break end
 								Functions.AutoHaki()
 								Functions.EquipWeapon(config)
 								pcall(function()
-									vHrp.CanCollide = false; vHrp.Size = Vector3.new(50, 50, 50)
+									vHrp.CanCollide = false
+									vHrp.Size = Vector3.new(50, 50, 50)
 									sethiddenproperty(Player, "SimulationRadius", math.huge)
 									VirtualUser:CaptureController()
 									VirtualUser:Button1Down(Vector2.new(1280, 672))
 								end)
 							until not v.Parent or not v:FindFirstChild("Humanoid") or v.Humanoid.Health <= 0 or not config.AutoRaid
+							_atCenter = false
 							return
 						end
 					end
 				end
 
-				-- 3. 🗺️ NENHUM INIMIGO -> AVANÇA PARA PRÓXIMA ILHA
-				local nextIsland = GetNextRaidIsland()
-				if nextIsland then
-					AnchorPlayer() -- Mantém âncora durante o voo e após chegar
-					local targetPos = nextIsland.PrimaryPart.Position
-					local targetCF = CFrame.new(targetPos.X, targetPos.Y + 60, targetPos.Z)
-					SafeFlyTo(targetCF)
-					-- A âncora permanece ativa para não cair enquanto espera spawnar mobs da próxima ilha
-				else
-					AnchorPlayer()
-					task.wait(1)
-				end
+				-- 3. SEM MOBS: ancora no ar no centro e aguarda
+				AnchorPlayer()
 			end)
 		end
 	end)
@@ -6167,5 +6204,5 @@ _G.CheckItemBPCR = Functions.CheckItemBPCR
 _G.AutoKatakuriV2Loop = Functions.AutoKatakuriV2Loop
 _G.AutoClick = Functions.FastAttackAdvanced
 
-print("[LotuxHub] Functions Updated Loaded v2.21.2.43")
+print("[LotuxHub] Functions Updated Loaded v2.4.22")
 return Functions
