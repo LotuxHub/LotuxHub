@@ -2225,27 +2225,67 @@ function Functions.StartAutoRaid(config)
 	end
 
 	-- ==========================================
-	-- LOOP: COMPRAR CHIP (CORRIGIDO)
-	-- Usa _G.SelectedRaidChip (setado pelo dropdown da UI) ou config.SelectChipRaid como fallback.
-	-- O remote correto é: CommF_("RaidsNpc","Select","<FruitName>")
+	-- LOOP: COMPRAR CHIP COM BELI (AutoBuyChipRaid)
+	-- Fluxo correto: Select -> Buy
 	-- ==========================================
 	task.spawn(function()
-		while task.wait(0.5) do
+		while task.wait(1) do
 			if not config.AutoBuyChipRaid then continue end
 			pcall(function()
-				-- Sincroniza: se a UI setou _G.SelectedRaidChip, usa ele; senão usa config
 				local chipFruit = (_G.SelectedRaidChip ~= nil and _G.SelectedRaidChip ~= "") and _G.SelectedRaidChip
 				             or (config.SelectChipRaid ~= nil and config.SelectChipRaid ~= "") and config.SelectChipRaid
 				             or "Flame"
-				-- Garante que config e _G fiquem atualizados também
 				config.SelectChipRaid = chipFruit
 				_G.SelectedRaidChip   = chipFruit
-				-- Dispara o remote com os 3 argumentos corretos
+
+				-- Verifica se já tem chip
+				local hasChip = Player.Backpack:FindFirstChild("Special Microchip")
+				            or (Player.Character and Player.Character:FindFirstChild("Special Microchip"))
+				if hasChip then return end
+
 				local remotes = game:GetService("ReplicatedStorage"):FindFirstChild("Remotes")
 				if not remotes then return end
 				local commF = remotes:FindFirstChild("CommF_")
 				if not commF then return end
+
+				-- 1. Select: escolhe a fruta do chip
 				commF:InvokeServer("RaidsNpc", "Select", chipFruit)
+				task.wait(0.5)
+				-- 2. Buy: compra com beli
+				commF:InvokeServer("RaidsNpc", "Buy")
+			end)
+		end
+	end)
+
+	-- ==========================================
+	-- LOOP: COMPRAR CHIP COM FRUTA (AutoBuyChipDF)
+	-- Fluxo correto: Select -> BuyWithFruit
+	-- ==========================================
+	task.spawn(function()
+		while task.wait(1) do
+			if not _G.AutoBuyChipDF then continue end
+			pcall(function()
+				local chipFruit = (_G.SelectedRaidChip ~= nil and _G.SelectedRaidChip ~= "") and _G.SelectedRaidChip
+				             or (config.SelectChipRaid ~= nil and config.SelectChipRaid ~= "") and config.SelectChipRaid
+				             or "Flame"
+				config.SelectChipRaid = chipFruit
+				_G.SelectedRaidChip   = chipFruit
+
+				-- Verifica se já tem chip
+				local hasChip = Player.Backpack:FindFirstChild("Special Microchip")
+				            or (Player.Character and Player.Character:FindFirstChild("Special Microchip"))
+				if hasChip then return end
+
+				local remotes = game:GetService("ReplicatedStorage"):FindFirstChild("Remotes")
+				if not remotes then return end
+				local commF = remotes:FindFirstChild("CommF_")
+				if not commF then return end
+
+				-- 1. Select: escolhe a fruta do chip
+				commF:InvokeServer("RaidsNpc", "Select", chipFruit)
+				task.wait(0.5)
+				-- 2. BuyWithFruit: compra trocando uma fruta
+				commF:InvokeServer("RaidsNpc", "BuyWithFruit")
 			end)
 		end
 	end)
@@ -6369,5 +6409,5 @@ _G.TTSI  = Functions.TravelToSubmergedIsland -- TravelToSubmergedIsland
 
 print("[LotuxHub] _G aliases carregados v2.5")
 
-print("[LotuxHub] Functions Updated Loaded v2.4.22")
+print("[LotuxHub] Functions Updated Loaded v2.4.25")
 return Functions
