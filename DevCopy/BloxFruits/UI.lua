@@ -2189,9 +2189,10 @@ FruitRaidTab:AddDropdown({ Title = "Select Fruit Shop",
 FruitRaidTab:AddToggle({ Title = "Auto Buy Fruit Shop",       Default = false, Callback = function(v) _G.AutoBuyFruitShop = v end })
 
 FruitRaidTab:AddSection("Raid")
+_G.SelectedRaidChip = _G.SelectedRaidChip or Config.SelectChipRaid or "Flame"
 FruitRaidTab:AddDropdown({ Title = "Select Chip",
-    Options = { "Flame", "Ice", "Dark", "Light", "Buddha", "Magma", "Spider", "", "Dough", "Phoenix" }, Default = "Flame",
-    Callback = function(v) _G.SelectedRaidChip = tostring(v) end })
+    Options = { "Flame", "Ice", "Dark", "Light", "Buddha", "Magma", "Spider", "Dough", "Phoenix" }, Default = "Flame",
+    Callback = function(v) _G.SelectedRaidChip = tostring(v) Config.SelectChipRaid = tostring(v) end })
 FruitRaidTab:AddToggle({ Title = "Auto Buy Chip (Beli)",      Default = false, Callback = function(v) Config.AutoBuyChipRaid = v end })
 FruitRaidTab:AddToggle({ Title = "Auto Buy Chip (Devil Fruit)", Default = false, Callback = function(v) _G.AutoBuyChipDF       = v end })
 FruitRaidTab:AddToggle({ Title = "Get Fruit In Inventory Below 1M", Default = false, Callback = function(v) _G.AutoGetFruitBelow1M = v end })

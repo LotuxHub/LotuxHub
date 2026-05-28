@@ -2234,9 +2234,12 @@ function Functions.StartAutoRaid(config)
 			if not config.AutoBuyChipRaid then continue end
 			pcall(function()
 				-- Sincroniza: se a UI setou _G.SelectedRaidChip, usa ele; senão usa config
-				local chipFruit = _G.SelectedRaidChip or config.SelectChipRaid or "Flame"
-				-- Garante que config fique atualizado também
+				local chipFruit = (_G.SelectedRaidChip ~= nil and _G.SelectedRaidChip ~= "") and _G.SelectedRaidChip
+				             or (config.SelectChipRaid ~= nil and config.SelectChipRaid ~= "") and config.SelectChipRaid
+				             or "Flame"
+				-- Garante que config e _G fiquem atualizados também
 				config.SelectChipRaid = chipFruit
+				_G.SelectedRaidChip   = chipFruit
 				-- Dispara o remote com os 3 argumentos corretos
 				local remotes = game:GetService("ReplicatedStorage"):FindFirstChild("Remotes")
 				if not remotes then return end
