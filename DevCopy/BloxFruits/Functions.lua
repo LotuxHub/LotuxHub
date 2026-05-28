@@ -2482,33 +2482,34 @@ function Functions.StartAutoRaid(config)
 				local hum  = char and char:FindFirstChildOfClass("Humanoid")
 				if not hrp or not hum or hum.Health <= 0 then return end
 
+				-- ---- GUARD: raid so comecou se o Timer da GUI estiver visivel ----
+				-- Timer aparece quando a raid esta ativa; sem ele o script nao faz nada
+				local timerGui = Player.PlayerGui:FindFirstChild("Main")
+				               and Player.PlayerGui.Main:FindFirstChild("Timer")
+				if not timerGui or not timerGui.Visible then
+					-- Raid ainda nao comecou: reseta estado e aguarda parado
+					DestroyRaidPart()
+					RemoveAnchor()
+					currentIslandNum = 0
+					atCenter         = false
+					return
+				end
+
 				-- ---- DETECAO DE NOVA ILHA ----
 				-- Pega o maior numero de ilha que existe (1..5)
 				-- Assim quando RaidIsland2 aparecer o script avanca pra ela
-				-- Exige que a ilha tenha pelo menos 1 descendente BasePart
-				-- para evitar falso positivo de container vazio antes da raid comecar
 				local highestIsland = nil
 				local highestNum    = 0
 				for i = 1, 5 do
 					local isl = GetRaidIsland(i)
 					if isl then
-						-- Confirma que a ilha tem conteudo (nao e container vazio)
-						local hasPart = false
-						for _, d in ipairs(isl:GetDescendants()) do
-							if d:IsA("BasePart") then hasPart = true; break end
-						end
-						if hasPart then
-							highestIsland = isl
-							highestNum    = i
-						end
+						highestIsland = isl
+						highestNum    = i
 					end
 				end
 
-				-- Nenhuma ilha existe ainda: raid nao comecou, nao faz nada
+				-- Raid comecou mas ilha ainda nao carregou: aguarda
 				if not highestIsland then
-					-- Nao ancora nem move: apenas aguarda a raid comecar
-					currentIslandNum = 0
-					atCenter         = false
 					return
 				end
 
@@ -6568,5 +6569,5 @@ _G.TTSI  = Functions.TravelToSubmergedIsland -- TravelToSubmergedIsland
 
 print("[LotuxHub] _G aliases carregados v2.5")
 
-print("[LotuxHub] Functions Updated Loaded v2.4.28")
+print("[LotuxHub] Functions Updated Loaded v2.4.50")
 return Functions
