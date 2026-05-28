@@ -526,6 +526,73 @@ function Functions.FlyToPosition(targetCF, tweenSvc, config, isTeleportingRef, n
     end
 end
 
+
+local _raidPart = nil  -- referencia unica ao PartTele da raid
+
+local function DestroyRaidPart()
+    if _raidPart and _raidPart.Parent then
+        _raidPart:Destroy()
+    end
+    _raidPart = nil
+end
+Functions.DestroyRaidPart = DestroyRaidPart
+
+function Functions.FlyToRaid(targetCF, config)
+    local char = Player.Character
+    local hrp  = char and char:FindFirstChild("HumanoidRootPart")
+    local hum  = char and char:FindFirstChildOfClass("Humanoid")
+    if not char or not hrp or not hum or hum.Health <= 0 then return end
+
+    local distance = (targetCF.Position - hrp.Position).Magnitude
+    if distance < 2 then return end
+
+    -- Reutiliza ou cria o PartTele da raid
+    if not (_raidPart and _raidPart.Parent) then
+        local pt        = Instance.new("Part")
+        pt.Size         = Vector3.new(10, 1, 10)
+        pt.Name         = "RaidPartTele"
+        pt.Anchored     = true
+        pt.Transparency = 1
+        pt.CanCollide   = false
+        pt.CFrame       = hrp.CFrame
+        pt.Parent       = workspace
+        _raidPart       = pt
+    else
+        _raidPart.CFrame = hrp.CFrame
+    end
+
+    local pt    = _raidPart
+    local speed = tonumber(config and config.FlySpeed) or 300
+    local dur   = math.clamp(distance / speed, 0.05, 60.0)
+
+    local tween = TweenService:Create(
+        pt,
+        TweenInfo.new(dur, Enum.EasingStyle.Linear),
+        { CFrame = targetCF }
+    )
+
+    local conn
+    conn = RunService.Heartbeat:Connect(function()
+        local c    = Player.Character
+        local cHrp = c and c:FindFirstChild("HumanoidRootPart")
+        if cHrp and pt and pt.Parent then
+            local _, yaw, _ = cHrp.CFrame:ToOrientation()
+            cHrp.CFrame = CFrame.new(pt.CFrame.Position) * CFrame.Angles(0, yaw, 0)
+        else
+            conn:Disconnect()
+        end
+    end)
+
+    tween:Play()
+    tween.Completed:Wait()
+    conn:Disconnect()
+
+    -- NAO destroi o pt aqui: o player fica suspenso no ar no ponto de chegada.
+    -- O Heartbeat acima so roda durante o tween; apos isso o BodyVelocity
+    -- do AnchorPlayer cuida de manter o player no ar.
+end
+
+
 --[[function Functions.FlyToPosition(targetCF, tweenSvc, config, isTeleportingRef, notAutoEquipRef)
     local char = Player.Character
     local hrp  = char and char:FindFirstChild("HumanoidRootPart")
@@ -2156,7 +2223,7 @@ function Functions.StartAutoRaid(config)
 	local _raidNoEquip = { value = false }
 
 	-- ==========================================
-	-- âï¸ SISTEMA DE VOO SEGURO (NÃO CAI AO CHEGAR)
+	-- SISTEMA DE VOO SEGURO (NAO CAI AO CHEGAR)
 	-- ==========================================
 	local function AnchorPlayer()
 		pcall(function()
@@ -2177,18 +2244,15 @@ function Functions.StartAutoRaid(config)
 		end)
 	end
 
-	-- Wrapper seguro: ancora ANTES do voo, mantendo no ar após o tween
+	-- Wrapper seguro: usa FlyToRaid (nao destroi PartTele) e ancora no ar ao chegar
 	local function SafeFlyTo(targetCF)
 		AnchorPlayer()
-		Functions.FlyToPosition(targetCF, TweenService, config, _raidIsTp, _raidNoEquip)
+		Functions.FlyToRaid(targetCF, config)
+		AnchorPlayer()
 	end
 
 	-- ==========================================
-	-- âï¸ BUSCA A ILHA MAIS PROXIMA DO PLAYER
-	-- ==========================================
-	-- ==========================================
-	-- BUSCA A ILHA MAIS PROXIMA DO PLAYER (CORRIGIDA)
-	-- Usa PrimaryPart com fallback para qualquer BasePart da ilha
+	-- HELPER: pivot da ilha (PrimaryPart ou primeira BasePart)
 	-- ==========================================
 	local function GetIslandPivotPos(island)
 		if island.PrimaryPart then return island.PrimaryPart.Position end
@@ -2198,41 +2262,87 @@ function Functions.StartAutoRaid(config)
 		return nil
 	end
 
-	local function GetNextRaidIsland()
+	-- ==========================================
+	-- HELPER: retorna a ilha de numero exato (nil se nao existir)
+	-- ==========================================
+	local function GetRaidIsland(n)
 		local map = workspace:FindFirstChild("Map")
 		local raidMap = map and map:FindFirstChild("RaidMap")
 		if not raidMap then return nil end
+		return raidMap:FindFirstChild("RaidIsland" .. n)
+	end
+
+	-- ==========================================
+	-- HELPER: mata mob normal (sem BringMob, para nao interferir na raid)
+	-- Destroi RaidPartTele antes de atacar para o player nao ficar preso no ar
+	-- ==========================================
+	local function KillMob(mob, centerPos)
+		local vHrp = mob:FindFirstChild("HumanoidRootPart")
+		local vHum = mob:FindFirstChild("Humanoid")
+		if not vHrp or not vHum or vHum.Health <= 0 then return end
+
+		RemoveAnchor()
+		DestroyRaidPart()  -- libera o player para voar normalmente ate o mob
 		local char = Player.Character
 		local hrp  = char and char:FindFirstChild("HumanoidRootPart")
-		local nearest, nearestDist = nil, math.huge
-		for i = 1, 5 do
-			local island = raidMap:FindFirstChild("RaidIsland" .. i)
-			if island and island:IsA("Model") then
-				local pos = GetIslandPivotPos(island)
-				if pos then
-					if hrp then
-						local d = (pos - hrp.Position).Magnitude
-						if d < nearestDist then
-							nearest, nearestDist = island, d
-						end
-					else
-						return island
-					end
-				end
-			end
+		if hrp and (vHrp.Position - hrp.Position).Magnitude > 60 then
+			Functions.FlyToRaid(
+				CFrame.new(vHrp.Position + Vector3.new(0, 30, 0)),
+				config
+			)
+			DestroyRaidPart()  -- chegou perto: destroi a part para atacar livremente
 		end
-		return nearest
+
+		repeat
+			task.wait(0.05)
+			if not config.AutoRaid then break end
+			Functions.AutoHaki()
+			Functions.EquipWeapon(config)
+			pcall(function()
+				vHrp.CanCollide = false
+				vHrp.Size = Vector3.new(50, 50, 50)
+				sethiddenproperty(Player, "SimulationRadius", math.huge)
+				VirtualUser:CaptureController()
+				VirtualUser:Button1Down(Vector2.new(1280, 672))
+			end)
+		until not mob.Parent
+			or not mob:FindFirstChild("Humanoid")
+			or mob.Humanoid.Health <= 0
+			or not config.AutoRaid
+	end
+
+	-- ==========================================
+	-- HELPER: kill aura instantanea no boss (ilha 5)
+	-- ==========================================
+	local function KillBossInstant(boss)
+		local bossHrp = boss:FindFirstChild("HumanoidRootPart")
+		local bossHum = boss:FindFirstChild("Humanoid")
+		if not bossHrp or not bossHum or bossHum.Health <= 0 then return end
+
+		RemoveAnchor()
+		DestroyRaidPart()  -- destroi a part antes do kill aura
+
+		repeat
+			task.wait(0.01)
+			pcall(function()
+				sethiddenproperty(Player, "SimulationRadius", math.huge)
+				bossHum.Health = 0
+				bossHrp.CanCollide = false
+				bossHrp.Size = Vector3.new(150, 150, 150)
+			end)
+		until not boss.Parent
+			or not boss:FindFirstChild("Humanoid")
+			or boss.Humanoid.Health <= 0
+			or not config.AutoRaid
 	end
 
 	-- ==========================================
 	-- LOOP: COMPRAR CHIP COM BELI (AutoBuyChipRaid)
-	-- Fluxo correto: Select -> Buy
 	-- ==========================================
 	task.spawn(function()
 		while task.wait(1) do
 			if not config.AutoBuyChipRaid then continue end
 			pcall(function()
-				-- _G.SelectedRaidChip pode vir como tabela da UI lib, extrai o valor correto
 				local rawChip = _G.SelectedRaidChip
 				local chipFruit
 				if type(rawChip) == "table" then
@@ -2246,43 +2356,29 @@ function Functions.StartAutoRaid(config)
 				config.SelectChipRaid = chipFruit
 				_G.SelectedRaidChip   = chipFruit
 
-				print("[BuyChip-Beli] Chip selecionado: " .. chipFruit)
-
-				-- Verifica se já tem chip
 				local hasChip = Player.Backpack:FindFirstChild("Special Microchip")
 				            or (Player.Character and Player.Character:FindFirstChild("Special Microchip"))
-				if hasChip then
-					print("[BuyChip-Beli] Já tem Special Microchip no inventário, pulando.")
-					return
-				end
+				if hasChip then return end
 
 				local remotes = game:GetService("ReplicatedStorage"):FindFirstChild("Remotes")
-				if not remotes then warn("[BuyChip-Beli] Remotes não encontrado!") return end
+				if not remotes then return end
 				local commF = remotes:FindFirstChild("CommF_")
-				if not commF then warn("[BuyChip-Beli] CommF_ não encontrado!") return end
+				if not commF then return end
 
-				-- 1. Select: escolhe a fruta do chip
-				print("[BuyChip-Beli] Enviando Select: " .. chipFruit)
-				local selectResult = commF:InvokeServer("RaidsNpc", "Select", chipFruit)
-				print("[BuyChip-Beli] Resultado Select: " .. tostring(selectResult))
+				commF:InvokeServer("RaidsNpc", "Select", chipFruit)
 				task.wait(0.5)
-				-- 2. Buy: compra com beli
-				print("[BuyChip-Beli] Enviando Buy...")
-				local buyResult = commF:InvokeServer("RaidsNpc", "Buy")
-				print("[BuyChip-Beli] Resultado Buy: " .. tostring(buyResult))
+				commF:InvokeServer("RaidsNpc", "Buy")
 			end)
 		end
 	end)
 
 	-- ==========================================
 	-- LOOP: COMPRAR CHIP COM FRUTA (AutoBuyChipDF)
-	-- Fluxo correto: Select -> BuyWithFruit
 	-- ==========================================
 	task.spawn(function()
 		while task.wait(1) do
 			if not _G.AutoBuyChipDF then continue end
 			pcall(function()
-				-- _G.SelectedRaidChip pode vir como tabela da UI lib, extrai o valor correto
 				local rawChip2 = _G.SelectedRaidChip
 				local chipFruit
 				if type(rawChip2) == "table" then
@@ -2296,36 +2392,24 @@ function Functions.StartAutoRaid(config)
 				config.SelectChipRaid = chipFruit
 				_G.SelectedRaidChip   = chipFruit
 
-				print("[BuyChip-Fruta] Chip selecionado: " .. chipFruit)
-
-				-- Verifica se já tem chip
 				local hasChip = Player.Backpack:FindFirstChild("Special Microchip")
 				            or (Player.Character and Player.Character:FindFirstChild("Special Microchip"))
-				if hasChip then
-					print("[BuyChip-Fruta] Já tem Special Microchip no inventário, pulando.")
-					return
-				end
+				if hasChip then return end
 
 				local remotes = game:GetService("ReplicatedStorage"):FindFirstChild("Remotes")
-				if not remotes then warn("[BuyChip-Fruta] Remotes não encontrado!") return end
+				if not remotes then return end
 				local commF = remotes:FindFirstChild("CommF_")
-				if not commF then warn("[BuyChip-Fruta] CommF_ não encontrado!") return end
+				if not commF then return end
 
-				-- 1. Select: escolhe a fruta do chip
-				print("[BuyChip-Fruta] Enviando Select: " .. chipFruit)
-				local selectResult = commF:InvokeServer("RaidsNpc", "Select", chipFruit)
-				print("[BuyChip-Fruta] Resultado Select: " .. tostring(selectResult))
+				commF:InvokeServer("RaidsNpc", "Select", chipFruit)
 				task.wait(0.5)
-				-- 2. BuyWithFruit: compra trocando uma fruta
-				print("[BuyChip-Fruta] Enviando BuyWithFruit...")
-				local buyResult = commF:InvokeServer("RaidsNpc", "BuyWithFruit")
-				print("[BuyChip-Fruta] Resultado BuyWithFruit: " .. tostring(buyResult))
+				commF:InvokeServer("RaidsNpc", "BuyWithFruit")
 			end)
 		end
 	end)
 
 	-- ==========================================
-	-- LOOP: INICIAR RAID (Corrigido para não cair no NPC)
+	-- LOOP: INICIAR RAID
 	-- ==========================================
 	task.spawn(function()
 		while task.wait(0.5) do
@@ -2337,17 +2421,16 @@ function Functions.StartAutoRaid(config)
 							or (Player.Character and Player.Character:FindFirstChild("Special Microchip"))
 				if not hasChip then return end
 
-				-- Verifica se já está em raid
 				local raidMap = workspace:FindFirstChild("Map") and workspace.Map:FindFirstChild("RaidMap")
 				if raidMap and raidMap:FindFirstChild("RaidIsland1") then return end
 
-				if World2 then -- Sea 2
+				if World2 then
 					local summonCF = CFrame.new(-6523.4746, 305.4380, -4741.3809)
 					SafeFlyTo(summonCF)
 					task.wait(0.5)
 					CF("SetSpawnPoint")
 					pcall(function() fireclickdetector(workspace.Map.CircleIsland.RaidSummon2.Button.Main.ClickDetector) end)
-				elseif World3 then -- Sea 3
+				elseif World3 then
 					CF("requestEntrance", Vector3.new(-5075.50927734375, 314.5155029296875, -3150.0224609375))
 					task.wait(0.5)
 					local summonCF = CFrame.new(-5017.40869, 314.844055, -2823.0127)
@@ -2361,113 +2444,138 @@ function Functions.StartAutoRaid(config)
 	end)
 
 	-- ==========================================
-	-- LOOP PRINCIPAL: FARM RAID
-	-- Logica: voa pro centro da ilha mais proxima -> ancora no ar
-	--         -> espera mob spawnar -> mata -> volta pro centro
-	--         -> quando aparecer ilha mais proxima diferente, vai pra ela
+	-- LOOP PRINCIPAL: FARM RAID (LOGICA CORRIGIDA)
+	--
+	-- Fluxo:
+	--  1. Detecta RaidIsland1 aparecendo -> voa pro centro (Y+60) -> ancora no ar
+	--  2. Espera mob spawnar em workspace.Enemies perto da ilha
+	--  3. Quando spawnar: voa ate ele (SEM BringMob) -> ataca 1 a 1 ate morrer
+	--  4. Mob morreu -> volta pro centro da ilha -> ancora -> aguarda proximo mob
+	--  5. Quando RaidIsland(n+1) aparecer: vai pra ela e repete
+	--  6. Na ilha 5: igual ilhas 1-4 MAIS kill aura instantanea no boss ao detectar
+	--     (nao detecta RaidIsland6 - para no 5)
 	-- ==========================================
 	task.spawn(function()
-		local _currentIsland = nil  -- ilha que o player esta atualmente
-		local _atCenter = false     -- flag: ja esta no centro da ilha
+		-- Numero da ilha que o script esta gerenciando (0 = nenhuma ainda)
+		local currentIslandNum = 0
+		local atCenter         = false
 
 		while task.wait(0.05) do
 			if not config.AutoRaid then
 				RemoveAnchor()
-				_currentIsland = nil
-				_atCenter = false
+				currentIslandNum = 0
+				atCenter         = false
 				continue
 			end
+
 			pcall(function()
 				local char = Player.Character
 				local hrp  = char and char:FindFirstChild("HumanoidRootPart")
 				local hum  = char and char:FindFirstChildOfClass("Humanoid")
 				if not hrp or not hum or hum.Health <= 0 then return end
 
-				-- Pega a ilha mais proxima do player
-				local nearestIsland = GetNextRaidIsland()
-
-				-- Se apareceu uma ilha diferente da atual, vai pro centro dela
-				if nearestIsland and nearestIsland ~= _currentIsland then
-					_currentIsland = nearestIsland
-					_atCenter = false
+				-- ---- DETECAO DE NOVA ILHA ----
+				-- Pega o maior numero de ilha que existe (1..5)
+				-- Assim quando RaidIsland2 aparecer o script avanca pra ela
+				local highestIsland = nil
+				local highestNum    = 0
+				for i = 1, 5 do
+					local isl = GetRaidIsland(i)
+					if isl then
+						highestIsland = isl
+						highestNum    = i
+					end
 				end
 
-				-- Se nao tem ilha, ancora e aguarda
-				if not _currentIsland then
+				-- Nenhuma ilha existe ainda: ancora e aguarda raid comecar
+				if not highestIsland then
 					AnchorPlayer()
+					currentIslandNum = 0
+					atCenter         = false
 					return
 				end
 
-				-- Usa PrimaryPart com fallback para qualquer BasePart (fix island sem PrimaryPart)
-				local centerPos = GetIslandPivotPos(_currentIsland)
-				if not centerPos then AnchorPlayer(); return end
-				local centerCF  = CFrame.new(centerPos.X, centerPos.Y + 60, centerPos.Z)
+				-- Avancou para nova ilha: reseta o centro
+				if highestNum ~= currentIslandNum then
+					currentIslandNum = highestNum
+					atCenter         = false
+					print("[AutoRaid] Avancando para RaidIsland" .. currentIslandNum)
+				end
 
-				-- Se ainda nao foi pro centro, voa ate la
-				if not _atCenter then
-					AnchorPlayer()
-					Functions.FlyToPosition(centerCF, TweenService, config, _raidIsTp, _raidNoEquip)
-					_atCenter = true
+				local island    = highestIsland
+				local centerPos = GetIslandPivotPos(island)
+				if not centerPos then AnchorPlayer(); return end
+
+				local centerCF = CFrame.new(centerPos.X, centerPos.Y + 60, centerPos.Z)
+
+				-- ---- AINDA NAO FOI AO CENTRO: voa ate la ----
+				if not atCenter then
+					SafeFlyTo(centerCF)
+					atCenter = true
+					print("[AutoRaid] Posicionado no centro da RaidIsland" .. currentIslandNum)
 					return
 				end
 
 				local enemies = workspace:FindFirstChild("Enemies")
 
-				-- 1. BOSS: kill aura instantanea (sempre, em qualquer ilha)
-				if enemies then
+				-- ---- ILHA 5: BOSS (kill aura) tem prioridade, depois mobs normais ----
+				if currentIslandNum == 5 and enemies then
+					-- Prioridade 1: boss instantaneo
 					for _, v in ipairs(enemies:GetChildren()) do
+						if not config.AutoRaid then return end
 						if RAID_BOSS_SET[v.Name] or v.Name:find("%[Raid Boss%]") then
-							if v:FindFirstChild("Humanoid") and v:FindFirstChild("HumanoidRootPart") and v.Humanoid.Health > 0 then
-								RemoveAnchor()
-								local bossHrp = v.HumanoidRootPart
-								local bossHum = v.Humanoid
-								if Functions._flyCancel then Functions._flyCancel() end
-								repeat task.wait(0.01)
-									pcall(function()
-										sethiddenproperty(Player, "SimulationRadius", math.huge)
-										bossHum.Health = 0
-										bossHrp.CanCollide = false
-										bossHrp.Size = Vector3.new(150, 150, 150)
-									end)
-								until not v.Parent or not v:FindFirstChild("Humanoid") or v.Humanoid.Health <= 0 or not config.AutoRaid
-								_atCenter = false
+							local vHum = v:FindFirstChild("Humanoid")
+							local vHrp = v:FindFirstChild("HumanoidRootPart")
+							if vHrp and vHum and vHum.Health > 0 then
+								print("[AutoRaid] Boss na ilha 5: " .. v.Name .. " - kill aura!")
+								KillBossInstant(v)
+								atCenter = false
 								return
 							end
 						end
 					end
-				end
-
-				-- 2. MOBS NORMAIS: todas as ilhas incluindo ilha 5
-				if enemies then
+					-- Prioridade 2: mobs normais da ilha 5
 					for _, v in ipairs(enemies:GetChildren()) do
-						if not config.AutoRaid then break end
+						if not config.AutoRaid then return end
 						local vHrp = v:FindFirstChild("HumanoidRootPart")
 						local vHum = v:FindFirstChild("Humanoid")
-						if vHrp and vHum and vHum.Health > 0 and (vHrp.Position - centerPos).Magnitude <= 2500 then
-							RemoveAnchor()
-							if (vHrp.Position - hrp.Position).Magnitude > 60 then
-								Functions.FlyToPosition(vHrp.CFrame * CFrame.new(0, 30, 0), TweenService, config, _raidIsTp, _raidNoEquip)
-							end
-							repeat task.wait(0.05)
-								if not config.AutoRaid then break end
-								Functions.AutoHaki()
-								Functions.EquipWeapon(config)
-								pcall(function()
-									vHrp.CanCollide = false
-									vHrp.Size = Vector3.new(50, 50, 50)
-									sethiddenproperty(Player, "SimulationRadius", math.huge)
-									VirtualUser:CaptureController()
-									VirtualUser:Button1Down(Vector2.new(1280, 672))
-								end)
-							until not v.Parent or not v:FindFirstChild("Humanoid") or v.Humanoid.Health <= 0 or not config.AutoRaid
-							_atCenter = false
+						if vHrp and vHum and vHum.Health > 0
+							and not (RAID_BOSS_SET[v.Name] or v.Name:find("%[Raid Boss%]"))
+							and (vHrp.Position - centerPos).Magnitude <= 2500
+						then
+							print("[AutoRaid] Mob na ilha 5: " .. v.Name)
+							KillMob(v, centerPos)
+							atCenter = false
 							return
 						end
 					end
 				end
 
-				-- 3. SEM MOBS: ancora no ar no centro e aguarda
-				AnchorPlayer()
+				-- ---- ILHAS 1-4: apenas mobs normais ----
+				if currentIslandNum >= 1 and currentIslandNum <= 4 and enemies then
+					for _, v in ipairs(enemies:GetChildren()) do
+						if not config.AutoRaid then return end
+						local vHrp = v:FindFirstChild("HumanoidRootPart")
+						local vHum = v:FindFirstChild("Humanoid")
+						if vHrp and vHum and vHum.Health > 0
+							and (vHrp.Position - centerPos).Magnitude <= 2500
+						then
+							print("[AutoRaid] Mob na ilha " .. currentIslandNum .. ": " .. v.Name)
+							KillMob(v, centerPos)
+							atCenter = false
+							return
+						end
+					end
+				end
+
+				-- ---- SEM MOBS/BOSS: se saiu do centro, volta; senao ancora e aguarda ----
+				local distToCenter = (hrp.Position - centerCF.Position).Magnitude
+				if distToCenter > 80 then
+					SafeFlyTo(centerCF)
+					atCenter = true
+				else
+					AnchorPlayer()
+				end
 			end)
 		end
 	end)
@@ -6443,5 +6551,5 @@ _G.TTSI  = Functions.TravelToSubmergedIsland -- TravelToSubmergedIsland
 
 print("[LotuxHub] _G aliases carregados v2.5")
 
-print("[LotuxHub] Functions Updated Loaded v2.4.28")
+print("[LotuxHub] Functions Updated Loaded v2.4.30")
 return Functions
