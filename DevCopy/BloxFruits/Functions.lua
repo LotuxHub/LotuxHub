@@ -6614,5 +6614,5 @@ _G.USESP = Functions.UpdateSeaBeastESP   -- UpdateSeaBeastESP
 _G.TTSI  = Functions.TravelToSubmergedIsland -- TravelToSubmergedIsland
 
 print("[LotuxHub] aliases carregados")
-print("[LotuxHub] Functions Updated Loaded v2.4.60")
+print("[LotuxHub] Functions Updated Loaded v2.4.64")
 return Functions
