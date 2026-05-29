@@ -2432,14 +2432,72 @@ function Functions.StartAutoRaid(config)
 	end)
 
 	-- ==========================================
+	-- DETECCAO DE SEA (corrige World2/World3 undefined)
+	-- ==========================================
+	local _raidSea = Functions.DetectCurrentSea()
+	local World2   = (_raidSea == 2)
+	local World3   = (_raidSea == 3)
+
+	-- ==========================================
+	-- DETECCAO DE RAID ATIVA via xisd/PortalEffects
+	-- BUG CORRIGIDO: _raidActive declarado ANTES do hook.
+	-- BUG CORRIGIDO: No BF o CLIENT chama InvokeServer (nao o servidor).
+	-- Hookamos InvokeServer via metatable para detectar quando o
+	-- jogo dispara o remote de TP/portal (arg1="FX", arg2="PortalEffects").
+	-- ==========================================
+	local _raidActive = false  -- DEVE ser declarado antes do hook abaixo
+
+	pcall(function()
+		local Remotes = game:GetService("ReplicatedStorage"):WaitForChild("Remotes", 10)
+		if not Remotes then return end
+		local xisd = Remotes:FindFirstChild("xisd")
+		if not xisd then
+			-- Aguarda o remote aparecer (carrega depois do join)
+			xisd = Remotes:WaitForChild("xisd", 15)
+		end
+		if not xisd then
+			warn("[AutoRaid] xisd nao encontrado em Remotes - deteccao de raid pode falhar")
+			return
+		end
+
+		-- O BF dispara: xisd:InvokeServer("FX", "PortalEffects") quando o portal abre.
+		-- Hookamos InvokeServer para interceptar essa chamada do CLIENT.
+		local originalInvoke = xisd.InvokeServer
+		xisd.InvokeServer = function(self, arg1, arg2, ...)
+			if arg1 == "FX" and arg2 == "PortalEffects" then
+				_raidActive = true
+				print("[AutoRaid] PortalEffects detectado via xisd:InvokeServer - raid ativa!")
+			end
+			return originalInvoke(self, arg1, arg2, ...)
+		end
+
+		print("[AutoRaid] Hook xisd:InvokeServer instalado com sucesso")
+	end)
+
+	-- IsRaidActive: usa _raidActive (xisd) como fonte principal.
+	-- Fallback: verifica se RaidIsland1 ja existe no mapa
+	-- (significa que o TP ja aconteceu mesmo que o hook nao pegou).
+	local function IsRaidActive()
+		if _raidActive then return true end
+		-- Fallback 1: ilha de raid ja esta no workspace
+		local raidMap = workspace:FindFirstChild("Map") and workspace.Map:FindFirstChild("RaidMap")
+		if raidMap and (raidMap:FindFirstChild("RaidIsland1") or raidMap:FindFirstChild("RaidIsland2")) then
+			_raidActive = true  -- seta para nao recalcular toda iteracao
+			return true
+		end
+		return false
+	end
+
+	-- ==========================================
 	-- LOOP: INICIAR RAID
 	-- ==========================================
 	task.spawn(function()
 		while task.wait(0.5) do
 			if not config.AutoStartRaid then continue end
 			pcall(function()
-				local timerGui = Player.PlayerGui.Main and Player.PlayerGui.Main:FindFirstChild("Timer")
-				if timerGui and timerGui.Visible then return end
+				-- Nao inicia se raid ja esta ativa
+				if IsRaidActive() then return end
+
 				local hasChip = Player.Backpack:FindFirstChild("Special Microchip")
 							or (Player.Character and Player.Character:FindFirstChild("Special Microchip"))
 				if not hasChip then return end
@@ -2447,13 +2505,16 @@ function Functions.StartAutoRaid(config)
 				local raidMap = workspace:FindFirstChild("Map") and workspace.Map:FindFirstChild("RaidMap")
 				if raidMap and raidMap:FindFirstChild("RaidIsland1") then return end
 
-				if World2 then
+				-- Re-detecta sea a cada tentativa (caso tenha trocado de servidor)
+				local sea = Functions.DetectCurrentSea()
+
+				if sea == 2 then
 					local summonCF = CFrame.new(-6523.4746, 305.4380, -4741.3809)
 					SafeFlyTo(summonCF)
 					task.wait(0.5)
 					CF("SetSpawnPoint")
 					pcall(function() fireclickdetector(workspace.Map.CircleIsland.RaidSummon2.Button.Main.ClickDetector) end)
-				elseif World3 then
+				elseif sea == 3 then
 					CF("requestEntrance", Vector3.new(-5075.50927734375, 314.5155029296875, -3150.0224609375))
 					task.wait(0.5)
 					local summonCF = CFrame.new(-5017.40869, 314.844055, -2823.0127)
@@ -2465,36 +2526,6 @@ function Functions.StartAutoRaid(config)
 			end)
 		end
 	end)
-
-	-- ==========================================
-	-- LISTENER: detecta o evento xisd/PortalEffects que sinaliza
-	-- o TP para a ilha, marcando a raid como ativa.
-	-- Isso e mais confiavel que checar o Timer da GUI.
-	-- ==========================================
-	local _raidActive = false
-
-	pcall(function()
-		local xisd = game:GetService("ReplicatedStorage"):WaitForChild("Remotes", 5)
-		           and game:GetService("ReplicatedStorage").Remotes:FindFirstChild("xisd")
-		if xisd then
-			-- OnClientInvoke: dispara quando o servidor chama xisd no client (TP/portal)
-			xisd.OnClientInvoke = function(arg1, arg2)
-				if arg1 == "FX" and arg2 == "PortalEffects" then
-					_raidActive = true
-					print("[AutoRaid] PortalEffects detectado - raid ativa!")
-				end
-			end
-		end
-	end)
-
-	-- Fallback: tambem aceita Timer visivel como sinal de raid ativa
-	-- (para compatibilidade caso o xisd nao dispare no client)
-	local function IsRaidActive()
-		if _raidActive then return true end
-		local timerGui = Player.PlayerGui:FindFirstChild("Main")
-		               and Player.PlayerGui.Main:FindFirstChild("Timer")
-		return timerGui and timerGui.Visible or false
-	end
 
 	-- ==========================================
 	-- LOOP PRINCIPAL: FARM RAID
@@ -2516,15 +2547,25 @@ function Functions.StartAutoRaid(config)
 
 			_G._raidRunning = true
 
-			-- Raid terminou (timer sumiu): reseta flag
+			-- Raid terminou: nenhuma ilha no mapa = raid encerrada
+			-- (nao depende mais do Timer da GUI que era unreliable)
 			if _raidActive then
-				local timerGui = Player.PlayerGui:FindFirstChild("Main")
-				               and Player.PlayerGui.Main:FindFirstChild("Timer")
-				if not timerGui or not timerGui.Visible then
+				local raidMap = workspace:FindFirstChild("Map") and workspace.Map:FindFirstChild("RaidMap")
+				local hasAnyIsland = false
+				if raidMap then
+					for i = 1, 5 do
+						if raidMap:FindFirstChild("RaidIsland" .. i) then
+							hasAnyIsland = true
+							break
+						end
+					end
+				end
+				if not hasAnyIsland then
 					_raidActive      = false
 					_G._raidRunning  = false
 					currentIslandNum = 0
 					atCenter         = false
+					print("[AutoRaid] Raid encerrada - nenhuma ilha no mapa")
 				end
 			end
 
@@ -6613,5 +6654,5 @@ _G.USESP = Functions.UpdateSeaBeastESP   -- UpdateSeaBeastESP
 _G.TTSI  = Functions.TravelToSubmergedIsland -- TravelToSubmergedIsland
 
 print("[LotuxHub] aliases carregados")
-print("[LotuxHub] Functions Updated Loaded v2.4.65")
+print("[LotuxHub] Functions Updated Loaded v2.4.70")
 return Functions
