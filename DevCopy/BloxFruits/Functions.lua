@@ -1161,10 +1161,6 @@ function Functions.FastAttack(targetMob, config, notAutoEquipRef)
         return
     end
 
-    for _mt,b in pairs(Workspace.Enemies:GetChildren())do
-    b:SetPrimaryPartCFrame(Workspace.Enemies:GetChildren()[1].PrimaryPart.CFrame)
-    end
-
     -- Metodo 4: VirtualUser Button1Down (fallback)
     pcall(function()
         VirtualUser:CaptureController()
@@ -1189,9 +1185,6 @@ function Functions.FastAttackAdvanced()
                     end
                 end)
             end)
-        end
-        for _mt,b in pairs(Workspace.Enemies:GetChildren())do
-            b:SetPrimaryPartCFrame(Workspace.Enemies:GetChildren()[1].PrimaryPart.CFrame)
         end
         while task.wait(0.05) do
             pcall(function()
@@ -2213,6 +2206,7 @@ function Functions.StartAutoFactory(config)
 end
 
 function Functions.StartAutoRaid(config)
+	_G._currentConfig = config  -- expoe config globalmente (usado pelo BringMobFunc guard)
 	-- ==========================================
 	-- LISTA COMPLETA DE BOSSES DE RAID
 	-- ==========================================
@@ -2473,28 +2467,62 @@ function Functions.StartAutoRaid(config)
 	end)
 
 	-- ==========================================
-	-- LOOP PRINCIPAL: FARM RAID (LOGICA CORRIGIDA)
-	--
-	-- Fluxo:
-	--  1. Detecta RaidIsland1 aparecendo -> voa pro centro (Y+60) -> ancora no ar
-	--  2. Espera mob spawnar em workspace.Enemies perto da ilha
-	--  3. Quando spawnar: voa ate ele (SEM BringMob) -> ataca 1 a 1 ate morrer
-	--  4. Mob morreu -> volta pro centro da ilha -> ancora -> aguarda proximo mob
-	--  5. Quando RaidIsland(n+1) aparecer: vai pra ela e repete
-	--  6. Na ilha 5: igual ilhas 1-4 MAIS kill aura instantanea no boss ao detectar
-	--     (nao detecta RaidIsland6 - para no 5)
+	-- LISTENER: detecta o evento xisd/PortalEffects que sinaliza
+	-- o TP para a ilha, marcando a raid como ativa.
+	-- Isso e mais confiavel que checar o Timer da GUI.
+	-- ==========================================
+	local _raidActive = false
+
+	pcall(function()
+		local xisd = game:GetService("ReplicatedStorage"):WaitForChild("Remotes", 5)
+		           and game:GetService("ReplicatedStorage").Remotes:FindFirstChild("xisd")
+		if xisd then
+			-- OnClientInvoke: dispara quando o servidor chama xisd no client (TP/portal)
+			xisd.OnClientInvoke = function(arg1, arg2)
+				if arg1 == "FX" and arg2 == "PortalEffects" then
+					_raidActive = true
+					print("[AutoRaid] PortalEffects detectado - raid ativa!")
+				end
+			end
+		end
+	end)
+
+	-- Fallback: tambem aceita Timer visivel como sinal de raid ativa
+	-- (para compatibilidade caso o xisd nao dispare no client)
+	local function IsRaidActive()
+		if _raidActive then return true end
+		local timerGui = Player.PlayerGui:FindFirstChild("Main")
+		               and Player.PlayerGui.Main:FindFirstChild("Timer")
+		return timerGui and timerGui.Visible or false
+	end
+
+	-- ==========================================
+	-- LOOP PRINCIPAL: FARM RAID
 	-- ==========================================
 	task.spawn(function()
-		-- Numero da ilha que o script esta gerenciando (0 = nenhuma ainda)
 		local currentIslandNum = 0
 		local atCenter         = false
 
 		while task.wait(0.05) do
 			if not config.AutoRaid then
 				RemoveAnchor()
+				DestroyRaidPart()
 				currentIslandNum = 0
 				atCenter         = false
+				_raidActive      = false  -- reseta flag ao desligar
 				continue
+			end
+
+			-- Raid terminou (timer sumiu e portal nao disparou de novo): reseta flag
+			if _raidActive then
+				local timerGui = Player.PlayerGui:FindFirstChild("Main")
+				               and Player.PlayerGui.Main:FindFirstChild("Timer")
+				if not timerGui or not timerGui.Visible then
+					_raidActive      = false
+					currentIslandNum = 0
+					atCenter         = false
+					print("[AutoRaid] Raid terminou - aguardando proxima.")
+				end
 			end
 
 			pcall(function()
@@ -2503,12 +2531,9 @@ function Functions.StartAutoRaid(config)
 				local hum  = char and char:FindFirstChildOfClass("Humanoid")
 				if not hrp or not hum or hum.Health <= 0 then return end
 
-				-- ---- GUARD: raid so comecou se o Timer da GUI estiver visivel ----
-				-- Timer aparece quando a raid esta ativa; sem ele o script nao faz nada
-				local timerGui = Player.PlayerGui:FindFirstChild("Main")
-				               and Player.PlayerGui.Main:FindFirstChild("Timer")
-				if not timerGui or not timerGui.Visible then
-					-- Raid ainda nao comecou: reseta estado e aguarda parado
+				-- ---- GUARD: aguarda a raid comecar (evento xisd ou Timer visivel) ----
+				if not IsRaidActive() then
+					-- Raid ainda nao comecou: nao faz nada
 					DestroyRaidPart()
 					RemoveAnchor()
 					currentIslandNum = 0
@@ -5218,6 +5243,8 @@ _G.BringPos = CFrame.new(0, 0, 0)
 
 -- BringMob - Trazer mobs para perto
 function Functions.BringMobFunc(mob, targetCFrame)
+    -- Guard: nunca executa bring durante raid
+    if _G._currentConfig and _G._currentConfig.AutoRaid then return end
     if not mob or not mob.Parent then return end
     
     local mobHrp = mob:FindFirstChild("HumanoidRootPart")
