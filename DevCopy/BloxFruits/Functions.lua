@@ -1170,67 +1170,105 @@ end
 
 function Functions.FastAttackAdvanced()
     task.spawn(function()
+        -- Descobre o RemoteEvent com Id (usado pelo anti-cheat do BF para validar hits)
         local remote, idremote
-        for _, v in next, {ReplicatedStorage.Util, ReplicatedStorage.Common,
-                            ReplicatedStorage.Remotes, ReplicatedStorage.Assets, ReplicatedStorage.FX} do
+        local function scanForRemote(container)
             pcall(function()
-                for _, n in next, v:GetChildren() do
+                for _, n in next, container:GetChildren() do
                     if n:IsA("RemoteEvent") and n:GetAttribute("Id") then
                         remote, idremote = n, n:GetAttribute("Id")
                     end
                 end
-                v.ChildAdded:Connect(function(n)
+                container.ChildAdded:Connect(function(n)
                     if n:IsA("RemoteEvent") and n:GetAttribute("Id") then
                         remote, idremote = n, n:GetAttribute("Id")
                     end
                 end)
             end)
         end
-        while task.wait(0.05) do
+        for _, v in next, {ReplicatedStorage.Util, ReplicatedStorage.Common,
+                            ReplicatedStorage.Remotes, ReplicatedStorage.Assets, ReplicatedStorage.FX} do
+            scanForRemote(v)
+        end
+
+        -- =====================================================
+        -- LOOP PRINCIPAL: 0.02s = ~50 hits/seg em todos os
+        -- alvos proximos de uma vez so (1 RegisterHit = todos)
+        -- =====================================================
+        while task.wait(0.02) do
             pcall(function()
                 local char = Player.Character
                 local root = char and char:FindFirstChild("HumanoidRootPart")
                 if not root then return end
-                local parts = {}
-                for _, x in ipairs({workspace.Enemies, workspace.Characters}) do
-                    for _, v in ipairs(x and x:GetChildren() or {}) do
+
+                -- Coleta TODOS os alvos vivos no raio (NPCs + players inimigos)
+                -- Cada entrada e {model, BasePart} — o BF aceita qualquer BasePart como hitbox
+                local parts   = {}
+                local firstHead = nil
+
+                local containers = {}
+                if workspace:FindFirstChild("Enemies")    then table.insert(containers, workspace.Enemies)    end
+                if workspace:FindFirstChild("Characters") then table.insert(containers, workspace.Characters) end
+
+                for _, x in ipairs(containers) do
+                    for _, v in ipairs(x:GetChildren()) do
+                        if v == char then continue end
                         local hrp = v:FindFirstChild("HumanoidRootPart")
                         local hum = v:FindFirstChild("Humanoid")
-                        if v ~= char and hrp and hum and hum.Health > 0
-                           and (hrp.Position - root.Position).Magnitude <= 60 then
-                            for _, _v in ipairs(v:GetChildren()) do
-                                if _v:IsA("BasePart") then
-                                    parts[#parts+1] = {v, _v}
-                                end
+                        if not hrp or not hum or hum.Health <= 0 then continue end
+                        if (hrp.Position - root.Position).Magnitude > 80 then continue end
+
+                        -- Usa Head como parte principal; fallback = HumanoidRootPart
+                        local head = v:FindFirstChild("Head") or hrp
+                        if not firstHead then firstHead = head end
+
+                        -- Adiciona todas as BaseParts do modelo (maximiza area de hit)
+                        for _, bp in ipairs(v:GetDescendants()) do
+                            if bp:IsA("BasePart") then
+                                parts[#parts + 1] = {v, bp}
                             end
                         end
                     end
                 end
-                local tool = char:FindFirstChildOfClass("Tool")
-                if #parts > 0 and tool
-                   and (tool:GetAttribute("WeaponType") == "Melee"
-                     or tool:GetAttribute("WeaponType") == "Sword") then
-                    local Net = ReplicatedStorage.Modules.Net
+
+                if #parts == 0 or not firstHead then return end
+
+                -- Dispara VirtualUser para animar o click no cliente
+                pcall(function()
+                    VirtualUser:CaptureController()
+                    VirtualUser:Button1Down(Vector2.new(1280, 672))
+                end)
+
+                -- Envia RegisterAttack + RegisterHit com TODOS os alvos de uma vez
+                local Net = ReplicatedStorage:FindFirstChild("Modules") and ReplicatedStorage.Modules:FindFirstChild("Net")
+                if not Net then return end
+
+                local attackOk = pcall(function()
+                    Net["RE/RegisterAttack"]:FireServer(0)
+                end)
+                if not attackOk then return end
+
+                pcall(function()
+                    Net["RE/RegisterHit"]:FireServer(
+                        firstHead,
+                        parts,
+                        {},
+                        tostring(Player.UserId):sub(2,4) .. tostring(coroutine.running()):sub(11,15)
+                    )
+                end)
+
+                -- Token anti-cheat secundario (quando disponivel)
+                if remote and idremote then
                     pcall(function()
-                        Net["RE/RegisterAttack"]:FireServer()
-                        local head = parts[1][1]:FindFirstChild("Head")
-                        if not head then return end
-                        Net["RE/RegisterHit"]:FireServer(
-                            head, parts, {},
-                            tostring(Player.UserId):sub(2,4) .. tostring(coroutine.running()):sub(11,15)
+                        cloneref(remote):FireServer(
+                            string.gsub("RE/RegisterHit", ".", function(c)
+                                return string.char(bit32.bxor(string.byte(c),
+                                    math.floor(workspace:GetServerTimeNow() / 10 % 10) + 1))
+                            end),
+                            bit32.bxor(idremote + 909090, Net.seed:InvokeServer() * 2),
+                            firstHead,
+                            parts
                         )
-                        if remote and idremote then
-                            pcall(function()
-                                cloneref(remote):FireServer(
-                                    string.gsub("RE/RegisterHit", ".", function(c)
-                                        return string.char(bit32.bxor(string.byte(c),
-                                            math.floor(workspace:GetServerTimeNow()/10%10)+1))
-                                    end),
-                                    bit32.bxor(idremote+909090, Net.seed:InvokeServer()*2),
-                                    head, parts
-                                )
-                            end)
-                        end
                     end)
                 end
             end)
@@ -2432,72 +2470,14 @@ function Functions.StartAutoRaid(config)
 	end)
 
 	-- ==========================================
-	-- DETECCAO DE SEA (corrige World2/World3 undefined)
-	-- ==========================================
-	local _raidSea = Functions.DetectCurrentSea()
-	local World2   = (_raidSea == 2)
-	local World3   = (_raidSea == 3)
-
-	-- ==========================================
-	-- DETECCAO DE RAID ATIVA via xisd/PortalEffects
-	-- BUG CORRIGIDO: _raidActive declarado ANTES do hook.
-	-- BUG CORRIGIDO: No BF o CLIENT chama InvokeServer (nao o servidor).
-	-- Hookamos InvokeServer via metatable para detectar quando o
-	-- jogo dispara o remote de TP/portal (arg1="FX", arg2="PortalEffects").
-	-- ==========================================
-	local _raidActive = false  -- DEVE ser declarado antes do hook abaixo
-
-	pcall(function()
-		local Remotes = game:GetService("ReplicatedStorage"):WaitForChild("Remotes", 10)
-		if not Remotes then return end
-		local xisd = Remotes:FindFirstChild("xisd")
-		if not xisd then
-			-- Aguarda o remote aparecer (carrega depois do join)
-			xisd = Remotes:WaitForChild("xisd", 15)
-		end
-		if not xisd then
-			warn("[AutoRaid] xisd nao encontrado em Remotes - deteccao de raid pode falhar")
-			return
-		end
-
-		-- O BF dispara: xisd:InvokeServer("FX", "PortalEffects") quando o portal abre.
-		-- Hookamos InvokeServer para interceptar essa chamada do CLIENT.
-		local originalInvoke = xisd.InvokeServer
-		xisd.InvokeServer = function(self, arg1, arg2, ...)
-			if arg1 == "FX" and arg2 == "PortalEffects" then
-				_raidActive = true
-				print("[AutoRaid] PortalEffects detectado via xisd:InvokeServer - raid ativa!")
-			end
-			return originalInvoke(self, arg1, arg2, ...)
-		end
-
-		print("[AutoRaid] Hook xisd:InvokeServer instalado com sucesso")
-	end)
-
-	-- IsRaidActive: usa _raidActive (xisd) como fonte principal.
-	-- Fallback: verifica se RaidIsland1 ja existe no mapa
-	-- (significa que o TP ja aconteceu mesmo que o hook nao pegou).
-	local function IsRaidActive()
-		if _raidActive then return true end
-		-- Fallback 1: ilha de raid ja esta no workspace
-		local raidMap = workspace:FindFirstChild("Map") and workspace.Map:FindFirstChild("RaidMap")
-		if raidMap and (raidMap:FindFirstChild("RaidIsland1") or raidMap:FindFirstChild("RaidIsland2")) then
-			_raidActive = true  -- seta para nao recalcular toda iteracao
-			return true
-		end
-		return false
-	end
-
-	-- ==========================================
 	-- LOOP: INICIAR RAID
 	-- ==========================================
 	task.spawn(function()
 		while task.wait(0.5) do
 			if not config.AutoStartRaid then continue end
 			pcall(function()
-				-- Nao inicia se raid ja esta ativa
-				if IsRaidActive() then return end
-
+				local timerGui = Player.PlayerGui.Main and Player.PlayerGui.Main:FindFirstChild("Timer")
+				if timerGui and timerGui.Visible then return end
 				local hasChip = Player.Backpack:FindFirstChild("Special Microchip")
 							or (Player.Character and Player.Character:FindFirstChild("Special Microchip"))
 				if not hasChip then return end
@@ -2505,16 +2485,13 @@ function Functions.StartAutoRaid(config)
 				local raidMap = workspace:FindFirstChild("Map") and workspace.Map:FindFirstChild("RaidMap")
 				if raidMap and raidMap:FindFirstChild("RaidIsland1") then return end
 
-				-- Re-detecta sea a cada tentativa (caso tenha trocado de servidor)
-				local sea = Functions.DetectCurrentSea()
-
-				if sea == 2 then
+				if World2 then
 					local summonCF = CFrame.new(-6523.4746, 305.4380, -4741.3809)
 					SafeFlyTo(summonCF)
 					task.wait(0.5)
 					CF("SetSpawnPoint")
 					pcall(function() fireclickdetector(workspace.Map.CircleIsland.RaidSummon2.Button.Main.ClickDetector) end)
-				elseif sea == 3 then
+				elseif World3 then
 					CF("requestEntrance", Vector3.new(-5075.50927734375, 314.5155029296875, -3150.0224609375))
 					task.wait(0.5)
 					local summonCF = CFrame.new(-5017.40869, 314.844055, -2823.0127)
@@ -2526,6 +2503,52 @@ function Functions.StartAutoRaid(config)
 			end)
 		end
 	end)
+
+	-- ==========================================
+	-- FLAG: _portalFired = true somente quando o xisd
+	-- dispara "FX"/"PortalEffects", confirmando que o
+	-- servidor fez o TP do player para a ilha da raid.
+	-- So depois disso o loop de farm começa a matar mobs.
+	-- ==========================================
+	local _portalFired = false  -- DEVE ser declarado antes do hook abaixo
+
+	pcall(function()
+		local Remotes = game:GetService("ReplicatedStorage"):WaitForChild("Remotes", 10)
+		if not Remotes then return end
+		local xisd = Remotes:FindFirstChild("xisd") or Remotes:WaitForChild("xisd", 15)
+		if not xisd then
+			warn("[AutoRaid] xisd nao encontrado — farm so comeca quando RaidIsland1 aparecer")
+			return
+		end
+		-- Hook em InvokeServer: e o CLIENT que chama InvokeServer("FX","PortalEffects")
+		-- quando o portal abre, nao o servidor chamando o client.
+		local _origInvoke = xisd.InvokeServer
+		xisd.InvokeServer = function(self, arg1, arg2, ...)
+			if arg1 == "FX" and arg2 == "PortalEffects" then
+				_portalFired = true
+				print("[AutoRaid] xisd PortalEffects detectado — player foi teleportado para a ilha!")
+			end
+			return _origInvoke(self, arg1, arg2, ...)
+		end
+		print("[AutoRaid] Hook xisd:InvokeServer instalado")
+	end)
+
+	-- Retorna true somente apos o portal ter sido disparado
+	-- (confirma que o TP aconteceu de verdade).
+	-- Fallback: se o hook nao pegou mas RaidIsland1 ja existe = estamos la.
+	local function PortalConfirmed()
+		if _portalFired then return true end
+		local raidMap = workspace:FindFirstChild("Map") and workspace.Map:FindFirstChild("RaidMap")
+		if raidMap then
+			for i = 1, 5 do
+				if raidMap:FindFirstChild("RaidIsland" .. i) then
+					_portalFired = true  -- cache para nao recalcular
+					return true
+				end
+			end
+		end
+		return false
+	end
 
 	-- ==========================================
 	-- LOOP PRINCIPAL: FARM RAID
@@ -2541,31 +2564,27 @@ function Functions.StartAutoRaid(config)
 				DestroyRaidPart()
 				currentIslandNum = 0
 				atCenter         = false
-				_raidActive      = false
+				_portalFired     = false
 				continue
 			end
 
 			_G._raidRunning = true
 
-			-- Raid terminou: nenhuma ilha no mapa = raid encerrada
-			-- (nao depende mais do Timer da GUI que era unreliable)
-			if _raidActive then
+			-- Raid encerrou: nenhuma RaidIsland no mapa = reseta tudo
+			if _portalFired then
 				local raidMap = workspace:FindFirstChild("Map") and workspace.Map:FindFirstChild("RaidMap")
-				local hasAnyIsland = false
+				local hasIsland = false
 				if raidMap then
 					for i = 1, 5 do
-						if raidMap:FindFirstChild("RaidIsland" .. i) then
-							hasAnyIsland = true
-							break
-						end
+						if raidMap:FindFirstChild("RaidIsland" .. i) then hasIsland = true; break end
 					end
 				end
-				if not hasAnyIsland then
-					_raidActive      = false
+				if not hasIsland then
+					_portalFired     = false
 					_G._raidRunning  = false
 					currentIslandNum = 0
 					atCenter         = false
-					print("[AutoRaid] Raid encerrada - nenhuma ilha no mapa")
+					print("[AutoRaid] Raid encerrada (ilhas removidas)")
 				end
 			end
 
@@ -2575,8 +2594,8 @@ function Functions.StartAutoRaid(config)
 				local hum  = char and char:FindFirstChildOfClass("Humanoid")
 				if not hrp or not hum or hum.Health <= 0 then return end
 
-				-- Aguarda raid comecar
-				if not IsRaidActive() then
+				-- So começa a farmar DEPOIS que o portal TP aconteceu
+				if not PortalConfirmed() then
 					DestroyRaidPart()
 					RemoveAnchor()
 					currentIslandNum = 0
@@ -2608,14 +2627,21 @@ function Functions.StartAutoRaid(config)
 				local centerPos = GetIslandPivotPos(island)
 				if not centerPos then AnchorPlayer(); return end
 
-				local centerCF = CFrame.new(centerPos.X, centerPos.Y + 60, centerPos.Z)
+				-- +8 studs acima da ilha: baixo o suficiente para atingir mobs,
+				-- alto o suficiente para nao colidir com o chao
+				local centerCF = CFrame.new(centerPos.X, centerPos.Y + 8, centerPos.Z)
 
-				-- Ainda nao foi ao centro desta ilha: voa ate la
+				-- Ainda nao chegou ao centro desta ilha: voa ate la e aguarda o voo terminar
+				-- SÓ depois seta atCenter = true, evitando comecar a farmar no ar no lugar errado
 				if not atCenter then
 					print("[AutoRaid] Voando para RaidIsland" .. currentIslandNum)
-					SafeFlyTo(centerCF)
-					atCenter = true
-					print("[AutoRaid] Posicionado no centro da RaidIsland" .. currentIslandNum)
+					SafeFlyTo(centerCF)  -- bloqueia ate o tween terminar
+					-- Confirma que realmente chegou perto do centro
+					local hrpNow = Player.Character and Player.Character:FindFirstChild("HumanoidRootPart")
+					if hrpNow and (hrpNow.Position - centerCF.Position).Magnitude < 40 then
+						atCenter = true
+						print("[AutoRaid] Chegou ao centro da RaidIsland" .. currentIslandNum)
+					end
 					return
 				end
 
@@ -5722,11 +5748,6 @@ function Functions.InfAb()
     end
 end
 
--- =====================================================
--- FUNÇÕES FALTANTES DO TIROREAL
--- =====================================================
-
--- 1. CHECK QUEST (determina quest baseada no nível/mundo)
 local function CheckQuest()
     local MyLevel = Player.Data.Level.Value
     local SelectMonster = _G.SelectMonster or ""
@@ -5887,7 +5908,6 @@ local function CheckQuest()
     end
 end
 
--- 2. MATERIAL MON (define mob/posição para farm de material)
 local function MaterialMon()
     if _G.SelectMaterial == "Radiactive Material" then
         MMon = "Factory Staff"
@@ -5963,7 +5983,6 @@ local function MaterialMon()
     end
 end
 
--- 3. ESP FLOWER (flores azuis/vermelhas)
 function Functions.UpdateFlowerChams()
     local Number = _G.FlowerESPNumber or math.random(1, 1000000)
     for _, v in pairs(workspace:GetChildren()) do
@@ -6003,7 +6022,6 @@ function Functions.UpdateFlowerChams()
     end
 end
 
--- 4. ESP REAL FRUIT (Apple/Pineapple/Banana)
 function Functions.UpdateRealFruitChams()
     local Number = _G.RealFruitESPNumber or math.random(1, 1000000)
     local spawners = {"AppleSpawner", "PineappleSpawner", "BananaSpawner"}
@@ -6050,7 +6068,6 @@ function Functions.UpdateRealFruitChams()
     end
 end
 
--- 5. ESP GEAR (Mystic Island)
 function Functions.UpdateGearESP()
     local Number = _G.GearESPNumber or math.random(1, 1000000)
     local mystic = workspace.Map:FindFirstChild("MysticIsland")
@@ -6089,7 +6106,6 @@ function Functions.UpdateGearESP()
     end
 end
 
--- 6. FUNÇÕES DE MOVIMENTO/BARCO
 function Functions.TPB(CFgo)
     local boatSeat = workspace.Boats:FindFirstChild("PirateBrigade")
     if boatSeat then
@@ -6279,7 +6295,6 @@ function Functions.InfAb()
     end
 end
 
--- 8. RIP_INDRA PUZZLE
 function Functions.CheckColorRipIndra()
     local colors = {}
     local circle = workspace.Map["Boat Castle"].Summoner.Circle
@@ -6371,18 +6386,14 @@ function Functions.AutoKatakuriV2Loop()
                 local char = Player.Character
                 if not char then task.wait(1); return end
                 local backpack = Player.Backpack
-
-                -- Verifica se tem Sweet Chalice ou God's Chalice
                 local sweetChalice = backpack:FindFirstChild("Sweet Chalice") or char:FindFirstChild("Sweet Chalice")
                 local godsChalice = backpack:FindFirstChild("God's Chalice") or char:FindFirstChild("God's Chalice")
 
                 if godsChalice then
-                    -- Falar com SweetChaliceNpc
                     if string.find(CommF_:InvokeServer("SweetChaliceNpc") or "", "Where") then
                         CommF_:InvokeServer("SweetChaliceNpc")
                     end
                 elseif sweetChalice then
-                    -- Abrir portal do Cake Prince
                     if string.find(CommF_:InvokeServer("CakePrinceSpawner") or "", "open the portal") then
                         CommF_:InvokeServer("CakePrinceSpawner")
                     end
@@ -6403,7 +6414,6 @@ function Functions.AutoKatakuriV2Loop()
                     end
                 end
 
-                -- Se Dough King apareceu, matar
                 local doughKing = workspace.Enemies:FindFirstChild("Dough King")
                 if doughKing and doughKing:FindFirstChild("Humanoid") and doughKing.Humanoid.Health > 0 then
                     repeat
@@ -6417,7 +6427,6 @@ function Functions.AutoKatakuriV2Loop()
                     until doughKing.Humanoid.Health <= 0 or not _G.AutoKatakuriV2
                 end
 
-                -- Se Cake Prince apareceu, matar
                 local cakePrince = workspace.Enemies:FindFirstChild("Cake Prince")
                 if cakePrince and cakePrince:FindFirstChild("Humanoid") and cakePrince.Humanoid.Health > 0 then
                     repeat
@@ -6437,7 +6446,6 @@ function Functions.AutoKatakuriV2Loop()
 end
 
 print("[Lotux Hub] Carregando aliases")
--- EXPOR FUNÇÕES GLOBAIS PARA COMPATIBILIDADE
 _G.CheckQuest = CheckQuest
 _G.MaterialMon = MaterialMon
 _G.UpdateFlowerChams = Functions.UpdateFlowerChams
@@ -6465,9 +6473,9 @@ _G.WalkWater = Functions.WalkWater
 _G.SpinPositionLoop = Functions.SpinPositionLoop
 _G.TpEntrance = Functions.TpEntrance
 
-local SUBMERGED_NPC_POS    = Vector3.new(-16271.37, 25.23, 1373.66)   -- NPC da Tiki Outpost (SubmarineWorker)
-local SUBMERGED_TIKI_POS   = Vector3.new(-16818.81, 58.30, 293.64)    -- Tiki Outpost (referencia)
-local SUBMERGED_CHECK_Y    = -500  -- Y abaixo disso = ja esta na ilha submersa
+local SUBMERGED_NPC_POS    = Vector3.new(-16271.37, 25.23, 1373.66)
+local SUBMERGED_TIKI_POS   = Vector3.new(-16818.81, 58.30, 293.64)
+local SUBMERGED_CHECK_Y    = -500 
 
 local function IsOnSubmergedIsland()
     local char = Player.Character
@@ -6478,7 +6486,6 @@ local function IsOnSubmergedIsland()
 end
 
 function Functions.TravelToSubmergedIsland(config)
-    -- Se ja esta la embaixo, nao faz nada
     if IsOnSubmergedIsland() then
         return true
     end
@@ -6488,7 +6495,6 @@ function Functions.TravelToSubmergedIsland(config)
     local hrp = char:FindFirstChild("HumanoidRootPart")
     if not hrp then return false end
 
-    -- 1. Voa diretamente pro NPC da Tiki Outpost (de qualquer lugar do mapa)
     local distToNPC = (hrp.Position - SUBMERGED_NPC_POS).Magnitude
 
     if distToNPC > 15 then
@@ -6500,7 +6506,6 @@ function Functions.TravelToSubmergedIsland(config)
         task.wait(0.5)
     end
 
-    -- 2. Dispara o remote do NPC -> TravelToSubmergedIsland
     pcall(function()
         local net = game:GetService("ReplicatedStorage"):WaitForChild("Modules"):WaitForChild("Net")
         local rf  = net:FindFirstChild("RF/SubmarineWorkerSpeak")
@@ -6511,7 +6516,6 @@ function Functions.TravelToSubmergedIsland(config)
         rf:InvokeServer("TravelToSubmergedIsland")
     end)
 
-    -- 3. Aguarda teleporte para a Submerged Island (ate 15s)
     local waited = 0
     while not IsOnSubmergedIsland() and waited < 15 do
         task.wait(0.5)
@@ -6529,7 +6533,6 @@ end
 print("[Lotux Hub] Carregando...")
 
 function Functions.TravelToSubmergedIsland(config)
-    -- Se ja esta la embaixo, nao faz nada
     if IsOnSubmergedIsland() then
         return true
     end
@@ -6539,7 +6542,6 @@ function Functions.TravelToSubmergedIsland(config)
     local hrp = char:FindFirstChild("HumanoidRootPart")
     if not hrp then return false end
 
-    -- 1. Voa diretamente pro NPC da Tiki Outpost (de qualquer lugar do mapa)
     local distToNPC = (hrp.Position - SUBMERGED_NPC_POS).Magnitude
 
     if distToNPC > 15 then
@@ -6551,7 +6553,6 @@ function Functions.TravelToSubmergedIsland(config)
         task.wait(0.5)
     end
 
-    -- 2. Dispara o remote do NPC -> TravelToSubmergedIsland
     pcall(function()
         local net = game:GetService("ReplicatedStorage"):WaitForChild("Modules"):WaitForChild("Net")
         local rf  = net:FindFirstChild("RF/SubmarineWorkerSpeak")
@@ -6562,7 +6563,6 @@ function Functions.TravelToSubmergedIsland(config)
         rf:InvokeServer("TravelToSubmergedIsland")
     end)
 
-    -- 3. Aguarda teleporte para a Submerged Island (ate 15s)
     local waited = 0
     while not IsOnSubmergedIsland() and waited < 15 do
         task.wait(0.5)
@@ -6654,5 +6654,5 @@ _G.USESP = Functions.UpdateSeaBeastESP   -- UpdateSeaBeastESP
 _G.TTSI  = Functions.TravelToSubmergedIsland -- TravelToSubmergedIsland
 
 print("[LotuxHub] aliases carregados")
-print("[LotuxHub] Functions Updated Loaded v2.4.70")
+print("[LotuxHub] Functions Updated Loaded v2.4.75")
 return Functions
