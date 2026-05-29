@@ -896,6 +896,7 @@ function Functions.StartBringMobLoop(config, stateRef)
                 and stateRef.StartBring
                 and stateRef.MonFarm
                 and stateRef.MonFarm ~= ""
+                and not config.AutoRaid  -- BringMob desativado durante raid
 
             -- Se foi desativado: restaura NPCs modificados e limpa a lista
             if not shouldBring then
@@ -2263,6 +2264,10 @@ function Functions.StartAutoRaid(config)
 	-- HELPER: pivot da ilha (PrimaryPart ou primeira BasePart)
 	-- ==========================================
 	local function GetIslandPivotPos(island)
+		-- GetPivot() retorna o CFrame absoluto do modelo (centro real da ilha)
+		local ok, cf = pcall(function() return island:GetPivot() end)
+		if ok and cf then return cf.Position end
+		-- fallback: PrimaryPart ou primeira BasePart
 		if island.PrimaryPart then return island.PrimaryPart.Position end
 		for _, p in ipairs(island:GetDescendants()) do
 			if p:IsA("BasePart") then return p.Position end
@@ -2281,32 +2286,40 @@ function Functions.StartAutoRaid(config)
 	end
 
 	-- ==========================================
-	-- HELPER: mata mob normal (sem BringMob, para nao interferir na raid)
-	-- Destroi RaidPartTele antes de atacar para o player nao ficar preso no ar
+	-- HELPER: mata mob normal
+	-- Voa ate o mob com FlyToRaid (fica no ar) -> puxa mob pra baixo -> ataca
+	-- Apos matar: FlyToRaid recria o PartTele automaticamente no centro
 	-- ==========================================
-	local function KillMob(mob, centerPos)
+	local function KillMob(mob, centerCF)
 		local vHrp = mob:FindFirstChild("HumanoidRootPart")
 		local vHum = mob:FindFirstChild("Humanoid")
 		if not vHrp or not vHum or vHum.Health <= 0 then return end
 
-		RemoveAnchor()
-		DestroyRaidPart()  -- libera o player para voar normalmente ate o mob
 		local char = Player.Character
 		local hrp  = char and char:FindFirstChild("HumanoidRootPart")
-		if hrp and (vHrp.Position - hrp.Position).Magnitude > 60 then
+		if not hrp then return end
+
+		-- Voa ate o mob (FlyToRaid mantem o player no ar durante e apos o voo)
+		if (vHrp.Position - hrp.Position).Magnitude > 50 then
 			Functions.FlyToRaid(
 				CFrame.new(vHrp.Position + Vector3.new(0, 30, 0)),
 				config
 			)
-			DestroyRaidPart()  -- chegou perto: destroi a part para atacar livremente
 		end
 
+		-- Ataca o mob puxando ele pra baixo do player (sem cair)
 		repeat
 			task.wait(0.05)
 			if not config.AutoRaid then break end
+			char = Player.Character
+			hrp  = char and char:FindFirstChild("HumanoidRootPart")
 			Functions.AutoHaki()
 			Functions.EquipWeapon(config)
 			pcall(function()
+				if hrp then
+					-- Puxa mob pra 3 studs abaixo do player
+					vHrp.CFrame = CFrame.new(hrp.Position.X, hrp.Position.Y - 3, hrp.Position.Z)
+				end
 				vHrp.CanCollide = false
 				vHrp.Size = Vector3.new(50, 50, 50)
 				sethiddenproperty(Player, "SimulationRadius", math.huge)
@@ -2317,18 +2330,21 @@ function Functions.StartAutoRaid(config)
 			or not mob:FindFirstChild("Humanoid")
 			or mob.Humanoid.Health <= 0
 			or not config.AutoRaid
+
+		-- Mob morto: volta pro centro via FlyToRaid (recria PartTele, nao cai)
+		if config.AutoRaid then
+			Functions.FlyToRaid(centerCF, config)
+		end
 	end
 
 	-- ==========================================
 	-- HELPER: kill aura instantanea no boss (ilha 5)
+	-- Nao destroi PartTele: player fica no ar o tempo todo
 	-- ==========================================
-	local function KillBossInstant(boss)
+	local function KillBossInstant(boss, centerCF)
 		local bossHrp = boss:FindFirstChild("HumanoidRootPart")
 		local bossHum = boss:FindFirstChild("Humanoid")
 		if not bossHrp or not bossHum or bossHum.Health <= 0 then return end
-
-		RemoveAnchor()
-		DestroyRaidPart()  -- destroi a part antes do kill aura
 
 		repeat
 			task.wait(0.01)
@@ -2342,6 +2358,11 @@ function Functions.StartAutoRaid(config)
 			or not boss:FindFirstChild("Humanoid")
 			or boss.Humanoid.Health <= 0
 			or not config.AutoRaid
+
+		-- Boss morto: volta pro centro
+		if config.AutoRaid then
+			Functions.FlyToRaid(centerCF, config)
+		end
 	end
 
 	-- ==========================================
@@ -2546,8 +2567,8 @@ function Functions.StartAutoRaid(config)
 							local vHrp = v:FindFirstChild("HumanoidRootPart")
 							if vHrp and vHum and vHum.Health > 0 then
 								print("[AutoRaid] Boss na ilha 5: " .. v.Name .. " - kill aura!")
-								KillBossInstant(v)
-								atCenter = false
+								KillBossInstant(v, centerCF)
+								atCenter = true
 								return
 							end
 						end
@@ -2562,8 +2583,8 @@ function Functions.StartAutoRaid(config)
 							and (vHrp.Position - centerPos).Magnitude <= 2500
 						then
 							print("[AutoRaid] Mob na ilha 5: " .. v.Name)
-							KillMob(v, centerPos)
-							atCenter = false
+							KillMob(v, centerCF)
+							atCenter = true
 							return
 						end
 					end
@@ -2579,20 +2600,19 @@ function Functions.StartAutoRaid(config)
 							and (vHrp.Position - centerPos).Magnitude <= 2500
 						then
 							print("[AutoRaid] Mob na ilha " .. currentIslandNum .. ": " .. v.Name)
-							KillMob(v, centerPos)
-							atCenter = false
+							KillMob(v, centerCF)
+							atCenter = true
 							return
 						end
 					end
 				end
 
-				-- ---- SEM MOBS/BOSS: se saiu do centro, volta; senao ancora e aguarda ----
-				local distToCenter = (hrp.Position - centerCF.Position).Magnitude
-				if distToCenter > 80 then
-					SafeFlyTo(centerCF)
+				-- ---- SEM MOBS/BOSS: garante que o PartTele existe no centro (nao cai) ----
+				if not (_raidPart and _raidPart.Parent) then
+					Functions.FlyToRaid(centerCF, config)
+				elseif (hrp.Position - centerCF.Position).Magnitude > 80 then
+					Functions.FlyToRaid(centerCF, config)
 					atCenter = true
-				else
-					AnchorPlayer()
 				end
 			end)
 		end
@@ -6349,6 +6369,7 @@ function Functions.AutoKatakuriV2Loop()
     end)
 end
 
+print("[Lotux Hub] Carregando aliases")
 -- EXPOR FUNÇÕES GLOBAIS PARA COMPATIBILIDADE
 _G.CheckQuest = CheckQuest
 _G.MaterialMon = MaterialMon
@@ -6377,12 +6398,6 @@ _G.WalkWater = Functions.WalkWater
 _G.SpinPositionLoop = Functions.SpinPositionLoop
 _G.TpEntrance = Functions.TpEntrance
 
--- =====================================================
--- SUBMERGED ISLAND - Teleporte para a ilha submersa
--- Fluxo: voa ate o NPC da Tiki Outpost -> dispara RF/SubmarineWorkerSpeak -> checar se chegou
--- =====================================================
-
--- Posicoes chave
 local SUBMERGED_NPC_POS    = Vector3.new(-16271.37, 25.23, 1373.66)   -- NPC da Tiki Outpost (SubmarineWorker)
 local SUBMERGED_TIKI_POS   = Vector3.new(-16818.81, 58.30, 293.64)    -- Tiki Outpost (referencia)
 local SUBMERGED_CHECK_Y    = -500  -- Y abaixo disso = ja esta na ilha submersa
@@ -6444,6 +6459,8 @@ function Functions.TravelToSubmergedIsland(config)
     end
 end
 
+print("[Lotux Hub] Carregando...")
+
 function Functions.TravelToSubmergedIsland(config)
     -- Se ja esta la embaixo, nao faz nada
     if IsOnSubmergedIsland() then
@@ -6492,6 +6509,8 @@ function Functions.TravelToSubmergedIsland(config)
         return false
     end
 end
+
+print("[Lotux Hub] Carregando aliases")
 
 _G.CheckItemBPCR = Functions.CheckItemBPCR
 _G.AutoKatakuriV2Loop = Functions.AutoKatakuriV2Loop
@@ -6567,7 +6586,6 @@ _G.UMESP = Functions.UpdateMirageESP     -- UpdateMirageESP
 _G.USESP = Functions.UpdateSeaBeastESP   -- UpdateSeaBeastESP
 _G.TTSI  = Functions.TravelToSubmergedIsland -- TravelToSubmergedIsland
 
-print("[LotuxHub] _G aliases carregados v2.5")
-
-print("[LotuxHub] Functions Updated Loaded v2.4.50")
+print("[LotuxHub] aliases carregados")
+print("[LotuxHub] Functions Updated Loaded v2.4.60")
 return Functions
