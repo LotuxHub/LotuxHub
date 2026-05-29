@@ -2505,23 +2505,26 @@ function Functions.StartAutoRaid(config)
 
 		while task.wait(0.05) do
 			if not config.AutoRaid then
+				_G._raidRunning  = false
 				RemoveAnchor()
 				DestroyRaidPart()
 				currentIslandNum = 0
 				atCenter         = false
-				_raidActive      = false  -- reseta flag ao desligar
+				_raidActive      = false
 				continue
 			end
 
-			-- Raid terminou (timer sumiu e portal nao disparou de novo): reseta flag
+			_G._raidRunning = true
+
+			-- Raid terminou (timer sumiu): reseta flag
 			if _raidActive then
 				local timerGui = Player.PlayerGui:FindFirstChild("Main")
 				               and Player.PlayerGui.Main:FindFirstChild("Timer")
 				if not timerGui or not timerGui.Visible then
 					_raidActive      = false
+					_G._raidRunning  = false
 					currentIslandNum = 0
 					atCenter         = false
-					print("[AutoRaid] Raid terminou - aguardando proxima.")
 				end
 			end
 
@@ -2531,9 +2534,8 @@ function Functions.StartAutoRaid(config)
 				local hum  = char and char:FindFirstChildOfClass("Humanoid")
 				if not hrp or not hum or hum.Health <= 0 then return end
 
-				-- ---- GUARD: aguarda a raid comecar (evento xisd ou Timer visivel) ----
+				-- Aguarda raid comecar
 				if not IsRaidActive() then
-					-- Raid ainda nao comecou: nao faz nada
 					DestroyRaidPart()
 					RemoveAnchor()
 					currentIslandNum = 0
@@ -2541,9 +2543,7 @@ function Functions.StartAutoRaid(config)
 					return
 				end
 
-				-- ---- DETECAO DE NOVA ILHA ----
-				-- Pega o maior numero de ilha que existe (1..5)
-				-- Assim quando RaidIsland2 aparecer o script avanca pra ela
+				-- Detecta a maior ilha disponivel (1..5)
 				local highestIsland = nil
 				local highestNum    = 0
 				for i = 1, 5 do
@@ -2554,16 +2554,13 @@ function Functions.StartAutoRaid(config)
 					end
 				end
 
-				-- Raid comecou mas ilha ainda nao carregou: aguarda
-				if not highestIsland then
-					return
-				end
+				if not highestIsland then return end
 
-				-- Avancou para nova ilha: reseta o centro
+				-- Nova ilha apareceu: reseta e voa ate ela
 				if highestNum ~= currentIslandNum then
 					currentIslandNum = highestNum
 					atCenter         = false
-					print("[AutoRaid] Avancando para RaidIsland" .. currentIslandNum)
+					print("[AutoRaid] Nova ilha detectada: RaidIsland" .. currentIslandNum)
 				end
 
 				local island    = highestIsland
@@ -2572,19 +2569,29 @@ function Functions.StartAutoRaid(config)
 
 				local centerCF = CFrame.new(centerPos.X, centerPos.Y + 60, centerPos.Z)
 
-				-- ---- AINDA NAO FOI AO CENTRO: voa ate la ----
+				-- Ainda nao foi ao centro desta ilha: voa ate la
 				if not atCenter then
+					print("[AutoRaid] Voando para RaidIsland" .. currentIslandNum)
 					SafeFlyTo(centerCF)
 					atCenter = true
 					print("[AutoRaid] Posicionado no centro da RaidIsland" .. currentIslandNum)
 					return
 				end
 
+				-- Garante que o player esta no ar (reaplica se perdeu o part)
+				if not (_raidPart and _raidPart.Parent) then
+					Functions.FlyToRaid(centerCF, config)
+				elseif (hrp.Position - centerCF.Position).Magnitude > 80 then
+					Functions.FlyToRaid(centerCF, config)
+				else
+					-- Ja esta no centro: mantém o anchor ativo enquanto espera mobs
+					AnchorPlayer()
+				end
+
 				local enemies = workspace:FindFirstChild("Enemies")
 
-				-- ---- ILHA 5: BOSS (kill aura) tem prioridade, depois mobs normais ----
+				-- ILHA 5: boss tem prioridade
 				if currentIslandNum == 5 and enemies then
-					-- Prioridade 1: boss instantaneo
 					for _, v in ipairs(enemies:GetChildren()) do
 						if not config.AutoRaid then return end
 						if RAID_BOSS_SET[v.Name] or v.Name:find("%[Raid Boss%]") then
@@ -2598,7 +2605,7 @@ function Functions.StartAutoRaid(config)
 							end
 						end
 					end
-					-- Prioridade 2: mobs normais da ilha 5
+					-- Mobs normais da ilha 5
 					for _, v in ipairs(enemies:GetChildren()) do
 						if not config.AutoRaid then return end
 						local vHrp = v:FindFirstChild("HumanoidRootPart")
@@ -2615,7 +2622,7 @@ function Functions.StartAutoRaid(config)
 					end
 				end
 
-				-- ---- ILHAS 1-4: apenas mobs normais ----
+				-- ILHAS 1-4: apenas mobs normais
 				if currentIslandNum >= 1 and currentIslandNum <= 4 and enemies then
 					for _, v in ipairs(enemies:GetChildren()) do
 						if not config.AutoRaid then return end
@@ -2631,20 +2638,11 @@ function Functions.StartAutoRaid(config)
 						end
 					end
 				end
-
-				-- ---- SEM MOBS/BOSS: garante que o PartTele existe no centro (nao cai) ----
-				if not (_raidPart and _raidPart.Parent) then
-					Functions.FlyToRaid(centerCF, config)
-				elseif (hrp.Position - centerCF.Position).Magnitude > 80 then
-					Functions.FlyToRaid(centerCF, config)
-					atCenter = true
-				end
+				-- Sem mobs: permanece no ar no centro aguardando
 			end)
 		end
 	end)
 end
-
--- =====================================================
 -- AWAKENER FRUIT (ativar frutas desperto no raid)
 -- =====================================================
 function Functions.StartAutoAwakenAbilities(config)
@@ -5244,7 +5242,8 @@ _G.BringPos = CFrame.new(0, 0, 0)
 -- BringMob - Trazer mobs para perto
 function Functions.BringMobFunc(mob, targetCFrame)
     -- Guard: nunca executa bring durante raid
-    if _G._currentConfig and _G._currentConfig.AutoRaid then return end
+    if _G._raidRunning then return end
+    if _G._currentConfig and (_G._currentConfig.AutoRaid or _G._currentConfig.AutoFarmRaidBoss) then return end
     if not mob or not mob.Parent then return end
     
     local mobHrp = mob:FindFirstChild("HumanoidRootPart")
@@ -6614,5 +6613,5 @@ _G.USESP = Functions.UpdateSeaBeastESP   -- UpdateSeaBeastESP
 _G.TTSI  = Functions.TravelToSubmergedIsland -- TravelToSubmergedIsland
 
 print("[LotuxHub] aliases carregados")
-print("[LotuxHub] Functions Updated Loaded v2.4.64")
+print("[LotuxHub] Functions Updated Loaded v2.4.65")
 return Functions
