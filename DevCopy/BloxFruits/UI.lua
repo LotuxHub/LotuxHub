@@ -864,10 +864,10 @@ task.spawn(function()
                     end
 
                     -- BringMob: puxa todos os mobs do mesmo tipo para BAIXO DO PLAYER
-                    -- (nao para a posicao do mob alvo, que ficava no lugar errado)
+                    -- -5 studs no Y = abaixo dos pés, sem ficar dentro do player
                     if Config.BringMob then
                         local playerBringPos = HumanoidRootPart
-                            and CFrame.new(HumanoidRootPart.Position - Vector3.new(0, 3, 0))
+                            and CFrame.new(HumanoidRootPart.Position - Vector3.new(0, 5, 0))
                         if playerBringPos then
                             local enemiesFolder = workspace:FindFirstChild("Enemies")
                             if enemiesFolder then
@@ -998,9 +998,10 @@ task.spawn(function()
                                     end
 
                                     -- BringMob: puxa todos os mobs do mesmo tipo para BAIXO DO PLAYER
+                                    -- -5 studs no Y = abaixo dos pés, sem ficar dentro do player
                                     if Config.BringMob then
                                         local playerBringPos = HumanoidRootPart
-                                            and CFrame.new(HumanoidRootPart.Position - Vector3.new(0, 3, 0))
+                                            and CFrame.new(HumanoidRootPart.Position - Vector3.new(0, 5, 0))
                                         if playerBringPos then
                                             local enemiesFolder = workspace:FindFirstChild("Enemies")
                                             if enemiesFolder then
@@ -2530,6 +2531,94 @@ ShopTab:AddButton({ Title = "Buy Draco Race",    Callback = function() pcall(fun
 -- =====================================================
 local Misc = Window:MakeTab({ Title = "Misc", Icon = "calendarsearch" })
 
+-- =====================================================
+-- TAB: DEBUG CONFIG
+-- =====================================================
+local DebugCfg = Window:MakeTab({ Title = "Debug Config", Icon = "settings" })
+
+DebugCfg:AddSection("Painel de Debug")
+DebugCfg:AddToggle({ Title = "Mostrar Painel Debug", Default = true,
+    Callback = function(v)
+        pcall(function()
+            local m = _G._debugGuiMain
+            if m then m.Visible = v end
+            if _G._debugSave then
+                _G._debugSave.visible = v
+                if _G._saveDebugPanel then _G._saveDebugPanel() end
+            end
+        end)
+    end })
+DebugCfg:AddButton({ Title = "Resetar Posição do Painel", Callback = function()
+    pcall(function()
+        local m = _G._debugGuiMain
+        if m then m.Position = UDim2.fromOffset(14, 14) end
+        if _G._debugSave then
+            _G._debugSave.x = 14
+            _G._debugSave.y = 14
+            if _G._saveDebugPanel then _G._saveDebugPanel() end
+        end
+    end)
+end })
+
+DebugCfg:AddSection("Linhas Visíveis")
+local _lineNames = {
+    { key = "show_mode",    title = "Modo"    },
+    { key = "show_status",  title = "Status"  },
+    { key = "show_target",  title = "Alvo"    },
+    { key = "show_island",  title = "Ilha"    },
+    { key = "show_sea",     title = "Mar"     },
+    { key = "show_kills",   title = "Kills"   },
+    { key = "show_bring",   title = "BringMob"},
+    { key = "show_weapon",  title = "Arma"    },
+    { key = "show_skills",  title = "Skills"  },
+    { key = "show_uptime",  title = "Uptime"  },
+    { key = "show_moon",    title = "🌙 Lua"  },
+    { key = "show_chalice", title = "🏆 Cálice"},
+    { key = "show_server",  title = "🕐 Server"},
+}
+for _, entry in ipairs(_lineNames) do
+    local key = entry.key
+    DebugCfg:AddToggle({ Title = entry.title,
+        Default = (_G._debugSave == nil or _G._debugSave[key] ~= false),
+        Callback = function(v)
+            pcall(function()
+                if _G._debugSave then _G._debugSave[key] = v end
+                if _G._applyDebugLineVisibility then _G._applyDebugLineVisibility() end
+                if _G._saveDebugPanel then _G._saveDebugPanel() end
+            end)
+        end })
+end
+
+-- =====================================================
+-- BOTÃO TWEEN FLY STOP + TOGGLE
+-- =====================================================
+DebugCfg:AddSection("Tween Fly")
+DebugCfg:AddToggle({ Title = "Mostrar Botão Stop Fly", Default = true,
+    Callback = function(v)
+        pcall(function()
+            local btn = Player.PlayerGui:FindFirstChild("LotuxStopFlyBtn")
+            if btn then btn.Enabled = v end
+        end)
+    end })
+DebugCfg:AddButton({ Title = "⏹ Stop Tween Fly Agora", Callback = function()
+    pcall(function()
+        isTeleporting.value = false
+        Functions.StopTeleport()
+        local char = Player.Character
+        local hrp  = char and char:FindFirstChild("HumanoidRootPart")
+        if hrp then
+            for _, obj in ipairs(hrp:GetChildren()) do
+                if obj:IsA("BodyVelocity") or obj:IsA("BodyPosition") or obj:IsA("BodyGyro") then
+                    obj:Destroy()
+                end
+            end
+            local hum = char:FindFirstChildOfClass("Humanoid")
+            if hum then hum:ChangeState(Enum.HumanoidStateType.Freefall) end
+        end
+    end)
+    Notify({ Title = "Tween Fly parado!", Image = IMG, Type = "Info", Duration = 2 })
+end })
+
 Misc:AddSection("Job ID")
 local jobIDBox = Misc:AddTextBox({ Title = "Job ID", Default = game.JobId, PlaceholderText = "Cole ou copie o Job ID", ClearText = false,
     Callback = function(v) _G.TargetJobID = tostring(v) end })
@@ -2630,6 +2719,49 @@ task.spawn(function()
     local PGui      = Player:WaitForChild("PlayerGui")
     local TS        = game:GetService("TweenService")
 
+    -- ── Save/Load do painel ────────────────────────
+    local DEBUG_SAVE_FILE = "lotux_debug_panel.json"
+    local debugSave = {
+        x          = 14,
+        y          = 14,
+        minimized  = false,
+        visible    = true,
+        -- quais linhas mostrar
+        show_mode    = true,
+        show_status  = true,
+        show_target  = true,
+        show_island  = true,
+        show_sea     = true,
+        show_kills   = true,
+        show_bring   = true,
+        show_weapon  = true,
+        show_skills  = true,
+        show_uptime  = true,
+        show_moon    = true,
+        show_chalice = true,
+        show_server  = true,
+    }
+    pcall(function()
+        if readfile and isfile and isfile(DEBUG_SAVE_FILE) then
+            local ok, data = pcall(function()
+                return HttpService:JSONDecode(readfile(DEBUG_SAVE_FILE))
+            end)
+            if ok and type(data) == "table" then
+                for k, v in pairs(data) do debugSave[k] = v end
+            end
+        end
+    end)
+    local function SaveDebugPanel()
+        pcall(function()
+            if writefile then
+                writefile(DEBUG_SAVE_FILE, HttpService:JSONEncode(debugSave))
+            end
+        end)
+    end
+    -- Expõe para a tab Debug Config poder ler/escrever
+    _G._debugSave        = debugSave
+    _G._saveDebugPanel   = SaveDebugPanel
+
     -- ── GUI container ──────────────────────────────
     local DebugGui  = Instance.new("ScreenGui")
     DebugGui.Name              = "LotuxDebugPanel"
@@ -2642,8 +2774,9 @@ task.spawn(function()
     -- ── Frame principal ────────────────────────────
     local Main = Instance.new("Frame")
     Main.Name                  = "Main"
-    Main.Size                  = UDim2.fromOffset(240, 220)
-    Main.Position              = UDim2.fromOffset(14, 14)
+    Main.Size = UDim2.fromOffset(240, 285)
+    Main.Position              = UDim2.fromOffset(debugSave.x, debugSave.y)
+    Main.Visible               = debugSave.visible
     Main.BackgroundColor3      = Color3.fromRGB(10, 10, 18)
     Main.BackgroundTransparency = 0.12
     Main.BorderSizePixel       = 0
@@ -2755,16 +2888,19 @@ task.spawn(function()
         return val
     end
 
-    local V_Mode     = MakeLine("Modo",     1)
-    local V_Status   = MakeLine("Status",   2)
-    local V_Target   = MakeLine("Alvo",     3)
-    local V_Island   = MakeLine("Ilha",     4)
-    local V_Sea      = MakeLine("Mar",      5)
-    local V_Kills    = MakeLine("Kills",    6)
-    local V_Bring    = MakeLine("BringMob", 7)
-    local V_Weapon   = MakeLine("Arma",     8)
-    local V_Skills   = MakeLine("Skills",   9)
-    local V_Uptime   = MakeLine("Uptime",   10)
+    local V_Mode     = MakeLine("Modo",       1)
+    local V_Status   = MakeLine("Status",     2)
+    local V_Target   = MakeLine("Alvo",       3)
+    local V_Island   = MakeLine("Ilha",       4)
+    local V_Sea      = MakeLine("Mar",        5)
+    local V_Kills    = MakeLine("Kills",      6)
+    local V_Bring    = MakeLine("BringMob",   7)
+    local V_Weapon   = MakeLine("Arma",       8)
+    local V_Skills   = MakeLine("Skills",     9)
+    local V_Uptime   = MakeLine("Uptime",     10)
+    local V_Moon     = MakeLine("🌙 Lua",     11)
+    local V_Chalice  = MakeLine("🏆 Cálice",  12)
+    local V_Server   = MakeLine("🕐 Server",  13)
 
     -- linha de log (última ação)
     local LogRow = Instance.new("TextLabel")
@@ -2776,7 +2912,7 @@ task.spawn(function()
     LogRow.TextColor3          = Color3.fromRGB(100, 200, 140)
     LogRow.TextXAlignment      = Enum.TextXAlignment.Left
     LogRow.ClipsDescendants    = true
-    LogRow.LayoutOrder         = 11
+    LogRow.LayoutOrder         = 14
     LogRow.Parent              = Body
 
     -- ── Log global: qualquer print("[AutoRaid]") aparece aqui ──
@@ -2800,7 +2936,7 @@ task.spawn(function()
         pcall(function() _G.LotuxDebugLog(msg) end)
     end
 
-    -- ── Drag ──────────────────────────────────────
+    -- ── Drag (salva posição ao soltar) ────────────
     local dragging, dragStart, startPos
     TitleBar.InputBegan:Connect(function(inp)
         if inp.UserInputType == Enum.UserInputType.MouseButton1
@@ -2814,35 +2950,81 @@ task.spawn(function()
         if dragging and (inp.UserInputType == Enum.UserInputType.MouseMovement
                       or inp.UserInputType == Enum.UserInputType.Touch) then
             local delta = inp.Position - dragStart
-            Main.Position = UDim2.fromOffset(
-                startPos.X.Offset + delta.X,
-                startPos.Y.Offset + delta.Y
-            )
+            local nx = startPos.X.Offset + delta.X
+            local ny = startPos.Y.Offset + delta.Y
+            Main.Position = UDim2.fromOffset(nx, ny)
         end
     end)
     game:GetService("UserInputService").InputEnded:Connect(function(inp)
         if inp.UserInputType == Enum.UserInputType.MouseButton1
         or inp.UserInputType == Enum.UserInputType.Touch then
+            if dragging then
+                -- Salva a posição final
+                debugSave.x = Main.Position.X.Offset
+                debugSave.y = Main.Position.Y.Offset
+                SaveDebugPanel()
+            end
             dragging = false
         end
     end)
 
-    -- ── Minimizar ─────────────────────────────────
-    local minimized = false
+    -- ── Minimizar (salva estado) ───────────────────
+    local minimized = debugSave.minimized or false
+    -- Aplica estado salvo imediatamente
+    if minimized then
+        Main.Size    = UDim2.fromOffset(240, 28)
+        Body.Visible = false
+        MinBtn.Text  = "▢"
+    end
     MinBtn.MouseButton1Click:Connect(function()
         minimized = not minimized
-        local targetH = minimized and 28 or 220
+        local targetH = minimized and 28 or 285
         TS:Create(Main, TweenInfo.new(0.25, Enum.EasingStyle.Quad), {
             Size = UDim2.fromOffset(240, targetH)
         }):Play()
-        MinBtn.Text = minimized and "▢" or "—"
+        MinBtn.Text  = minimized and "▢" or "—"
         Body.Visible = not minimized
+        debugSave.minimized = minimized
+        SaveDebugPanel()
     end)
 
-    -- ── Fechar ────────────────────────────────────
+    -- ── Fechar (salva estado) ─────────────────────
     CloseBtn.MouseButton1Click:Connect(function()
+        debugSave.visible = false
+        SaveDebugPanel()
         DebugGui:Destroy()
     end)
+
+    -- Expõe referências para a tab Debug Config
+    _G._debugGuiMain  = Main
+    _G._debugGui      = DebugGui
+
+    -- Mapa linha -> chave do save (para a tab Debug Config ocultar/mostrar)
+    local _lineRefs = {
+        { ref = V_Mode,    key = "show_mode"    },
+        { ref = V_Status,  key = "show_status"  },
+        { ref = V_Target,  key = "show_target"  },
+        { ref = V_Island,  key = "show_island"  },
+        { ref = V_Sea,     key = "show_sea"     },
+        { ref = V_Kills,   key = "show_kills"   },
+        { ref = V_Bring,   key = "show_bring"   },
+        { ref = V_Weapon,  key = "show_weapon"  },
+        { ref = V_Skills,  key = "show_skills"  },
+        { ref = V_Uptime,  key = "show_uptime"  },
+        { ref = V_Moon,    key = "show_moon"    },
+        { ref = V_Chalice, key = "show_chalice" },
+        { ref = V_Server,  key = "show_server"  },
+    }
+    -- Aplica visibilidade salva em cada linha (a row é o pai do val)
+    local function ApplyLineVisibility()
+        for _, entry in ipairs(_lineRefs) do
+            local row = entry.ref and entry.ref.Parent
+            if row then row.Visible = (debugSave[entry.key] ~= false) end
+        end
+    end
+    ApplyLineVisibility()
+    _G._applyDebugLineVisibility = ApplyLineVisibility
+    _G._debugLineRefs = _lineRefs
 
     -- ── Update loop ───────────────────────────────
     local function ColorStatus(lbl, ok)
@@ -2866,6 +3048,91 @@ task.spawn(function()
             local kElapsed = math.max(1, os.time() - (Config.ScriptStartTime or os.time()))
             local kpm = math.floor((kTotal / kElapsed) * 60)
             V_Kills.Text  = tostring(kTotal) .. "  (" .. kpm .. "/min)"
+
+            -- ── Lua: quantas noites faltam para lua cheia ──────────
+            -- No BF cada ciclo completo de dia/noite dura ~20 min reais.
+            -- Lua cheia ocorre a cada 8 noites (ciclo de 8).
+            -- O jogo usa workspace:GetServerTimeNow() para o ciclo.
+            -- Cada "dia BF" = 1200 segundos (20 min). Noite = dias pares do ciclo.
+            -- Lua cheia = a cada 8 noites = a cada 16 dias BF (ciclo de 16).
+            pcall(function()
+                local BF_DAY_SECS   = 1200  -- 20 min por dia BF
+                local FULL_MOON_EVERY = 8   -- lua cheia a cada 8 noites
+                local serverTime    = workspace:GetServerTimeNow()
+                local dayNumber     = math.floor(serverTime / BF_DAY_SECS)
+                -- noite = dayNumber impar; lua cheia = noite 8, 16, 24...
+                local nightNumber   = math.floor(dayNumber / 2)  -- quantas noites passaram
+                local nightsInCycle = nightNumber % FULL_MOON_EVERY
+                local nightsLeft    = FULL_MOON_EVERY - nightsInCycle
+
+                -- Tempo restante até a próxima noite (se for noite hoje, até a próxima lua cheia)
+                local secInDay      = serverTime % BF_DAY_SECS
+                local isNight       = (dayNumber % 2) == 1
+
+                if nightsLeft == FULL_MOON_EVERY and isNight then
+                    -- É lua cheia AGORA
+                    local secsLeft = BF_DAY_SECS - secInDay
+                    V_Moon.Text = "🌕 CHEIA! " .. string.format("%dm%02ds", math.floor(secsLeft/60), secsLeft%60)
+                    V_Moon.TextColor3 = Color3.fromRGB(255, 230, 80)
+                elseif nightsLeft == 1 and not isNight then
+                    -- Próxima noite já é lua cheia: mostra quanto falta pra noite começar
+                    local secsToNight = BF_DAY_SECS - secInDay
+                    V_Moon.Text = "🌔 Hoje! " .. string.format("%dm%02ds", math.floor(secsToNight/60), secsToNight%60)
+                    V_Moon.TextColor3 = Color3.fromRGB(200, 200, 80)
+                else
+                    -- Calcula segundos totais até a próxima lua cheia
+                    local daysLeft = (nightsLeft * 2) - (isNight and 1 or 0)
+                    local secsLeft = (daysLeft * BF_DAY_SECS) - secInDay
+                    local h = math.floor(secsLeft / 3600)
+                    local m = math.floor((secsLeft % 3600) / 60)
+                    if h > 0 then
+                        V_Moon.Text = nightsLeft .. " noites  " .. h .. "h" .. m .. "m"
+                    else
+                        V_Moon.Text = nightsLeft .. " noites  " .. m .. "min"
+                    end
+                    V_Moon.TextColor3 = Color3.fromRGB(170, 170, 255)
+                end
+            end)
+
+            -- ── Cálice: tempo até o próximo cálice no baú ─────────
+            -- No BF o God's Chalice aparece no baú especial a cada 4h de server.
+            -- O timer reseta quando o server inicia.
+            pcall(function()
+                local CHALICE_INTERVAL = 4 * 3600  -- 4 horas em segundos
+                local serverAge = workspace:GetServerTimeNow()
+                local secSinceLast = serverAge % CHALICE_INTERVAL
+                local secsLeft     = CHALICE_INTERVAL - secSinceLast
+                local h  = math.floor(secsLeft / 3600)
+                local m  = math.floor((secsLeft % 3600) / 60)
+                local s  = secsLeft % 60
+                if secsLeft < 300 then  -- menos de 5 min: destaca em verde
+                    V_Chalice.Text = string.format("⚡ %dm%02ds!", m, s)
+                    V_Chalice.TextColor3 = Color3.fromRGB(80, 255, 120)
+                elseif h > 0 then
+                    V_Chalice.Text = string.format("%dh %02dm", h, m)
+                    V_Chalice.TextColor3 = Color3.fromRGB(230, 230, 255)
+                else
+                    V_Chalice.Text = string.format("%dm %02ds", m, s)
+                    V_Chalice.TextColor3 = Color3.fromRGB(230, 230, 255)
+                end
+            end)
+
+            -- ── Tempo do server ────────────────────────────────────
+            pcall(function()
+                local secs = math.floor(workspace:GetServerTimeNow())
+                local h = math.floor(secs / 3600)
+                local m = math.floor((secs % 3600) / 60)
+                local s = secs % 60
+                V_Server.Text = string.format("%dh %02dm %02ds", h, m, s)
+                -- Destaca servidores velhos (>2h) em amarelo, >4h em vermelho
+                if h >= 4 then
+                    V_Server.TextColor3 = Color3.fromRGB(255, 100, 100)
+                elseif h >= 2 then
+                    V_Server.TextColor3 = Color3.fromRGB(255, 200, 80)
+                else
+                    V_Server.TextColor3 = Color3.fromRGB(230, 230, 255)
+                end
+            end)
             V_Bring.Text  = Config.BringMob and ("ON  " .. tostring(Config.BringDistance) .. "st") or "OFF"
             ColorStatus(V_Bring, Config.BringMob)
 
@@ -2961,6 +3228,73 @@ task.spawn(function()
 end)
 
 -- =====================================================
+-- BOTÃO FLUTUANTE: STOP TWEEN FLY
+-- Fica no canto superior direito, pressione para parar
+-- o voo imediatamente. Toggle na tab Debug Config.
+-- =====================================================
+task.spawn(function()
+    local PGui2 = Player:WaitForChild("PlayerGui")
+    local StopGui = Instance.new("ScreenGui")
+    StopGui.Name           = "LotuxStopFlyBtn"
+    StopGui.ResetOnSpawn   = false
+    StopGui.DisplayOrder   = 998
+    StopGui.IgnoreGuiInset = true
+    StopGui.Parent         = PGui2
+
+    local StopBtn = Instance.new("TextButton")
+    StopBtn.Text            = "⏹ Stop Fly"
+    StopBtn.Font            = Enum.Font.GothamBold
+    StopBtn.TextSize        = 12
+    StopBtn.TextColor3      = Color3.fromRGB(255, 255, 255)
+    StopBtn.BackgroundColor3 = Color3.fromRGB(180, 40, 40)
+    StopBtn.BackgroundTransparency = 0.2
+    StopBtn.Size            = UDim2.fromOffset(90, 28)
+    StopBtn.Position        = UDim2.new(1, -100, 0, 10)
+    StopBtn.BorderSizePixel = 0
+    StopBtn.Parent          = StopGui
+    Instance.new("UICorner", StopBtn).CornerRadius = UDim.new(0, 6)
+
+    local function DoStopFly()
+        pcall(function()
+            isTeleporting.value = false
+            Functions.StopTeleport()
+            -- Remove BodyMovers do HRP
+            local char = Player.Character
+            local hrp  = char and char:FindFirstChild("HumanoidRootPart")
+            if hrp then
+                for _, obj in ipairs(hrp:GetChildren()) do
+                    if obj:IsA("BodyVelocity") or obj:IsA("BodyPosition") or obj:IsA("BodyGyro") then
+                        obj:Destroy()
+                    end
+                end
+                local hum = char:FindFirstChildOfClass("Humanoid")
+                if hum then hum:ChangeState(Enum.HumanoidStateType.Freefall) end
+            end
+        end)
+        -- Feedback visual no botão
+        StopBtn.BackgroundColor3 = Color3.fromRGB(40, 180, 40)
+        StopBtn.Text = "✅ Parado!"
+        task.delay(0.8, function()
+            if StopBtn and StopBtn.Parent then
+                StopBtn.BackgroundColor3 = Color3.fromRGB(180, 40, 40)
+                StopBtn.Text = "⏹ Stop Fly"
+            end
+        end)
+    end
+
+    StopBtn.MouseButton1Click:Connect(DoStopFly)
+
+    -- Keybind: tecla E para parar o fly rapidamente
+    UserInputService.InputBegan:Connect(function(inp, gameProcessed)
+        if gameProcessed then return end
+        if inp.KeyCode == Enum.KeyCode.E then
+            if Config.AutoRaid or Config.AutoFarmLevel or Config.AutoFarmNearest then return end
+            DoStopFly()
+        end
+    end)
+end)
+
+-- =====================================================
 -- FINALIZACAO
 -- =====================================================
 uiReady = true
@@ -2995,4 +3329,4 @@ Notify({
     Type        = "Success",
 })
 
-print("UI Loaded v4.0.1")
+print("UI Loaded v4.1.0")
