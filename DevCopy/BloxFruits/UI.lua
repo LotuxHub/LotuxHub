@@ -783,9 +783,6 @@ task.spawn(function()
         end
 
         _acLog("ATACANDO: '" .. bestTarget.Name .. "' | dist: " .. math.floor(dist) .. " studs")
-            for _mt,b in pairs(Workspace.Enemies:GetChildren())do
-    b:SetPrimaryPartCFrame(Workspace.Enemies:GetChildren()[1].PrimaryPart.CFrame)
-end
         Functions.FastAttack(bestTarget, Config, NotAutoEquip)
     end
 end)
@@ -801,8 +798,27 @@ task.spawn(function()
 
         if not Config.AutoFarmLevel and not Config.AutoFarmNearest then
             if currentTarget ~= nil then currentTarget = nil end
-            NoClip.value = false
-            farmRunning  = false
+            -- Para o voo e derruba o player ao desativar o farm
+            if NoClip.value or farmRunning then
+                NoClip.value        = false
+                isTeleporting.value = false
+                Functions.StopTeleport()
+                -- Remove qualquer BodyVelocity/BodyPosition que esteja mantendo o player no ar
+                pcall(function()
+                    local char = Player.Character
+                    local hrp  = char and char:FindFirstChild("HumanoidRootPart")
+                    if hrp then
+                        for _, obj in ipairs(hrp:GetChildren()) do
+                            if obj:IsA("BodyVelocity") or obj:IsA("BodyPosition") or obj:IsA("BodyGyro") then
+                                obj:Destroy()
+                            end
+                        end
+                        local hum = char:FindFirstChildOfClass("Humanoid")
+                        if hum then hum:ChangeState(Enum.HumanoidStateType.Freefall) end
+                    end
+                end)
+            end
+            farmRunning = false
             task.wait(0.2)
             continue
         end
@@ -2845,7 +2861,11 @@ task.spawn(function()
             V_Uptime.Text = string.format("%02d:%02d:%02d", h, m, s)
 
             V_Sea.Text    = "Sea " .. tostring(CurrentSea or "?")
-            V_Kills.Text  = tostring(Config.KillCount or 0)
+            -- Kills com kills/min
+            local kTotal = Config.KillCount or 0
+            local kElapsed = math.max(1, os.time() - (Config.ScriptStartTime or os.time()))
+            local kpm = math.floor((kTotal / kElapsed) * 60)
+            V_Kills.Text  = tostring(kTotal) .. "  (" .. kpm .. "/min)"
             V_Bring.Text  = Config.BringMob and ("ON  " .. tostring(Config.BringDistance) .. "st") or "OFF"
             ColorStatus(V_Bring, Config.BringMob)
 
@@ -2905,7 +2925,17 @@ task.spawn(function()
             elseif Config.AutoFarmLevel then
                 V_Mode.Text = "Farm Level"
                 V_Mode.TextColor3 = Color3.fromRGB(100, 200, 255)
-                V_Island.Text = tostring(Config.FarmIsland or "—"):sub(1, 18)
+
+                -- Pega o nome da ilha da quest atual (não o Config.FarmIsland que pode ser tabela)
+                local islandText = "—"
+                pcall(function()
+                    local q = Functions.GetQuestForLevel(QuestList, CurrentSea, Player)
+                    if q and q.NameQuest then
+                        -- NameQuest é algo como "DeepForestIsland3", formata bonito
+                        islandText = q.NameQuest:gsub("Quest%d*$", ""):gsub("Island%d*$", ""):gsub("(%l)(%u)", "%1 %2"):sub(1, 18)
+                    end
+                end)
+                V_Island.Text = islandText
                 V_Island.TextColor3 = Color3.fromRGB(200, 200, 200)
                 V_Status.Text = farmRunning and "Farmando" or "Aguardando"
                 ColorStatus(V_Status, farmRunning)
@@ -2965,4 +2995,4 @@ Notify({
     Type        = "Success",
 })
 
-print("UI Loaded v3.5.2")
+print("UI Loaded v4.0.1")
