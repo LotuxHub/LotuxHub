@@ -847,17 +847,23 @@ task.spawn(function()
                             TweenService, Config, isTeleporting, NotAutoEquip)
                     end
 
+                    -- BringMob: puxa todos os mobs do mesmo tipo para BAIXO DO PLAYER
+                    -- (nao para a posicao do mob alvo, que ficava no lugar errado)
                     if Config.BringMob then
-                        local enemiesFolder = workspace:FindFirstChild("Enemies")
-                        if enemiesFolder then
-                            for _, otherMob in ipairs(enemiesFolder:GetChildren()) do
-                                if otherMob ~= mob and otherMob.Name == mob.Name then
-                                    local ohrp = otherMob:FindFirstChild("HumanoidRootPart")
-                                    local ohum = otherMob:FindFirstChild("Humanoid")
-                                    if ohrp and ohum and ohum.Health > 0 then
-                                        local distOther = (ohrp.Position - BringPos.Position).Magnitude
-                                        if distOther <= Config.BringDistance then
-                                            Functions.BringMobFunc(otherMob, BringPos)
+                        local playerBringPos = HumanoidRootPart
+                            and CFrame.new(HumanoidRootPart.Position - Vector3.new(0, 3, 0))
+                        if playerBringPos then
+                            local enemiesFolder = workspace:FindFirstChild("Enemies")
+                            if enemiesFolder then
+                                for _, otherMob in ipairs(enemiesFolder:GetChildren()) do
+                                    if otherMob.Name == mob.Name then
+                                        local ohrp = otherMob:FindFirstChild("HumanoidRootPart")
+                                        local ohum = otherMob:FindFirstChild("Humanoid")
+                                        if ohrp and ohum and ohum.Health > 0 then
+                                            local distOther = (ohrp.Position - HumanoidRootPart.Position).Magnitude
+                                            if distOther <= Config.BringDistance then
+                                                Functions.BringMobFunc(otherMob, playerBringPos)
+                                            end
                                         end
                                     end
                                 end
@@ -975,17 +981,22 @@ task.spawn(function()
                                             TweenService, Config, isTeleporting, NotAutoEquip)
                                     end
 
+                                    -- BringMob: puxa todos os mobs do mesmo tipo para BAIXO DO PLAYER
                                     if Config.BringMob then
-                                        local enemiesFolder = workspace:FindFirstChild("Enemies")
-                                        if enemiesFolder then
-                                            for _, otherMob in ipairs(enemiesFolder:GetChildren()) do
-                                                if otherMob ~= mob and otherMob.Name == quest.Mob then
-                                                    local ohrp = otherMob:FindFirstChild("HumanoidRootPart")
-                                                    local ohum = otherMob:FindFirstChild("Humanoid")
-                                                    if ohrp and ohum and ohum.Health > 0 then
-                                                        local distOther = (ohrp.Position - bringPosition.Position).Magnitude
-                                                        if distOther <= Config.BringDistance then
-                                                            Functions.BringMobFunc(otherMob, bringPosition)
+                                        local playerBringPos = HumanoidRootPart
+                                            and CFrame.new(HumanoidRootPart.Position - Vector3.new(0, 3, 0))
+                                        if playerBringPos then
+                                            local enemiesFolder = workspace:FindFirstChild("Enemies")
+                                            if enemiesFolder then
+                                                for _, otherMob in ipairs(enemiesFolder:GetChildren()) do
+                                                    if otherMob.Name == quest.Mob then
+                                                        local ohrp = otherMob:FindFirstChild("HumanoidRootPart")
+                                                        local ohum = otherMob:FindFirstChild("Humanoid")
+                                                        if ohrp and ohum and ohum.Health > 0 then
+                                                            local distOther = (ohrp.Position - HumanoidRootPart.Position).Magnitude
+                                                            if distOther <= Config.BringDistance then
+                                                                Functions.BringMobFunc(otherMob, playerBringPos)
+                                                            end
                                                         end
                                                     end
                                                 end
@@ -1449,9 +1460,15 @@ local Settings = Window:MakeTab({ Title = T("tab_settings"), Icon = "settings" }
 
 Settings:AddSection("Farm Settings")
 Settings:AddToggle({ Title = T("ui_auto_click"),  Default = true, Callback = function(v) Config.AutoClick = v end })
-Settings:AddToggle({ Title = T("ui_bring_mob"),   Default = true, Callback = function(v) Config.BringMob  = v end })
-Settings:AddDropdown({ Title = T("ui_bring_dist"), Options = { "200","300","350","400","500" }, Default = "350",
-    Callback = function(v) Config.BringDistance = tonumber(tostring(v)) end })
+Settings:AddToggle({ Title = T("ui_bring_mob"), Default = Config.BringMob, Callback = function(v)
+    Config.BringMob = v
+    print("[BringMob] " .. (v and "Ativado" or "Desativado"))
+end })
+Settings:AddSlider({ Title = "Bring Mob Distancia (studs)", Min = 100, Max = 1000, Default = Config.BringDistance or 350,
+    Callback = function(v)
+        Config.BringDistance = v
+        print("[BringMob] Distancia: " .. tostring(v) .. " studs")
+    end })
 Settings:AddSlider({ Title = "Tween Fly Speed (studs/s)", Min = 10, Max = 800, Default = 300,
     Callback = function(v) Config.FlySpeed = v end })
 Settings:AddSlider({ Title = "Fly Offset (altura acima do mob)", Min = 5, Max = 50, Default = 15,
@@ -2587,6 +2604,331 @@ Misc:AddButton({ Title = T("ui_close_ui"), Callback = function() Window:CloseBtn
 
 -- Sem neblina por padrao
 Lighting.FogEnd = Config.NoFog and 100000 or 1000
+
+-- =====================================================
+-- PAINEL DE DEBUG (STATUS DO SCRIPT)
+-- Estilo Hoho Hub - mostra o que o script está fazendo
+-- Arrastável, minimizável, atualiza a cada 0.5s
+-- =====================================================
+task.spawn(function()
+    local PGui      = Player:WaitForChild("PlayerGui")
+    local TS        = game:GetService("TweenService")
+
+    -- ── GUI container ──────────────────────────────
+    local DebugGui  = Instance.new("ScreenGui")
+    DebugGui.Name              = "LotuxDebugPanel"
+    DebugGui.ResetOnSpawn      = false
+    DebugGui.ZIndexBehavior    = Enum.ZIndexBehavior.Sibling
+    DebugGui.DisplayOrder      = 999
+    DebugGui.IgnoreGuiInset    = true
+    DebugGui.Parent            = PGui
+
+    -- ── Frame principal ────────────────────────────
+    local Main = Instance.new("Frame")
+    Main.Name                  = "Main"
+    Main.Size                  = UDim2.fromOffset(240, 220)
+    Main.Position              = UDim2.fromOffset(14, 14)
+    Main.BackgroundColor3      = Color3.fromRGB(10, 10, 18)
+    Main.BackgroundTransparency = 0.12
+    Main.BorderSizePixel       = 0
+    Main.ClipsDescendants      = true
+    Main.Parent                = DebugGui
+    Instance.new("UICorner", Main).CornerRadius = UDim.new(0, 10)
+
+    -- borda roxa
+    local Stroke = Instance.new("UIStroke", Main)
+    Stroke.Color     = Color3.fromRGB(100, 50, 220)
+    Stroke.Thickness = 1.5
+    Stroke.Transparency = 0.3
+
+    -- ── Barra de título (drag handle) ──────────────
+    local TitleBar = Instance.new("Frame")
+    TitleBar.Name              = "TitleBar"
+    TitleBar.Size              = UDim2.new(1, 0, 0, 28)
+    TitleBar.BackgroundColor3  = Color3.fromRGB(22, 12, 45)
+    TitleBar.BorderSizePixel   = 0
+    TitleBar.Parent            = Main
+    Instance.new("UICorner", TitleBar).CornerRadius = UDim.new(0, 10)
+    -- fixa só o topo
+    local TitleFix = Instance.new("Frame")
+    TitleFix.Size = UDim2.new(1, 0, 0.5, 0)
+    TitleFix.Position = UDim2.new(0, 0, 0.5, 0)
+    TitleFix.BackgroundColor3 = Color3.fromRGB(22, 12, 45)
+    TitleFix.BorderSizePixel  = 0
+    TitleFix.Parent           = TitleBar
+
+    local TitleLbl = Instance.new("TextLabel")
+    TitleLbl.Text              = "🔧  Lotux Debug"
+    TitleLbl.Font              = Enum.Font.GothamBold
+    TitleLbl.TextSize          = 12
+    TitleLbl.TextColor3        = Color3.fromRGB(180, 140, 255)
+    TitleLbl.BackgroundTransparency = 1
+    TitleLbl.Size              = UDim2.new(1, -50, 1, 0)
+    TitleLbl.Position          = UDim2.fromOffset(10, 0)
+    TitleLbl.TextXAlignment    = Enum.TextXAlignment.Left
+    TitleLbl.Parent            = TitleBar
+
+    -- botão minimizar
+    local MinBtn = Instance.new("TextButton")
+    MinBtn.Text                = "—"
+    MinBtn.Font                = Enum.Font.GothamBold
+    MinBtn.TextSize            = 14
+    MinBtn.TextColor3          = Color3.fromRGB(200, 200, 200)
+    MinBtn.BackgroundColor3    = Color3.fromRGB(40, 20, 80)
+    MinBtn.Size                = UDim2.fromOffset(22, 18)
+    MinBtn.Position            = UDim2.new(1, -48, 0.5, -9)
+    MinBtn.BorderSizePixel     = 0
+    MinBtn.Parent              = TitleBar
+    Instance.new("UICorner", MinBtn).CornerRadius = UDim.new(0, 4)
+
+    -- botão fechar
+    local CloseBtn = Instance.new("TextButton")
+    CloseBtn.Text              = "✕"
+    CloseBtn.Font              = Enum.Font.GothamBold
+    CloseBtn.TextSize          = 12
+    CloseBtn.TextColor3        = Color3.fromRGB(255, 100, 100)
+    CloseBtn.BackgroundColor3  = Color3.fromRGB(60, 15, 15)
+    CloseBtn.Size              = UDim2.fromOffset(22, 18)
+    CloseBtn.Position          = UDim2.new(1, -24, 0.5, -9)
+    CloseBtn.BorderSizePixel   = 0
+    CloseBtn.Parent            = TitleBar
+    Instance.new("UICorner", CloseBtn).CornerRadius = UDim.new(0, 4)
+
+    -- ── Área de linhas de status ───────────────────
+    local Body = Instance.new("Frame")
+    Body.Name                  = "Body"
+    Body.Size                  = UDim2.new(1, -12, 1, -36)
+    Body.Position              = UDim2.fromOffset(6, 32)
+    Body.BackgroundTransparency = 1
+    Body.Parent                = Main
+
+    local BodyLayout = Instance.new("UIListLayout", Body)
+    BodyLayout.SortOrder       = Enum.SortOrder.LayoutOrder
+    BodyLayout.Padding         = UDim.new(0, 3)
+
+    -- helper: cria uma linha "Label: Valor"
+    local function MakeLine(label, order)
+        local row = Instance.new("Frame")
+        row.Size               = UDim2.new(1, 0, 0, 18)
+        row.BackgroundTransparency = 1
+        row.LayoutOrder        = order
+        row.Parent             = Body
+
+        local lbl = Instance.new("TextLabel")
+        lbl.Text               = label .. ":"
+        lbl.Font               = Enum.Font.Gotham
+        lbl.TextSize           = 11
+        lbl.TextColor3         = Color3.fromRGB(140, 120, 200)
+        lbl.BackgroundTransparency = 1
+        lbl.Size               = UDim2.new(0.45, 0, 1, 0)
+        lbl.TextXAlignment     = Enum.TextXAlignment.Left
+        lbl.Parent             = row
+
+        local val = Instance.new("TextLabel")
+        val.Text               = "—"
+        val.Font               = Enum.Font.GothamBold
+        val.TextSize           = 11
+        val.TextColor3         = Color3.fromRGB(230, 230, 255)
+        val.BackgroundTransparency = 1
+        val.Size               = UDim2.new(0.55, 0, 1, 0)
+        val.Position           = UDim2.new(0.45, 0, 0, 0)
+        val.TextXAlignment     = Enum.TextXAlignment.Left
+        val.ClipsDescendants   = true
+        val.Parent             = row
+
+        return val
+    end
+
+    local V_Mode     = MakeLine("Modo",     1)
+    local V_Status   = MakeLine("Status",   2)
+    local V_Target   = MakeLine("Alvo",     3)
+    local V_Island   = MakeLine("Ilha",     4)
+    local V_Sea      = MakeLine("Mar",      5)
+    local V_Kills    = MakeLine("Kills",    6)
+    local V_Bring    = MakeLine("BringMob", 7)
+    local V_Weapon   = MakeLine("Arma",     8)
+    local V_Skills   = MakeLine("Skills",   9)
+    local V_Uptime   = MakeLine("Uptime",   10)
+
+    -- linha de log (última ação)
+    local LogRow = Instance.new("TextLabel")
+    LogRow.Name                = "LastLog"
+    LogRow.Size                = UDim2.new(1, 0, 0, 18)
+    LogRow.BackgroundTransparency = 1
+    LogRow.Font                = Enum.Font.Gotham
+    LogRow.TextSize            = 10
+    LogRow.TextColor3          = Color3.fromRGB(100, 200, 140)
+    LogRow.TextXAlignment      = Enum.TextXAlignment.Left
+    LogRow.ClipsDescendants    = true
+    LogRow.LayoutOrder         = 11
+    LogRow.Parent              = Body
+
+    -- ── Log global: qualquer print("[AutoRaid]") aparece aqui ──
+    _G.LotuxDebugLog = function(msg)
+        if LogRow and LogRow.Parent then
+            LogRow.Text = "› " .. tostring(msg):sub(1, 38)
+        end
+    end
+    -- Hook no print: captura TODOS os prints do script
+    local _origPrint = print
+    print = function(...)
+        _origPrint(...)
+        local msg = table.concat({...}, " ")
+        pcall(function() _G.LotuxDebugLog(msg) end)
+    end
+    -- Captura warn também
+    local _origWarn = warn
+    warn = function(...)
+        _origWarn(...)
+        local msg = "⚠ " .. table.concat({...}, " ")
+        pcall(function() _G.LotuxDebugLog(msg) end)
+    end
+
+    -- ── Drag ──────────────────────────────────────
+    local dragging, dragStart, startPos
+    TitleBar.InputBegan:Connect(function(inp)
+        if inp.UserInputType == Enum.UserInputType.MouseButton1
+        or inp.UserInputType == Enum.UserInputType.Touch then
+            dragging  = true
+            dragStart = inp.Position
+            startPos  = Main.Position
+        end
+    end)
+    game:GetService("UserInputService").InputChanged:Connect(function(inp)
+        if dragging and (inp.UserInputType == Enum.UserInputType.MouseMovement
+                      or inp.UserInputType == Enum.UserInputType.Touch) then
+            local delta = inp.Position - dragStart
+            Main.Position = UDim2.fromOffset(
+                startPos.X.Offset + delta.X,
+                startPos.Y.Offset + delta.Y
+            )
+        end
+    end)
+    game:GetService("UserInputService").InputEnded:Connect(function(inp)
+        if inp.UserInputType == Enum.UserInputType.MouseButton1
+        or inp.UserInputType == Enum.UserInputType.Touch then
+            dragging = false
+        end
+    end)
+
+    -- ── Minimizar ─────────────────────────────────
+    local minimized = false
+    MinBtn.MouseButton1Click:Connect(function()
+        minimized = not minimized
+        local targetH = minimized and 28 or 220
+        TS:Create(Main, TweenInfo.new(0.25, Enum.EasingStyle.Quad), {
+            Size = UDim2.fromOffset(240, targetH)
+        }):Play()
+        MinBtn.Text = minimized and "▢" or "—"
+        Body.Visible = not minimized
+    end)
+
+    -- ── Fechar ────────────────────────────────────
+    CloseBtn.MouseButton1Click:Connect(function()
+        DebugGui:Destroy()
+    end)
+
+    -- ── Update loop ───────────────────────────────
+    local function ColorStatus(lbl, ok)
+        lbl.TextColor3 = ok
+            and Color3.fromRGB(100, 255, 150)
+            or  Color3.fromRGB(255, 100, 100)
+    end
+
+    while DebugGui and DebugGui.Parent do
+        task.wait(0.5)
+        pcall(function()
+            local elapsed = os.time() - (Config.ScriptStartTime or os.time())
+            local h = math.floor(elapsed / 3600)
+            local m = math.floor((elapsed % 3600) / 60)
+            local s = elapsed % 60
+            V_Uptime.Text = string.format("%02d:%02d:%02d", h, m, s)
+
+            V_Sea.Text    = "Sea " .. tostring(CurrentSea or "?")
+            V_Kills.Text  = tostring(Config.KillCount or 0)
+            V_Bring.Text  = Config.BringMob and ("ON  " .. tostring(Config.BringDistance) .. "st") or "OFF"
+            ColorStatus(V_Bring, Config.BringMob)
+
+            -- Arma
+            local wName = Config.SelectedWeaponName ~= "" and Config.SelectedWeaponName or Config.FarmWeapon
+            V_Weapon.Text = tostring(wName):sub(1, 18) or "—"
+
+            -- Skills
+            local sk = {}
+            if Config.AutoSkillZ then sk[#sk+1] = "Z" end
+            if Config.AutoSkillX then sk[#sk+1] = "X" end
+            if Config.AutoSkillC then sk[#sk+1] = "C" end
+            V_Skills.Text = #sk > 0 and table.concat(sk, "+") or "OFF"
+
+            -- Modo principal
+            if Config.AutoRaid then
+                V_Mode.Text = "Auto Raid"
+                V_Mode.TextColor3 = Color3.fromRGB(255, 200, 80)
+
+                -- Status da raid
+                local map     = workspace:FindFirstChild("Map")
+                local raidMap = map and map:FindFirstChild("RaidMap")
+                local islandNum = 0
+                if raidMap then
+                    for i = 5, 1, -1 do
+                        if raidMap:FindFirstChild("RaidIsland" .. i) then
+                            islandNum = i; break
+                        end
+                    end
+                end
+                if islandNum > 0 then
+                    V_Island.Text = "RaidIsland " .. islandNum .. "/5"
+                    V_Island.TextColor3 = Color3.fromRGB(100, 220, 255)
+                    V_Status.Text = "Farmando"
+                    V_Status.TextColor3 = Color3.fromRGB(100, 255, 150)
+                else
+                    V_Island.Text = "Aguardando..."
+                    V_Island.TextColor3 = Color3.fromRGB(200, 200, 200)
+                    V_Status.Text = "Na fila"
+                    V_Status.TextColor3 = Color3.fromRGB(255, 200, 80)
+                end
+
+                -- Alvo (boss ou mob)
+                local enemies = workspace:FindFirstChild("Enemies")
+                local targetName = "—"
+                if enemies then
+                    for _, v in ipairs(enemies:GetChildren()) do
+                        local vHum = v:FindFirstChild("Humanoid")
+                        if vHum and vHum.Health > 0 then
+                            targetName = v.Name:sub(1, 18)
+                            break
+                        end
+                    end
+                end
+                V_Target.Text = targetName
+
+            elseif Config.AutoFarmLevel then
+                V_Mode.Text = "Farm Level"
+                V_Mode.TextColor3 = Color3.fromRGB(100, 200, 255)
+                V_Island.Text = tostring(Config.FarmIsland or "—"):sub(1, 18)
+                V_Island.TextColor3 = Color3.fromRGB(200, 200, 200)
+                V_Status.Text = farmRunning and "Farmando" or "Aguardando"
+                ColorStatus(V_Status, farmRunning)
+                V_Target.Text = currentTarget and currentTarget.Name:sub(1, 18) or "—"
+
+            elseif Config.AutoFarmNearest then
+                V_Mode.Text = "Farm Nearest"
+                V_Mode.TextColor3 = Color3.fromRGB(100, 200, 255)
+                V_Island.Text = "—"
+                V_Status.Text = farmRunning and "Farmando" or "Aguardando"
+                ColorStatus(V_Status, farmRunning)
+                V_Target.Text = currentTarget and currentTarget.Name:sub(1, 18) or "—"
+            else
+                V_Mode.Text = "Inativo"
+                V_Mode.TextColor3 = Color3.fromRGB(150, 150, 150)
+                V_Status.Text = "—"
+                V_Status.TextColor3 = Color3.fromRGB(150, 150, 150)
+                V_Target.Text = "—"
+                V_Island.Text = "—"
+            end
+        end)
+    end
+end)
 
 -- =====================================================
 -- FINALIZACAO
