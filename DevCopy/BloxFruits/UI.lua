@@ -1616,6 +1616,19 @@ Settings:AddDropdown({
 })
 Settings:AddParagraph({ Title = T("tab_language"), Text = T("ui_lang_list") })
 
+Settings:AddSection("Interface")
+Settings:AddToggle({
+    Title   = "Reset UI Button",
+    Default = true,
+    Callback = function(v)
+        local gui = Player.PlayerGui:FindFirstChild("LotuxResetUIBtn")
+        if gui then
+            local btn = gui:FindFirstChildWhichIsA("TextButton", true)
+            if btn then btn.Visible = v end
+        end
+    end,
+})
+
 -- =====================================================
 -- TAB: ITEMS / QUEST
 -- =====================================================
@@ -2762,6 +2775,12 @@ task.spawn(function()
     _G._debugSave        = debugSave
     _G._saveDebugPanel   = SaveDebugPanel
 
+    -- ── Fecha painel anterior se existir (re-execução) ──
+    pcall(function()
+        local old = PGui:FindFirstChild("LotuxDebugPanel")
+        if old then old:Destroy() end
+    end)
+
     -- ── GUI container ──────────────────────────────
     local DebugGui  = Instance.new("ScreenGui")
     DebugGui.Name              = "LotuxDebugPanel"
@@ -2807,7 +2826,7 @@ task.spawn(function()
     TitleFix.Parent           = TitleBar
 
     local TitleLbl = Instance.new("TextLabel")
-    TitleLbl.Text              = "🔧  Lotux Debug"
+    TitleLbl.Text              = "Lotux Debug"
     TitleLbl.Font              = Enum.Font.GothamBold
     TitleLbl.TextSize          = 12
     TitleLbl.TextColor3        = Color3.fromRGB(180, 140, 255)
@@ -2832,7 +2851,7 @@ task.spawn(function()
 
     -- botão fechar
     local CloseBtn = Instance.new("TextButton")
-    CloseBtn.Text              = "✕"
+    CloseBtn.Text              = "X"
     CloseBtn.Font              = Enum.Font.GothamBold
     CloseBtn.TextSize          = 12
     CloseBtn.TextColor3        = Color3.fromRGB(255, 100, 100)
@@ -2898,9 +2917,9 @@ task.spawn(function()
     local V_Weapon   = MakeLine("Arma",       8)
     local V_Skills   = MakeLine("Skills",     9)
     local V_Uptime   = MakeLine("Uptime",     10)
-    local V_Moon     = MakeLine("🌙 Lua",     11)
-    local V_Chalice  = MakeLine("🏆 Cálice",  12)
-    local V_Server   = MakeLine("🕐 Server",  13)
+    local V_Moon     = MakeLine("Lua",        11)
+    local V_Chalice  = MakeLine("Cálice",     12)
+    local V_Server   = MakeLine("Server",     13)
 
     -- linha de log (última ação)
     local LogRow = Instance.new("TextLabel")
@@ -3228,12 +3247,79 @@ task.spawn(function()
 end)
 
 -- =====================================================
+-- BOTÃO FLUTUANTE: RESET UI
+-- Reseta a posição da UI principal para o centro da tela.
+-- Pode ser ocultado pelo toggle "Reset UI Button" em Settings.
+-- =====================================================
+task.spawn(function()
+    local PGuiR = Player:WaitForChild("PlayerGui")
+    -- Fecha botão anterior se existir (re-execução)
+    pcall(function()
+        local old = PGuiR:FindFirstChild("LotuxResetUIBtn")
+        if old then old:Destroy() end
+    end)
+
+    local ResetGui = Instance.new("ScreenGui")
+    ResetGui.Name           = "LotuxResetUIBtn"
+    ResetGui.ResetOnSpawn   = false
+    ResetGui.DisplayOrder   = 997
+    ResetGui.IgnoreGuiInset = true
+    ResetGui.Parent         = PGuiR
+
+    local ResetBtn = Instance.new("TextButton")
+    ResetBtn.Text                 = "Reset UI"
+    ResetBtn.Font                 = Enum.Font.GothamBold
+    ResetBtn.TextSize             = 12
+    ResetBtn.TextColor3           = Color3.fromRGB(255, 255, 255)
+    ResetBtn.BackgroundColor3     = Color3.fromRGB(60, 40, 130)
+    ResetBtn.BackgroundTransparency = 0.2
+    ResetBtn.Size                 = UDim2.fromOffset(90, 28)
+    ResetBtn.Position             = UDim2.new(1, -100, 0, 44)  -- logo abaixo do StopFly
+    ResetBtn.BorderSizePixel      = 0
+    ResetBtn.Parent               = ResetGui
+    Instance.new("UICorner", ResetBtn).CornerRadius = UDim.new(0, 6)
+
+    local Stroke = Instance.new("UIStroke", ResetBtn)
+    Stroke.Color       = Color3.fromRGB(100, 60, 220)
+    Stroke.Thickness   = 1.2
+    Stroke.Transparency = 0.4
+
+    ResetBtn.MouseButton1Click:Connect(function()
+        pcall(function()
+            -- O MainFrame da library fica em CoreGui > "redz Library V5" > "Hub"
+            local coreGui   = game:GetService("CoreGui")
+            local libGui    = coreGui:FindFirstChild("redz Library V5")
+            local mainFrame = libGui and libGui:FindFirstChild("Hub")
+            if mainFrame then
+                local vp    = workspace.CurrentCamera.ViewportSize
+                local sz    = mainFrame.Size
+                mainFrame.Position = UDim2.new(0.5, -sz.X.Offset / 2, 0.5, -sz.Y.Offset / 2)
+            end
+        end)
+        -- Feedback visual
+        ResetBtn.BackgroundColor3 = Color3.fromRGB(40, 160, 80)
+        ResetBtn.Text = "Resetado!"
+        task.delay(0.8, function()
+            if ResetBtn and ResetBtn.Parent then
+                ResetBtn.BackgroundColor3 = Color3.fromRGB(60, 40, 130)
+                ResetBtn.Text = "Reset UI"
+            end
+        end)
+    end)
+end)
+
+-- =====================================================
 -- BOTÃO FLUTUANTE: STOP TWEEN FLY
 -- Fica no canto superior direito, pressione para parar
 -- o voo imediatamente. Toggle na tab Debug Config.
 -- =====================================================
 task.spawn(function()
     local PGui2 = Player:WaitForChild("PlayerGui")
+    -- Fecha botão anterior se existir (re-execução)
+    pcall(function()
+        local old = PGui2:FindFirstChild("LotuxStopFlyBtn")
+        if old then old:Destroy() end
+    end)
     local StopGui = Instance.new("ScreenGui")
     StopGui.Name           = "LotuxStopFlyBtn"
     StopGui.ResetOnSpawn   = false
@@ -3242,7 +3328,7 @@ task.spawn(function()
     StopGui.Parent         = PGui2
 
     local StopBtn = Instance.new("TextButton")
-    StopBtn.Text            = "⏹ Stop Fly"
+    StopBtn.Text            = "Stop Fly"
     StopBtn.Font            = Enum.Font.GothamBold
     StopBtn.TextSize        = 12
     StopBtn.TextColor3      = Color3.fromRGB(255, 255, 255)
@@ -3273,11 +3359,11 @@ task.spawn(function()
         end)
         -- Feedback visual no botão
         StopBtn.BackgroundColor3 = Color3.fromRGB(40, 180, 40)
-        StopBtn.Text = "✅ Parado!"
+        StopBtn.Text = "Parado!"
         task.delay(0.8, function()
             if StopBtn and StopBtn.Parent then
                 StopBtn.BackgroundColor3 = Color3.fromRGB(180, 40, 40)
-                StopBtn.Text = "⏹ Stop Fly"
+                StopBtn.Text = "Stop Fly"
             end
         end)
     end
