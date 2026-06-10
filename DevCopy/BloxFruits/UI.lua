@@ -1315,7 +1315,7 @@ Main:AddDropdown({
     Title    = T("ui_farm_attack"),
     Options  = { "Normal", "FastAttack", "SuperFastAttack" },
     Default  = "Normal",
-    Callback = function(v) Config.FarmAttack = tostring(v) end,
+    Callback = function(v) Config.FarmAttack = (type(v) == "table" and (v[1] or next(v)) or tostring(v)) end,
 })
 
 Main:AddSection("Farm Normal")
@@ -1360,23 +1360,23 @@ Main:AddToggle({ Title = "Auto Spawn Darkbeard",Default = false, Flag = "AutoDar
 
 Main:AddSection("Farm Boss")
 Main:AddDropdown({ Title = T("ui_select_boss"), Options = Bosses[CurrentSea], Default = Bosses[CurrentSea][1],
-    Callback = function(v) Config.SelectedBoss = tostring(v) end })
+    Callback = function(v) Config.SelectedBoss = (type(v) == "table" and (v[1] or next(v)) or tostring(v)) end })
 Main:AddToggle({ Title = T("ui_auto_farm_boss"),      Default = false, Flag = "AutoFarmBoss", Callback = function(v) Config.AutoFarmBoss     = v end })
 Main:AddToggle({ Title = T("ui_auto_farm_all_boss"),  Default = false, Flag = "AutoFarmAllBoss", Callback = function(v) Config.AutoFarmAllBoss  = v end })
 Main:AddToggle({ Title = T("ui_auto_farm_raid_boss"), Default = false, Flag = "AutoFarmRaidBoss", Callback = function(v) Config.AutoFarmRaidBoss = v end })
 
 Main:AddSection("Material")
 Main:AddDropdown({ Title = T("ui_select_material"), Options = Materials[CurrentSea], Default = Materials[CurrentSea][1],
-    Callback = function(v) Config.SelectedMaterial = tostring(v) end })
+    Callback = function(v) Config.SelectedMaterial = (type(v) == "table" and (v[1] or next(v)) or tostring(v)) end })
 Main:AddToggle({ Title = T("ui_auto_material"), Default = false, Flag = "AutoFarmMaterial", Callback = function(v) Config.AutoFarmMaterial = v end })
 
 Main:AddSection("Mastery")
 Main:AddDropdown({ Title = T("ui_mastery_weapon"), Options = { "Gun","Sword","Melee","BloxFruits" }, Default = "Gun",
-    Callback = function(v) Config.MasteryWeapon = tostring(v) end })
+    Callback = function(v) Config.MasteryWeapon = (type(v) == "table" and (v[1] or next(v)) or tostring(v)) end })
 Main:AddSlider({ Title = "Health Kill Mob (%)", Min = 1, Max = 100, Default = 30,
     Flag = "HealthKillMob", Callback = function(v) Config.HealthKillMob = v end })
 Main:AddDropdown({ Title = T("ui_selection_island"), Options = Islands[CurrentSea], Default = Islands[CurrentSea][1],
-    Callback = function(v) Config.MasteryIsland = tostring(v) end })
+    Callback = function(v) Config.MasteryIsland = (type(v) == "table" and (v[1] or next(v)) or tostring(v)) end })
 Main:AddDropdown({
     Title       = "Mastery Skills",
     Options     = { "Z", "X", "C", "V", "F" },
@@ -1602,7 +1602,9 @@ Settings:AddDropdown({
     Options  = { "English","Portugues_Brazil","Portugues_Portugal","Espanol","Vietnam" },
     Default  = CurrentLang,
     Callback = function(v)
-        CurrentLang = tostring(v)
+        -- A library passa { Selected } para dropdown single-select
+        local lang = type(v) == "table" and (v[1] or next(v)) or tostring(v)
+        CurrentLang = tostring(lang)
         Config.Language = CurrentLang
         SaveLanguage(CurrentLang)
         Notify({
@@ -1716,7 +1718,7 @@ ItemsQuest:AddToggle({ Title = T("ui_auto_barista"),           Default = false,
     end })
 ItemsQuest:AddDropdown({ Title = "Cor do Haki (Barista)",
     Options = { "White","Black","Red","Blue","Green","Yellow","Purple","Pink" }, Default = "White",
-    Callback = function(v) Config.HakiColor = tostring(v) end })
+    Callback = function(v) Config.HakiColor = (type(v) == "table" and (v[1] or next(v)) or tostring(v)) end })
 ItemsQuest:AddButton({ Title = "Buy Buso Colors",  Callback = function()
     pcall(function() (CommF_ or {}):InvokeServer("BuyBuso") end)
     Notify({ Title = "Comprando cores Buso!", Image = IMG, Type = "Success", Duration = 3 })
@@ -1790,13 +1792,13 @@ SeaEventTab:AddToggle({ Title = "Skip Terror Shark",   Default = false, Flag = "
 
 SeaEventTab:AddSection("Choose Sea Event")
 SeaEventTab:AddDropdown({ Title = "Select Boats",      Options = { "Bicrement", "Dinghy", "Caravel", "Galleon", "Raft" }, Default = "Bicrement",
-    Callback = function(v) _G.SelectedBoat = tostring(v) end })
+    Callback = function(v) _G.SelectedBoat = (type(v) == "table" and (v[1] or next(v)) or tostring(v)) end })
 SeaEventTab:AddButton({ Title = "Buy Boat",  Callback = function()
     pcall(function() (CommF_ or {}):InvokeServer("BuyBoat", _G.SelectedBoat or "Bicrement") end)
     Notify({ Title = "Comprando barco!", Image = IMG, Type = "Success", Duration = 2 })
 end })
 SeaEventTab:AddDropdown({ Title = "Select Sea Level",  Options = { "Sea 1", "Sea 2", "Sea 3" }, Default = "Sea 1",
-    Callback = function(v) _G.SelectedSeaLevel = tostring(v) end })
+    Callback = function(v) _G.SelectedSeaLevel = (type(v) == "table" and (v[1] or next(v)) or tostring(v)) end })
 
 SeaEventTab:AddSection("Entity Sea")
 SeaEventTab:AddToggle({ Title = "Auto Shark",                      Default = false, Flag = "AutoKillShark", Callback = function(v) Config.AutoKillShark    = v end })
@@ -2235,7 +2237,7 @@ FruitRaidTab:AddToggle({ Title = T("ui_twenfly_fruit"), Default = false,
     end })
 FruitRaidTab:AddDropdown({ Title = "Select Fruit Shop",
     Options = { "Devil Fruit Shop", "Advanced Fruit Dealer" }, Default = "Devil Fruit Shop",
-    Callback = function(v) _G.SelectedFruitShop = tostring(v) end })
+    Callback = function(v) _G.SelectedFruitShop = (type(v) == "table" and (v[1] or next(v)) or tostring(v)) end })
 FruitRaidTab:AddToggle({ Title = "Auto Buy Fruit Shop",       Default = false, Flag = "G_AutoBuyFruitShop", Callback = function(v) _G.AutoBuyFruitShop = v end })
 
 FruitRaidTab:AddSection("Raid")
@@ -2279,7 +2281,7 @@ LPTab:AddDropdown({ Title = "Select Player",
         return names
     end)(),
     Default = "Nenhum",
-    Callback = function(v) Config.SelectedPlayer = tostring(v) end })
+    Callback = function(v) Config.SelectedPlayer = (type(v) == "table" and (v[1] or next(v)) or tostring(v)) end })
 LPTab:AddToggle({ Title = "Aimbot Method Skill",     Default = false,
     Flag = "AimbotSkill", Callback = function(v)
         Config.AimbotSkill = v
@@ -2411,7 +2413,7 @@ Teleport:AddSection("Teleport For Island")
 Teleport:AddDropdown({ Title = "Select Island",
     Options  = Islands[CurrentSea],
     Default  = Islands[CurrentSea][1],
-    Callback = function(v) Config.FarmIsland = tostring(v) end,
+    Callback = function(v) Config.FarmIsland = (type(v) == "table" and (v[1] or next(v)) or tostring(v)) end,
 })
 Teleport:AddButton({ Title = "Auto Teleport Island",
     Callback = function()
@@ -2434,7 +2436,7 @@ Teleport:AddSection("Teleport Portal")
 Teleport:AddDropdown({ Title = "Select Portal",
     Options = { "Sky Island", "Underwater City", "Snow Mountain", "Flower Garden", "Cake Island", "Hydra Island", "Floating Turtle" },
     Default = "Sky Island",
-    Callback = function(v) _G.SelectedPortal = tostring(v) end })
+    Callback = function(v) _G.SelectedPortal = (type(v) == "table" and (v[1] or next(v)) or tostring(v)) end })
 Teleport:AddButton({ Title = "Request Entrance",
     Callback = function()
         pcall(function()
@@ -2447,7 +2449,7 @@ Teleport:AddSection("Teleport for NPCs")
 Teleport:AddDropdown({ Title = "Select NPC",
     Options = { "Sword Dealer", "Blox Fruit Dealer", "Pirate Bartender", "Marine Admiral", "Spy", "Chief Warden", "Sick Man" },
     Default = "Sword Dealer",
-    Callback = function(v) _G.SelectedNPC = tostring(v) end })
+    Callback = function(v) _G.SelectedNPC = (type(v) == "table" and (v[1] or next(v)) or tostring(v)) end })
 Teleport:AddToggle({ Title = "Auto Tween to NPC",
     Default = false,
     Flag = "G_AutoTweenToNPC", Callback = function(v)
@@ -2640,7 +2642,7 @@ end })
 
 Misc:AddSection("Job ID")
 local jobIDBox = Misc:AddTextBox({ Title = "Job ID", Default = game.JobId, PlaceholderText = "Cole ou copie o Job ID", ClearText = false,
-    Callback = function(v) _G.TargetJobID = tostring(v) end })
+    Callback = function(v) _G.TargetJobID = (type(v) == "table" and (v[1] or next(v)) or tostring(v)) end })
 Misc:AddButton({ Title = "Teleport Job ID", Callback = function()
     local id = _G.TargetJobID or ""
     if id ~= "" then
@@ -3489,4 +3491,4 @@ Notify({
     Type        = "Success",
 })
 
-print("UI Loaded v4.2.0")
+print("UI Loaded v4.3.0")
