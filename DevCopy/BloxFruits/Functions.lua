@@ -2077,7 +2077,7 @@ function Functions.StartAutoGrayBeard(config)
                 elseif ReplicatedStorage:FindFirstChild("Greybeard") then
                     Functions.TeleportTo(ReplicatedStorage.Greybeard.HumanoidRootPart.CFrame * CFrame.new(2, 20, 2))
                 else
-                    if config.AutoGrayBeardHop then Functions.Hop() end
+                    task.wait(5)  -- aguarda respawn do Greybeard
                 end
             end)
         end
@@ -2582,7 +2582,7 @@ end
 function Functions.StartAutoAwakenAbilities(config)
     task.spawn(function()
         while task.wait(0.1) do
-            if not config.AutoAwakenAbilities then continue end
+            if not _G.AutoAwakening then continue end
             pcall(function()
                 CF("Awakener", "Awaken")
             end)
@@ -2622,7 +2622,7 @@ end
 function Functions.StartTweenFruit(config)
     task.spawn(function()
         while task.wait(0.5) do
-            if not config.TweenFruit then continue end
+            if not config.TweenFlyFruit then continue end
             pcall(function()
                 -- Frutas no workspace raiz (estilo Tiroreal)
                 for _, obj in pairs(workspace:GetChildren()) do
@@ -3466,10 +3466,7 @@ function Functions.StartAutoFindPrehistoric(config)
                         end
                     end
                 end
-                -- Hop para encontrar o servidor com a ilha
-                if config.AutoFindPrehistoricHop then
-                    Functions.Hop()
-                end
+                -- Aguarda: a ilha aparece aleatoriamente no servidor atual
             end)
         end
     end)
@@ -5329,7 +5326,7 @@ end
 function Functions.StartAutoAwakeningFruit(config)
     task.spawn(function()
         while task.wait(0.5) do
-            if not config.AutoAwakenAbilities then continue end
+            if not _G.AutoAwakening then continue end
             
             pcall(function()
                 CF("Awakener", "Awaken")
@@ -6399,50 +6396,6 @@ end
 
 print("[Lotux Hub] Carregando...")
 
-function Functions.TravelToSubmergedIsland(config)
-    if IsOnSubmergedIsland() then
-        return true
-    end
-
-    local char = Player.Character
-    if not char then return false end
-    local hrp = char:FindFirstChild("HumanoidRootPart")
-    if not hrp then return false end
-
-    local distToNPC = (hrp.Position - SUBMERGED_NPC_POS).Magnitude
-
-    if distToNPC > 15 then
-        local TweenSvc  = game:GetService("TweenService")
-        local targetCF  = CFrame.new(SUBMERGED_NPC_POS + Vector3.new(0, 5, 0))
-        local fakeIsTp  = { value = false }
-        local fakeNoAuto = { value = false }
-        Functions.FlyToPosition(targetCF, TweenSvc, config, fakeIsTp, fakeNoAuto)
-        task.wait(0.5)
-    end
-
-    pcall(function()
-        local net = game:GetService("ReplicatedStorage"):WaitForChild("Modules"):WaitForChild("Net")
-        local rf  = net:FindFirstChild("RF/SubmarineWorkerSpeak")
-        if not rf then
-            warn("[TravelToSubmerged] RF/SubmarineWorkerSpeak nao encontrado!")
-            return
-        end
-        rf:InvokeServer("TravelToSubmergedIsland")
-    end)
-
-    local waited = 0
-    while not IsOnSubmergedIsland() and waited < 15 do
-        task.wait(0.5)
-        waited = waited + 0.5
-    end
-
-    if IsOnSubmergedIsland() then
-        return true
-    else
-        warn("[TravelToSubmerged] Timeout apos " .. waited .. "s - nao foi teleportado. Verifique se o nivel e suficiente (2600+).")
-        return false
-    end
-end
 
 print("[Lotux Hub] Carregando aliases")
 
