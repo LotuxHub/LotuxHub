@@ -863,11 +863,24 @@ task.spawn(function()
                             TweenService, Config, isTeleporting, NotAutoEquip)
                     end
 
-                    -- BringMob: puxa todos os mobs do mesmo tipo para BAIXO DO PLAYER
-                    -- -5 studs no Y = abaixo dos pés, sem ficar dentro do player
+                    -- BringMob: puxa mobs para o chão embaixo do player
+                    -- Usa raycast para achar o chão real, evita flutuar ou afundar
                     if Config.BringMob then
-                        local playerBringPos = HumanoidRootPart
-                            and CFrame.new(HumanoidRootPart.Position - Vector3.new(0, 5, 0))
+                        local function GetGroundBelow(pos)
+                            local rayResult = workspace:Raycast(
+                                pos + Vector3.new(0, 5, 0),
+                                Vector3.new(0, -200, 0),
+                                RaycastParams.new()
+                            )
+                            if rayResult then
+                                return rayResult.Position.Y + 3  -- 3 studs acima do chão
+                            end
+                            return pos.Y - 3  -- fallback: 3 studs abaixo do HRP
+                        end
+                        local pp = HumanoidRootPart.Position
+                        local groundY = GetGroundBelow(pp)
+                        local playerBringPos = CFrame.new(pp.X, groundY, pp.Z)
+                        local _ = playerBringPos and true
                         if playerBringPos then
                             local enemiesFolder = workspace:FindFirstChild("Enemies")
                             if enemiesFolder then
@@ -997,11 +1010,18 @@ task.spawn(function()
                                             TweenService, Config, isTeleporting, NotAutoEquip)
                                     end
 
-                                    -- BringMob: puxa todos os mobs do mesmo tipo para BAIXO DO PLAYER
-                                    -- -5 studs no Y = abaixo dos pés, sem ficar dentro do player
+                                    -- BringMob: puxa mobs para o chão embaixo do player
                                     if Config.BringMob then
-                                        local playerBringPos = HumanoidRootPart
-                                            and CFrame.new(HumanoidRootPart.Position - Vector3.new(0, 5, 0))
+                                        local function GetGroundBelow2(pos)
+                                            local rp = workspace:Raycast(
+                                                pos + Vector3.new(0, 5, 0),
+                                                Vector3.new(0, -200, 0),
+                                                RaycastParams.new()
+                                            )
+                                            return rp and (rp.Position.Y + 3) or (pos.Y - 3)
+                                        end
+                                        local pp2 = HumanoidRootPart.Position
+                                        local playerBringPos = CFrame.new(pp2.X, GetGroundBelow2(pp2), pp2.Z)
                                         if playerBringPos then
                                             local enemiesFolder = workspace:FindFirstChild("Enemies")
                                             if enemiesFolder then
@@ -2761,6 +2781,8 @@ task.spawn(function()
         show_moon    = true,
         show_chalice = true,
         show_server  = true,
+        w            = 240,
+        h            = 285,
     }
     pcall(function()
         if readfile and isfile and isfile(DEBUG_SAVE_FILE) then
@@ -2801,7 +2823,7 @@ task.spawn(function()
     -- ── Frame principal ────────────────────────────
     local Main = Instance.new("Frame")
     Main.Name                  = "Main"
-    Main.Size = UDim2.fromOffset(240, 285)
+    Main.Size = UDim2.fromOffset(debugSave.w or 240, debugSave.h or 285)
     Main.Position              = UDim2.fromOffset(debugSave.x, debugSave.y)
     Main.Visible               = debugSave.visible
     Main.BackgroundColor3      = Color3.fromRGB(10, 10, 18)
@@ -2834,7 +2856,7 @@ task.spawn(function()
     TitleFix.Parent           = TitleBar
 
     local TitleLbl = Instance.new("TextLabel")
-    TitleLbl.Text              = "🔧  Lotux Debug"
+    TitleLbl.Text              = "Lotux Debug"
     TitleLbl.Font              = Enum.Font.GothamBold
     TitleLbl.TextSize          = 12
     TitleLbl.TextColor3        = Color3.fromRGB(180, 140, 255)
@@ -2859,7 +2881,7 @@ task.spawn(function()
 
     -- botão fechar
     local CloseBtn = Instance.new("TextButton")
-    CloseBtn.Text              = "✕"
+    CloseBtn.Text              = "X"
     CloseBtn.Font              = Enum.Font.GothamBold
     CloseBtn.TextSize          = 12
     CloseBtn.TextColor3        = Color3.fromRGB(255, 100, 100)
@@ -2925,9 +2947,9 @@ task.spawn(function()
     local V_Weapon   = MakeLine("Arma",       8)
     local V_Skills   = MakeLine("Skills",     9)
     local V_Uptime   = MakeLine("Uptime",     10)
-    local V_Moon     = MakeLine("🌙 Lua",     11)
-    local V_Chalice  = MakeLine("🏆 Cálice",  12)
-    local V_Server   = MakeLine("🕐 Server",  13)
+    local V_Moon     = MakeLine("Lua",     11)
+    local V_Chalice  = MakeLine("Cálice",  12)
+    local V_Server   = MakeLine("Server",  13)
 
     -- linha de log (última ação)
     local LogRow = Instance.new("TextLabel")
@@ -2995,19 +3017,73 @@ task.spawn(function()
         end
     end)
 
+    -- ── Resize handle (canto inferior direito) ────────
+    local MIN_W, MIN_H = 200, 120
+    local ResizeHandle = Instance.new("TextButton")
+    ResizeHandle.Text              = ""
+    ResizeHandle.Size              = UDim2.fromOffset(14, 14)
+    ResizeHandle.Position          = UDim2.new(1, -14, 1, -14)
+    ResizeHandle.BackgroundColor3  = Color3.fromRGB(100, 50, 220)
+    ResizeHandle.BackgroundTransparency = 0.4
+    ResizeHandle.BorderSizePixel   = 0
+    ResizeHandle.ZIndex            = 10
+    ResizeHandle.Parent            = Main
+    Instance.new("UICorner", ResizeHandle).CornerRadius = UDim.new(0, 3)
+    local ResizeIcon = Instance.new("TextLabel")
+    ResizeIcon.Text              = "\u25E2"
+    ResizeIcon.TextSize          = 10
+    ResizeIcon.Font              = Enum.Font.GothamBold
+    ResizeIcon.TextColor3        = Color3.fromRGB(255, 255, 255)
+    ResizeIcon.BackgroundTransparency = 1
+    ResizeIcon.Size              = UDim2.fromScale(1, 1)
+    ResizeIcon.ZIndex            = 11
+    ResizeIcon.Parent            = ResizeHandle
+
+    local resizing, resizeStart, resizeStartSize = false, Vector3.new(), Vector2.new()
+    ResizeHandle.InputBegan:Connect(function(inp)
+        if inp.UserInputType == Enum.UserInputType.MouseButton1
+        or inp.UserInputType == Enum.UserInputType.Touch then
+            resizing        = true
+            resizeStart     = inp.Position
+            resizeStartSize = Vector2.new(Main.Size.X.Offset, Main.Size.Y.Offset)
+        end
+    end)
+    game:GetService("UserInputService").InputChanged:Connect(function(inp)
+        if resizing and (inp.UserInputType == Enum.UserInputType.MouseMovement
+                      or inp.UserInputType == Enum.UserInputType.Touch) then
+            local delta = inp.Position - resizeStart
+            local nw = math.max(MIN_W, resizeStartSize.X + delta.X)
+            local nh = math.max(MIN_H, resizeStartSize.Y + delta.Y)
+            Main.Size = UDim2.fromOffset(nw, nh)
+            Body.Size = UDim2.new(1, -12, 1, -36)
+        end
+    end)
+    game:GetService("UserInputService").InputEnded:Connect(function(inp)
+        if inp.UserInputType == Enum.UserInputType.MouseButton1
+        or inp.UserInputType == Enum.UserInputType.Touch then
+            if resizing then
+                debugSave.w = Main.Size.X.Offset
+                debugSave.h = Main.Size.Y.Offset
+                SaveDebugPanel()
+            end
+            resizing = false
+        end
+    end)
+
     -- ── Minimizar (salva estado) ───────────────────
     local minimized = debugSave.minimized or false
     -- Aplica estado salvo imediatamente
     if minimized then
-        Main.Size    = UDim2.fromOffset(240, 28)
+        Main.Size    = UDim2.fromOffset(debugSave.w or 240, 28)
         Body.Visible = false
         MinBtn.Text  = "▢"
     end
     MinBtn.MouseButton1Click:Connect(function()
         minimized = not minimized
-        local targetH = minimized and 28 or 285
+        local fullH = debugSave.h or 285
+        local targetH = minimized and 28 or fullH
         TS:Create(Main, TweenInfo.new(0.25, Enum.EasingStyle.Quad), {
-            Size = UDim2.fromOffset(240, targetH)
+            Size = UDim2.fromOffset(Main.Size.X.Offset, targetH)
         }):Play()
         MinBtn.Text  = minimized and "▢" or "—"
         Body.Visible = not minimized
@@ -3077,43 +3153,49 @@ task.spawn(function()
             V_Kills.Text  = tostring(kTotal) .. "  (" .. kpm .. "/min)"
 
             -- ── Lua: quantas noites faltam para lua cheia ──────────
-            -- No BF cada ciclo completo de dia/noite dura ~20 min reais.
-            -- Lua cheia ocorre a cada 8 noites (ciclo de 8).
-            -- O jogo usa workspace:GetServerTimeNow() para o ciclo.
-            -- Cada "dia BF" = 1200 segundos (20 min). Noite = dias pares do ciclo.
-            -- Lua cheia = a cada 8 noites = a cada 16 dias BF (ciclo de 16).
+            -- BF sincroniza o ciclo via workspace:GetServerTimeNow() (Unix timestamp).
+            -- Cada dia BF = 1200s (20min). Noite = metade par do ciclo.
+            -- Lua cheia ocorre a cada 3 noites (ciclo real do BF = 3 noites).
+            -- Fonte de verdade: Lighting.ClockTime (0-24) indica dia/noite agora.
             pcall(function()
-                local BF_DAY_SECS   = 1200  -- 20 min por dia BF
-                local FULL_MOON_EVERY = 8   -- lua cheia a cada 8 noites
-                local serverTime    = workspace:GetServerTimeNow()
-                local dayNumber     = math.floor(serverTime / BF_DAY_SECS)
-                -- noite = dayNumber impar; lua cheia = noite 8, 16, 24...
-                local nightNumber   = math.floor(dayNumber / 2)  -- quantas noites passaram
-                local nightsInCycle = nightNumber % FULL_MOON_EVERY
-                local nightsLeft    = FULL_MOON_EVERY - nightsInCycle
+                local Lighting        = game:GetService("Lighting")
+                local BF_DAY_SECS     = 1200   -- 20 min por ciclo completo dia+noite
+                local FULL_MOON_EVERY = 3      -- lua cheia a cada 3 noites no BF
+                -- Usa GetServerTimeNow para o número do dia (é isso que o BF usa internamente)
+                local serverTime      = workspace:GetServerTimeNow()
+                local halfDay         = BF_DAY_SECS / 2   -- 600s = metade do ciclo
+                local cyclePos        = serverTime % BF_DAY_SECS
+                local isNight         = cyclePos >= halfDay
+                local secInPhase      = cyclePos - (isNight and halfDay or 0)
+                local secsLeftPhase   = halfDay - secInPhase
 
-                -- Tempo restante até a próxima noite (se for noite hoje, até a próxima lua cheia)
-                local secInDay      = serverTime % BF_DAY_SECS
-                local isNight       = (dayNumber % 2) == 1
+                -- Número de noites que já passaram no servidor
+                local totalNights     = math.floor(serverTime / halfDay / 2)
+                -- Dentro do ciclo de lua cheia
+                local nightInCycle    = totalNights % FULL_MOON_EVERY
+                local nightsLeft      = FULL_MOON_EVERY - nightInCycle  -- noites até lua cheia
 
-                if nightsLeft == FULL_MOON_EVERY and isNight then
-                    -- É lua cheia AGORA
-                    local secsLeft = BF_DAY_SECS - secInDay
-                    V_Moon.Text = "🌕 CHEIA! " .. string.format("%dm%02ds", math.floor(secsLeft/60), secsLeft%60)
+                -- Valida com Lighting: ClockTime 18-6 = noite
+                local clock = Lighting.ClockTime
+                local isNightLighting = (clock >= 18 or clock < 6)
+
+                if nightsLeft == FULL_MOON_EVERY and isNightLighting then
+                    -- Lua cheia agora
+                    V_Moon.Text = "🌕 CHEIA! " .. string.format("%dm%02ds", math.floor(secsLeftPhase/60), secsLeftPhase%60)
                     V_Moon.TextColor3 = Color3.fromRGB(255, 230, 80)
-                elseif nightsLeft == 1 and not isNight then
-                    -- Próxima noite já é lua cheia: mostra quanto falta pra noite começar
-                    local secsToNight = BF_DAY_SECS - secInDay
-                    V_Moon.Text = "🌔 Hoje! " .. string.format("%dm%02ds", math.floor(secsToNight/60), secsToNight%60)
-                    V_Moon.TextColor3 = Color3.fromRGB(200, 200, 80)
+                elseif nightsLeft == 1 and not isNightLighting then
+                    -- Próxima noite é lua cheia
+                    V_Moon.Text = "🌔 Hoje! " .. string.format("%dm%02ds", math.floor(secsLeftPhase/60), secsLeftPhase%60)
+                    V_Moon.TextColor3 = Color3.fromRGB(220, 210, 80)
                 else
-                    -- Calcula segundos totais até a próxima lua cheia
-                    local daysLeft = (nightsLeft * 2) - (isNight and 1 or 0)
-                    local secsLeft = (daysLeft * BF_DAY_SECS) - secInDay
-                    local h = math.floor(secsLeft / 3600)
-                    local m = math.floor((secsLeft % 3600) / 60)
+                    -- N noites restantes
+                    local nightsToWait = nightsLeft - (isNightLighting and 0 or 0)
+                    local secsTotal    = (nightsToWait * BF_DAY_SECS) - secInPhase
+                    if secsTotal < 0 then secsTotal = 0 end
+                    local h = math.floor(secsTotal / 3600)
+                    local m = math.floor((secsTotal % 3600) / 60)
                     if h > 0 then
-                        V_Moon.Text = nightsLeft .. " noites  " .. h .. "h" .. m .. "m"
+                        V_Moon.Text = nightsLeft .. " noites  " .. h .. "h" .. string.format("%02dm", m)
                     else
                         V_Moon.Text = nightsLeft .. " noites  " .. m .. "min"
                     end
@@ -3300,7 +3382,7 @@ local function MakeDraggableFloatBtn(opts)
     Btn.TextColor3            = Color3.fromRGB(255, 255, 255)
     Btn.BackgroundColor3      = opts.BtnColor
     Btn.BackgroundTransparency = 0.15
-    Btn.Size                  = UDim2.fromOffset(95, 28)
+    Btn.Size                  = UDim2.fromOffset(108, 32)
     Btn.Position              = UDim2.fromOffset(savedX, savedY)
     Btn.BorderSizePixel       = 0
     Btn.Active                = true
@@ -3380,7 +3462,7 @@ task.spawn(function()
         DefaultX     = math.floor((workspace.CurrentCamera.ViewportSize.X or 800) - 105),
         DefaultY     = 44,
         DisplayOrder = 997,
-        BtnText      = "⟳ Reset UI",
+        BtnText      = "Reset UI",
         BtnColor     = Color3.fromRGB(55, 35, 120),
         StrokeColor  = Color3.fromRGB(100, 60, 220),
         OnClick = function(btn)
@@ -3393,11 +3475,11 @@ task.spawn(function()
                 end
             end)
             btn.BackgroundColor3 = Color3.fromRGB(40, 160, 80)
-            btn.Text = "✅ Resetado!"
+            btn.Text = "Resetado!"
             task.delay(0.8, function()
                 if btn and btn.Parent then
                     btn.BackgroundColor3 = Color3.fromRGB(55, 35, 120)
-                    btn.Text = "⟳ Reset UI"
+                    btn.Text = "Reset UI"
                 end
             end)
         end,
@@ -3415,13 +3497,35 @@ task.spawn(function()
         DefaultX     = math.floor((workspace.CurrentCamera.ViewportSize.X or 800) - 105),
         DefaultY     = 10,
         DisplayOrder = 998,
-        BtnText      = "⏹ Stop Fly",
+        BtnText      = "Stop Fly",
         BtnColor     = Color3.fromRGB(170, 35, 35),
         StrokeColor  = Color3.fromRGB(220, 60, 60),
         OnClick = function(btn)
             pcall(function()
+                -- Para o voo
                 isTeleporting.value = false
                 Functions.StopTeleport()
+                -- Desativa todos os loops de farm/teleporte para não reinicar o fly
+                Config.AutoFarmLevel    = false
+                Config.AutoFarmNearest  = false
+                Config.AutoFarmMastery  = false
+                Config.TweenFlyFruit    = false
+                Config.AutoRaid         = false
+                Config.AutoRaidLaw      = false
+                Config.AutoDungeon      = false
+                -- Atualiza os toggles da UI (se a library expõe Flags)
+                pcall(function()
+                    if Flags then
+                        if Flags["AutoFarmLevel"]   then Flags["AutoFarmLevel"]:Set(false)   end
+                        if Flags["AutoFarmNearest"] then Flags["AutoFarmNearest"]:Set(false) end
+                        if Flags["AutoFarmMastery"] then Flags["AutoFarmMastery"]:Set(false) end
+                        if Flags["TweenFlyFruit"]   then Flags["TweenFlyFruit"]:Set(false)   end
+                        if Flags["AutoRaid"]        then Flags["AutoRaid"]:Set(false)        end
+                        if Flags["AutoRaidLaw"]     then Flags["AutoRaidLaw"]:Set(false)     end
+                        if Flags["AutoDungeon"]     then Flags["AutoDungeon"]:Set(false)     end
+                    end
+                end)
+                -- Remove BodyMovers do HRP
                 local char = Player.Character
                 local hrp  = char and char:FindFirstChild("HumanoidRootPart")
                 if hrp then
@@ -3435,11 +3539,11 @@ task.spawn(function()
                 end
             end)
             btn.BackgroundColor3 = Color3.fromRGB(40, 180, 40)
-            btn.Text = "✅ Parado!"
+            btn.Text = "Parado!"
             task.delay(0.8, function()
                 if btn and btn.Parent then
                     btn.BackgroundColor3 = Color3.fromRGB(170, 35, 35)
-                    btn.Text = "⏹ Stop Fly"
+                    btn.Text = "Stop Fly"
                 end
             end)
         end,
@@ -3491,4 +3595,4 @@ Notify({
     Type        = "Success",
 })
 
-print("UI Loaded v4.3.0")
+print("UI Loaded v4.4.0")

@@ -6473,6 +6473,5 @@ _G.UMESP = Functions.UpdateMirageESP     -- UpdateMirageESP
 _G.USESP = Functions.UpdateSeaBeastESP   -- UpdateSeaBeastESP
 _G.TTSI  = Functions.TravelToSubmergedIsland -- TravelToSubmergedIsland
 
-print("[LotuxHub] aliases carregados")
-print("[LotuxHub] Functions Updated Loaded v2.4.75")
+print("[LotuxHub] Functions Updated Loaded v2.5")
 return Functions
