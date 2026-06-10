@@ -517,7 +517,7 @@ local Player = Players.LocalPlayer
 local isTeleporting = { value = false }
 local NoClip        = { value = false }
 local NotAutoEquip  = { value = false }
-local BringPos      = CFrame.new(0, 0, 0)
+local BringPos      = CFrame.new(0, -10, 0)
 
 local Character, Humanoid, HumanoidRootPart
 local function UpdateChar(c)
@@ -3030,7 +3030,7 @@ task.spawn(function()
     ResizeHandle.Parent            = Main
     Instance.new("UICorner", ResizeHandle).CornerRadius = UDim.new(0, 3)
     local ResizeIcon = Instance.new("TextLabel")
-    ResizeIcon.Text              = "\u25E2"
+    ResizeIcon.Text              = "25E2"
     ResizeIcon.TextSize          = 10
     ResizeIcon.Font              = Enum.Font.GothamBold
     ResizeIcon.TextColor3        = Color3.fromRGB(255, 255, 255)
