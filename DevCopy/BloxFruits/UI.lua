@@ -1341,40 +1341,40 @@ Main:AddToggle({
 })
 
 Main:AddSection("Farm Sea 3")
-Main:AddToggle({ Title = "Auto Pirate Raid",   Default = false, Callback = function(v) Config.AutoPirateRaid   = v end })
-Main:AddToggle({ Title = "Auto Rip Indra",     Default = false, Callback = function(v) Config.AutoRipIndra     = v end })
-Main:AddToggle({ Title = "Auto Tyrant Spawn",  Default = false, Callback = function(v) Config.AutoTyrantSpawn  = v end })
-Main:AddToggle({ Title = "Auto Soul Reaper",   Default = false, Callback = function(v) Config.AutoSoulReaper   = v end })
-Main:AddToggle({ Title = "Auto Big Mom",        Default = false, Callback = function(v) Config.AutoBigMom       = v end })
-Main:AddToggle({ Title = "Auto Farm Bone",      Default = false, Callback = function(v) Config.AutoFarmBone     = v end })
-Main:AddToggle({ Title = "Auto Cake Prince",    Default = false, Callback = function(v) Config.AutoCakePrince   = v end })
-Main:AddToggle({ Title = "Auto Dough King",     Default = false, Callback = function(v) Config.AutoDoughKing    = v end })
+Main:AddToggle({ Title = "Auto Pirate Raid",   Default = false, Flag = "AutoPirateRaid", Callback = function(v) Config.AutoPirateRaid   = v end })
+Main:AddToggle({ Title = "Auto Rip Indra",     Default = false, Flag = "AutoRipIndra", Callback = function(v) Config.AutoRipIndra     = v end })
+Main:AddToggle({ Title = "Auto Tyrant Spawn",  Default = false, Flag = "AutoTyrantSpawn", Callback = function(v) Config.AutoTyrantSpawn  = v end })
+Main:AddToggle({ Title = "Auto Soul Reaper",   Default = false, Flag = "AutoSoulReaper", Callback = function(v) Config.AutoSoulReaper   = v end })
+Main:AddToggle({ Title = "Auto Big Mom",        Default = false, Flag = "AutoBigMom", Callback = function(v) Config.AutoBigMom       = v end })
+Main:AddToggle({ Title = "Auto Farm Bone",      Default = false, Flag = "AutoFarmBone", Callback = function(v) Config.AutoFarmBone     = v end })
+Main:AddToggle({ Title = "Auto Cake Prince",    Default = false, Flag = "AutoCakePrince", Callback = function(v) Config.AutoCakePrince   = v end })
+Main:AddToggle({ Title = "Auto Dough King",     Default = false, Flag = "AutoDoughKing", Callback = function(v) Config.AutoDoughKing    = v end })
 
 Main:AddSection("Farming (Sea 2)")
-Main:AddToggle({ Title = "Auto Sea 3",          Default = false, Callback = function(v) Config.AutoSea3        = v end })
-Main:AddToggle({ Title = "Auto Factory",        Default = false, Callback = function(v) Config.AutoFactory     = v end })
+Main:AddToggle({ Title = "Auto Sea 3",          Default = false, Flag = "AutoSea3", Callback = function(v) Config.AutoSea3        = v end })
+Main:AddToggle({ Title = "Auto Factory",        Default = false, Flag = "AutoFactory", Callback = function(v) Config.AutoFactory     = v end })
 
 Main:AddSection("Farming (Sea 1)")
-Main:AddToggle({ Title = "Auto Sea 2",          Default = false, Callback = function(v) Config.AutoSea2        = v end })
-Main:AddToggle({ Title = "Auto Spawn Darkbeard",Default = false, Callback = function(v) Config.AutoDarkBeard   = v end })
+Main:AddToggle({ Title = "Auto Sea 2",          Default = false, Flag = "AutoSea2", Callback = function(v) Config.AutoSea2        = v end })
+Main:AddToggle({ Title = "Auto Spawn Darkbeard",Default = false, Flag = "AutoDarkBeard", Callback = function(v) Config.AutoDarkBeard   = v end })
 
 Main:AddSection("Farm Boss")
 Main:AddDropdown({ Title = T("ui_select_boss"), Options = Bosses[CurrentSea], Default = Bosses[CurrentSea][1],
     Callback = function(v) Config.SelectedBoss = tostring(v) end })
-Main:AddToggle({ Title = T("ui_auto_farm_boss"),      Default = false, Callback = function(v) Config.AutoFarmBoss     = v end })
-Main:AddToggle({ Title = T("ui_auto_farm_all_boss"),  Default = false, Callback = function(v) Config.AutoFarmAllBoss  = v end })
-Main:AddToggle({ Title = T("ui_auto_farm_raid_boss"), Default = false, Callback = function(v) Config.AutoFarmRaidBoss = v end })
+Main:AddToggle({ Title = T("ui_auto_farm_boss"),      Default = false, Flag = "AutoFarmBoss", Callback = function(v) Config.AutoFarmBoss     = v end })
+Main:AddToggle({ Title = T("ui_auto_farm_all_boss"),  Default = false, Flag = "AutoFarmAllBoss", Callback = function(v) Config.AutoFarmAllBoss  = v end })
+Main:AddToggle({ Title = T("ui_auto_farm_raid_boss"), Default = false, Flag = "AutoFarmRaidBoss", Callback = function(v) Config.AutoFarmRaidBoss = v end })
 
 Main:AddSection("Material")
 Main:AddDropdown({ Title = T("ui_select_material"), Options = Materials[CurrentSea], Default = Materials[CurrentSea][1],
     Callback = function(v) Config.SelectedMaterial = tostring(v) end })
-Main:AddToggle({ Title = T("ui_auto_material"), Default = false, Callback = function(v) Config.AutoFarmMaterial = v end })
+Main:AddToggle({ Title = T("ui_auto_material"), Default = false, Flag = "AutoFarmMaterial", Callback = function(v) Config.AutoFarmMaterial = v end })
 
 Main:AddSection("Mastery")
 Main:AddDropdown({ Title = T("ui_mastery_weapon"), Options = { "Gun","Sword","Melee","BloxFruits" }, Default = "Gun",
     Callback = function(v) Config.MasteryWeapon = tostring(v) end })
 Main:AddSlider({ Title = "Health Kill Mob (%)", Min = 1, Max = 100, Default = 30,
-    Callback = function(v) Config.HealthKillMob = v end })
+    Flag = "HealthKillMob", Callback = function(v) Config.HealthKillMob = v end })
 Main:AddDropdown({ Title = T("ui_selection_island"), Options = Islands[CurrentSea], Default = Islands[CurrentSea][1],
     Callback = function(v) Config.MasteryIsland = tostring(v) end })
 Main:AddDropdown({
@@ -1382,12 +1382,12 @@ Main:AddDropdown({
     Options     = { "Z", "X", "C", "V", "F" },
     Default     = {},
     MultiSelect = true,
-    Callback    = function(v)
+    Flag = "MasterySkills", Callback    = function(v)
         Config.MasterySkills = v
     end,
 })
 Main:AddToggle({ Title = T("ui_auto_mastery"), Default = false,
-    Callback = function(v)
+    Flag = "AutoFarmMastery", Callback = function(v)
         Config.AutoFarmMastery = v
         if v then
             task.spawn(function()
@@ -1421,14 +1421,14 @@ Main:AddToggle({ Title = T("ui_auto_mastery"), Default = false,
 
 Main:AddSection("Collect Chest")
 Main:AddToggle({ Title = T("ui_farm_chest"), Default = false,
-    Callback = function(v)
+    Flag = "FarmChest", Callback = function(v)
         Config.FarmChest = v
         if v then task.spawn(function() Functions.StartFarmChest(Config, isTeleporting, NotAutoEquip) end) end
         Notify({ Title = v and "Farm Chest ON" or "Farm Chest OFF", Image = IMG, Type = v and "Success" or "Info", Duration = 2 })
     end })
-Main:AddToggle({ Title = "Auto Hop (sem baú)", Default = false, Callback = function(v) Config.AutoCollectBerryHop = v end })
+Main:AddToggle({ Title = "Auto Hop (sem baú)", Default = false, Flag = "AutoCollectBerryHop", Callback = function(v) Config.AutoCollectBerryHop = v end })
 Main:AddToggle({ Title = "Auto Store Fruit", Default = false,
-    Callback = function(v)
+    Flag = "AutoStoreFruit", Callback = function(v)
         Config.AutoStoreFruit = v
         if v then task.spawn(function() while Config.AutoStoreFruit do Functions.StoreFruit() task.wait(2) end end) end
         Notify({ Title = v and "Auto Store Fruit ON" or "OFF", Image = IMG, Type = v and "Success" or "Info", Duration = 2 })
@@ -1436,36 +1436,36 @@ Main:AddToggle({ Title = "Auto Store Fruit", Default = false,
 
 Main:AddSection("Collect Berry")
 Main:AddToggle({ Title = T("ui_auto_berry"), Default = false,
-    Callback = function(v)
+    Flag = "AutoCollectBerry", Callback = function(v)
         Config.AutoCollectBerry = v
         if v then Functions.StartAutoCollectBerry(Config) end
         Notify({ Title = v and "Auto Berry ON" or "Auto Berry OFF", Image = IMG, Type = v and "Success" or "Info", Duration = 2 })
     end })
-Main:AddToggle({ Title = "Auto Hop (sem berry)", Default = false, Callback = function(v) Config.AutoCollectBerryHop = v end })
+Main:AddToggle({ Title = "Auto Hop (sem berry)", Default = false, Flag = "AutoCollectBerryHop", Callback = function(v) Config.AutoCollectBerryHop = v end })
 
 Main:AddSection("Elite Hunter")
 Main:AddParagraph({ Title = "Elite Spawn", Text = "0" })
 Main:AddToggle({ Title = "Auto Elite Hunter (Diablo/Deandre/Urban)", Default = false,
-    Callback = function(v) Config.AutoEliteHunter = v end })
+    Flag = "AutoEliteHunter", Callback = function(v) Config.AutoEliteHunter = v end })
 Main:AddToggle({ Title = "Server Hop se sem Elite Hunter", Default = false,
-    Callback = function(v) Config.AutoEliteHunterHop = v end })
+    Flag = "AutoEliteHunterHop", Callback = function(v) Config.AutoEliteHunterHop = v end })
 
 Main:AddSection("Farming Bone")
 Main:AddToggle({ Title = "Auto Farm Bone (Prehistoric)", Default = false,
-    Callback = function(v) Config.AutoFarmBone = v end })
-Main:AddToggle({ Title = "Auto Soul Reaper", Default = false, Callback = function(v) Config.AutoSoulReaper = v end })
+    Flag = "AutoFarmBone", Callback = function(v) Config.AutoFarmBone = v end })
+Main:AddToggle({ Title = "Auto Soul Reaper", Default = false, Flag = "AutoSoulReaper", Callback = function(v) Config.AutoSoulReaper = v end })
 Main:AddToggle({ Title = "Auto Try Luck Gravestone", Default = false,
-    Callback = function(v)
+    Flag = "AutoTryLuck", Callback = function(v)
         Config.AutoTryLuck = v
         if v then task.spawn(function() Functions.StartAutoTryLuck(Config) end) end
     end })
 Main:AddToggle({ Title = "Auto Pray Gravestone", Default = false,
-    Callback = function(v)
+    Flag = "AutoPray", Callback = function(v)
         Config.AutoPray = v
         if v then task.spawn(function() Functions.StartAutoPray(Config) end) end
     end })
 Main:AddToggle({ Title = "Auto Trade Bone (DinoBone)", Default = false,
-    Callback = function(v)
+    Flag = "AutoTradeBone", Callback = function(v)
         Config.AutoTradeBone = v
         if v then task.spawn(function() Functions.StartAutoTradeBone(Config) end) end
     end })
@@ -1476,29 +1476,29 @@ Main:AddToggle({ Title = "Auto Trade Bone (DinoBone)", Default = false,
 local Settings = Window:MakeTab({ Title = T("tab_settings"), Icon = "settings" })
 
 Settings:AddSection("Farm Settings")
-Settings:AddToggle({ Title = T("ui_auto_click"),  Default = true, Callback = function(v) Config.AutoClick = v end })
-Settings:AddToggle({ Title = T("ui_bring_mob"), Default = Config.BringMob, Callback = function(v)
+Settings:AddToggle({ Title = T("ui_auto_click"),  Default = true, Flag = "AutoClick", Callback = function(v) Config.AutoClick = v end })
+Settings:AddToggle({ Title = T("ui_bring_mob"), Default = Config.BringMob, Flag = "BringMob", Callback = function(v)
     Config.BringMob = v
     print("[BringMob] " .. (v and "Ativado" or "Desativado"))
 end })
 Settings:AddSlider({ Title = "Bring Mob Distancia (studs)", Min = 100, Max = 1000, Default = Config.BringDistance or 350,
-    Callback = function(v)
+    Flag = "BringDistance", Callback = function(v)
         Config.BringDistance = v
         print("[BringMob] Distancia: " .. tostring(v) .. " studs")
     end })
 Settings:AddSlider({ Title = "Tween Fly Speed (studs/s)", Min = 10, Max = 800, Default = 300,
-    Callback = function(v) Config.FlySpeed = v end })
+    Flag = "FlySpeed", Callback = function(v) Config.FlySpeed = v end })
 Settings:AddSlider({ Title = "Fly Offset (altura acima do mob)", Min = 5, Max = 50, Default = 15,
-    Callback = function(v) Config.FlyOffset = v end })
-Settings:AddToggle({ Title = T("ui_auto_spawn"),  Default = false, Callback = function(v) Config.AutoSetSpawn = v end })
+    Flag = "FlyOffset", Callback = function(v) Config.FlyOffset = v end })
+Settings:AddToggle({ Title = T("ui_auto_spawn"),  Default = false, Flag = "AutoSetSpawn", Callback = function(v) Config.AutoSetSpawn = v end })
 Settings:AddToggle({ Title = T("ui_auto_buso"),   Default = true,
-    Callback = function(v)
+    Flag = "AutoBusoHaki", Callback = function(v)
         Config.AutoBusoHaki = v
         if v then Functions.ActivateBuso(CommF_) end
     end })
-Settings:AddToggle({ Title = T("ui_auto_obs"),    Default = false, Callback = function(v) Config.AutoObservation = v end })
+Settings:AddToggle({ Title = T("ui_auto_obs"),    Default = false, Flag = "AutoObservation", Callback = function(v) Config.AutoObservation = v end })
 Settings:AddToggle({ Title = "Auto Use V3 (tecla T)", Default = false,
-    Callback = function(v)
+    Flag = "AutoRaceV3", Callback = function(v)
         Config.AutoRaceV3 = v
         if v then
             task.spawn(function()
@@ -1517,7 +1517,7 @@ Settings:AddToggle({ Title = "Auto Use V3 (tecla T)", Default = false,
         end
     end })
 Settings:AddToggle({ Title = "Auto Use V4 (tecla Y)", Default = false,
-    Callback = function(v)
+    Flag = "AutoRaceV4", Callback = function(v)
         Config.AutoRaceV4 = v
         if v then
             task.spawn(function()
@@ -1537,31 +1537,31 @@ Settings:AddToggle({ Title = "Auto Use V4 (tecla Y)", Default = false,
     end })
 
 Settings:AddSection("Extras")
-Settings:AddToggle({ Title = T("ui_auto_speed"), Default = true, Callback = function(v) Config.AutoSpeed = v end })
+Settings:AddToggle({ Title = T("ui_auto_speed"), Default = true, Flag = "AutoSpeed", Callback = function(v) Config.AutoSpeed = v end })
 Settings:AddSlider({ Title = T("ui_speed"), Min = 20, Max = 100, Default = 20,
-    Callback = function(v) Config.Speed = v; if Humanoid then Humanoid.WalkSpeed = v end end })
-Settings:AddToggle({ Title = T("ui_auto_jump"), Default = true, Callback = function(v) Config.AutoSetJump = v end })
+    Flag = "Speed", Callback = function(v) Config.Speed = v; if Humanoid then Humanoid.WalkSpeed = v end end })
+Settings:AddToggle({ Title = T("ui_auto_jump"), Default = true, Flag = "AutoSetJump", Callback = function(v) Config.AutoSetJump = v end })
 Settings:AddSlider({ Title = T("ui_jump"), Min = 50, Max = 200, Default = 50,
-    Callback = function(v) Config.Jump = v; if Humanoid then Humanoid.JumpPower = v end end })
+    Flag = "Jump", Callback = function(v) Config.Jump = v; if Humanoid then Humanoid.JumpPower = v end end })
 
 Settings:AddSection("PvP / Kill Aura")
 Settings:AddToggle({ Title = "Kill Aura", Default = false,
-    Callback = function(v)
+    Flag = "KillAura", Callback = function(v)
         Config.KillAura = v
         Notify({ Title = v and "Kill Aura ON" or "Kill Aura OFF", Image = IMG, Type = v and "Warning" or "Info", Duration = 2 })
     end })
 Settings:AddSlider({ Title = "Kill Aura Raio (studs)", Min = 100, Max = 5000, Default = 1000,
-    Callback = function(v) Config.KillAuraRadius = v end })
+    Flag = "KillAuraRadius", Callback = function(v) Config.KillAuraRadius = v end })
 Settings:AddToggle({ Title = "Auto Enable PvP", Default = false,
-    Callback = function(v)
+    Flag = "EnabledPvP", Callback = function(v)
         Config.EnabledPvP = v
         pcall(function() (CommF_ or {}):InvokeServer("EnablePvP", v) end)
         Notify({ Title = v and "PvP ATIVADO" or "PvP Desativado", Image = IMG, Type = v and "Warning" or "Info", Duration = 2 })
     end })
 Settings:AddToggle({ Title = "Aimbot (Gun)", Default = false,
-    Callback = function(v) Config.AimbotGun = v end })
+    Flag = "AimbotGun", Callback = function(v) Config.AimbotGun = v end })
 Settings:AddToggle({ Title = "Aimbot (Skills)", Default = false,
-    Callback = function(v) Config.AimbotSkill = v end })
+    Flag = "AimbotSkill", Callback = function(v) Config.AimbotSkill = v end })
 
 Settings:AddSection("Visual")
 local _uiScaleDebounce = nil
@@ -1578,19 +1578,19 @@ Settings:AddSlider({
         end)
     end,
 })
-Settings:AddToggle({ Title = T("ui_disable_notify"), Default = false, Callback = function(v) Config.DisableGameNotify = v end })
+Settings:AddToggle({ Title = T("ui_disable_notify"), Default = false, Flag = "DisableGameNotify", Callback = function(v) Config.DisableGameNotify = v end })
 Settings:AddToggle({ Title = T("ui_no_fog"), Default = true,
-    Callback = function(v)
+    Flag = "NoFog", Callback = function(v)
         Config.NoFog    = v
         Lighting.FogEnd = v and 100000 or 1000
     end })
-Settings:AddToggle({ Title = T("ui_notify_error"), Default = false, Callback = function(v) Config.NotifyErroScript = v end })
+Settings:AddToggle({ Title = T("ui_notify_error"), Default = false, Flag = "NotifyErroScript", Callback = function(v) Config.NotifyErroScript = v end })
 Settings:AddButton({ Title = T("ui_test_notify"),
     Callback = function()
         Notify({ Title = "Lotux Hub v3.0", Description = "Script funcionando!", Image = IMG, Type = "Success", Duration = 3 })
     end })
 Settings:AddToggle({ Title = T("ui_noclip"), Default = false,
-    Callback = function(v)
+    Flag = "NoClip", Callback = function(v)
         Config.NoClip = v
         NoClip.value  = v
         Notify({ Title = T(v and "noclip_on" or "noclip_off"), Image = IMG, Type = v and "Success" or "Info", Duration = 2 })
@@ -1620,12 +1620,15 @@ Settings:AddSection("Interface")
 Settings:AddToggle({
     Title   = "Reset UI Button",
     Default = true,
+    Flag    = "ShowResetUIBtn",
     Callback = function(v)
-        local gui = Player.PlayerGui:FindFirstChild("LotuxResetUIBtn")
-        if gui then
-            local btn = gui:FindFirstChildWhichIsA("TextButton", true)
-            if btn then btn.Visible = v end
-        end
+        pcall(function()
+            local gui = Player.PlayerGui:FindFirstChild("LotuxResetUIBtn")
+            if gui then
+                local btn = gui:FindFirstChildWhichIsA("TextButton", true)
+                if btn then btn.Visible = v end
+            end
+        end)
     end,
 })
 
@@ -1635,32 +1638,32 @@ Settings:AddToggle({
 local ItemsQuest = Window:MakeTab({ Title = T("tab_itemquest"), Icon = "swords" })
 
 ItemsQuest:AddSection("Items Sea 3")
-ItemsQuest:AddToggle({ Title = "Auto Dragon Taylor",           Default = false, Callback = function(v) Config.AutoDragonTaylor  = v end })
-ItemsQuest:AddToggle({ Title = "Auto Electric Claw",           Default = false, Callback = function(v) Config.AutoElectricClaw  = v end })
-ItemsQuest:AddToggle({ Title = "Auto God Human",               Default = false, Callback = function(v) Config.AutoGodHuman      = v end })
+ItemsQuest:AddToggle({ Title = "Auto Dragon Taylor",           Default = false, Flag = "AutoDragonTaylor", Callback = function(v) Config.AutoDragonTaylor  = v end })
+ItemsQuest:AddToggle({ Title = "Auto Electric Claw",           Default = false, Flag = "AutoElectricClaw", Callback = function(v) Config.AutoElectricClaw  = v end })
+ItemsQuest:AddToggle({ Title = "Auto God Human",               Default = false, Flag = "AutoGodHuman", Callback = function(v) Config.AutoGodHuman      = v end })
 ItemsQuest:AddToggle({ Title = "Auto Pegar Tushita (Farm Longma)", Default = false,
-    Callback = function(v)
+    Flag = "AutoGetTushita", Callback = function(v)
         Config.AutoGetTushita = v
         Notify({ Title = v and "Auto Tushita ON" or "Auto Tushita OFF", Image = IMG, Type = v and "Success" or "Info", Duration = 2 })
     end })
 ItemsQuest:AddToggle({ Title = "Auto Holy Torch (Tochas Tushita)", Default = false,
-    Callback = function(v) Config.AutoHolyTorch = v end })
+    Flag = "AutoHolyTorch", Callback = function(v) Config.AutoHolyTorch = v end })
 ItemsQuest:AddToggle({ Title = "Auto Yama (30 Elite Hunter kills)", Default = false,
-    Callback = function(v) Config.AutoYama = v end })
+    Flag = "AutoYama", Callback = function(v) Config.AutoYama = v end })
 ItemsQuest:AddToggle({ Title = "Auto Rengoku (Ice Admiral)",   Default = false,
-    Callback = function(v) Config.AutoRengoku = v end })
-ItemsQuest:AddToggle({ Title = "Auto Electric Claw (Sea 3)",   Default = false, Callback = function(v) Config.AutoElectricClaw = v end })
+    Flag = "AutoRengoku", Callback = function(v) Config.AutoRengoku = v end })
+ItemsQuest:AddToggle({ Title = "Auto Electric Claw (Sea 3)",   Default = false, Flag = "AutoElectricClaw", Callback = function(v) Config.AutoElectricClaw = v end })
 
 ItemsQuest:AddSection("Items Sea 2")
 ItemsQuest:AddToggle({ Title = T("ui_auto_buy_sword_legends"), Default = false,
-    Callback = function(v)
+    Flag = "AutoBuyLegendarySword", Callback = function(v)
         Config.AutoBuyLegendarySword = v
         if v then task.spawn(function() Functions.StartAutoBuyLegendarySword(Config) end) end
     end })
 ItemsQuest:AddToggle({ Title = T("ui_auto_buy_ttk"), Default = false,
-    Callback = function(v) Config.AutoBuyTTK = v end })
-ItemsQuest:AddToggle({ Title = "Auto Death Step (Sea 2)",      Default = false, Callback = function(v) Config.AutoDeathStep    = v end })
-ItemsQuest:AddToggle({ Title = "Auto Sharkman V2 (Sea 2)",     Default = false, Callback = function(v) Config.AutoSharkmanV2   = v end })
+    Flag = "AutoBuyTTK", Callback = function(v) Config.AutoBuyTTK = v end })
+ItemsQuest:AddToggle({ Title = "Auto Death Step (Sea 2)",      Default = false, Flag = "AutoDeathStep", Callback = function(v) Config.AutoDeathStep    = v end })
+ItemsQuest:AddToggle({ Title = "Auto Sharkman V2 (Sea 2)",     Default = false, Flag = "AutoSharkmanV2", Callback = function(v) Config.AutoSharkmanV2   = v end })
 ItemsQuest:AddButton({ Title = "Buy Dragon Style V1",  Callback = function()
     pcall(function() (CommF_ or {}):InvokeServer("BuyFightingStyle", "Dragon Talon") end)
     Notify({ Title = "Dragon Style V1 comprado!", Image = IMG, Type = "Success", Duration = 3 })
@@ -1670,44 +1673,44 @@ ItemsQuest:AddButton({ Title = "Buy Kabucha",  Callback = function()
     Notify({ Title = "Kabucha comprada!", Image = IMG, Type = "Success", Duration = 3 })
 end })
 ItemsQuest:AddToggle({ Title = "Auto Pegar Rengoku (Ice Admiral)", Default = false,
-    Callback = function(v) Config.AutoRengoku = v end })
+    Flag = "AutoRengoku", Callback = function(v) Config.AutoRengoku = v end })
 ItemsQuest:AddToggle({ Title = "Auto Thunder Pole (Thunder God)", Default = false,
-    Callback = function(v)
+    Flag = "AutoGetPole", Callback = function(v)
         Config.AutoGetPole = v
         if v then task.spawn(function() Functions.StartAutoGetPole(Config) end) end
         Notify({ Title = v and "Auto Pole ON" or "Auto Pole OFF", Image = IMG, Type = v and "Success" or "Info", Duration = 2 })
     end })
 ItemsQuest:AddToggle({ Title = "Auto Pegar The Saw",           Default = false,
-    Callback = function(v)
+    Flag = "AutoGetSaw", Callback = function(v)
         Config.AutoGetSaw = v
         if v then task.spawn(function() Functions.StartAutoGetSaw(Config) end) end
         Notify({ Title = v and "Auto Saw ON" or "Auto Saw OFF", Image = IMG, Type = v and "Success" or "Info", Duration = 2 })
     end })
-ItemsQuest:AddToggle({ Title = "Auto Dark Blade V2",           Default = false, Callback = function(v) Config.AutoDarkBladeV2  = v end })
+ItemsQuest:AddToggle({ Title = "Auto Dark Blade V2",           Default = false, Flag = "AutoDarkBladeV2", Callback = function(v) Config.AutoDarkBladeV2  = v end })
 ItemsQuest:AddToggle({ Title = "Auto Comprar Cor de Haki",     Default = false,
-    Callback = function(v)
+    Flag = "AutoBuyEnhancementColour", Callback = function(v)
         Config.AutoBuyEnhancementColour = v
         if v then task.spawn(function() Functions.StartAutoBuyEnhancement(Config) end) end
     end })
 
 ItemsQuest:AddSection("Items Sea 1")
-ItemsQuest:AddToggle({ Title = "Auto Gray Beard (Sea 1)",      Default = false, Callback = function(v) Config.AutoGrayBeard    = v end })
-ItemsQuest:AddToggle({ Title = "Auto Saber Sword",             Default = false, Callback = function(v) Config.AutoSaber        = v end })
-ItemsQuest:AddToggle({ Title = "Auto The Saw",                 Default = false, Callback = function(v) Config.AutoGetSaw       = v end })
-ItemsQuest:AddToggle({ Title = "Auto Dark Blade V2 (Sea 1)",   Default = false, Callback = function(v) Config.AutoDarkBladeV2  = v end })
+ItemsQuest:AddToggle({ Title = "Auto Gray Beard (Sea 1)",      Default = false, Flag = "AutoGrayBeard", Callback = function(v) Config.AutoGrayBeard    = v end })
+ItemsQuest:AddToggle({ Title = "Auto Saber Sword",             Default = false, Flag = "AutoSaber", Callback = function(v) Config.AutoSaber        = v end })
+ItemsQuest:AddToggle({ Title = "Auto The Saw",                 Default = false, Flag = "AutoGetSaw", Callback = function(v) Config.AutoGetSaw       = v end })
+ItemsQuest:AddToggle({ Title = "Auto Dark Blade V2 (Sea 1)",   Default = false, Flag = "AutoDarkBladeV2", Callback = function(v) Config.AutoDarkBladeV2  = v end })
 
 ItemsQuest:AddSection("Quest")
 ItemsQuest:AddToggle({ Title = "Auto Bartilo Quest (acesso Sea 3)", Default = false,
-    Callback = function(v) Config.AutoBartilo = v
+    Flag = "AutoBartilo", Callback = function(v) Config.AutoBartilo = v
         Notify({ Title = v and "Auto Bartilo ON" or "Auto Bartilo OFF", Image = IMG, Type = v and "Success" or "Info", Duration = 2 })
     end })
-ItemsQuest:AddToggle({ Title = "Auto Rip Indra Unlock",        Default = false, Callback = function(v) Config.AutoRipIndra     = v end })
-ItemsQuest:AddToggle({ Title = "Auto Dough King Unlock Raid",  Default = false, Callback = function(v) Config.AutoDoughKing    = v end })
-ItemsQuest:AddToggle({ Title = "Auto Big Mom Quest",           Default = false, Callback = function(v) Config.AutoBigMom       = v end })
+ItemsQuest:AddToggle({ Title = "Auto Rip Indra Unlock",        Default = false, Flag = "AutoRipIndra", Callback = function(v) Config.AutoRipIndra     = v end })
+ItemsQuest:AddToggle({ Title = "Auto Dough King Unlock Raid",  Default = false, Flag = "AutoDoughKing", Callback = function(v) Config.AutoDoughKing    = v end })
+ItemsQuest:AddToggle({ Title = "Auto Big Mom Quest",           Default = false, Flag = "AutoBigMom", Callback = function(v) Config.AutoBigMom       = v end })
 
 ItemsQuest:AddSection("Buso")
 ItemsQuest:AddToggle({ Title = T("ui_auto_barista"),           Default = false,
-    Callback = function(v)
+    Flag = "AutoBarista", Callback = function(v)
         Config.AutoBarista = v
         if v then Functions.StartAutoBarista(Config) end
     end })
@@ -1720,25 +1723,25 @@ ItemsQuest:AddButton({ Title = "Buy Buso Colors",  Callback = function()
 end })
 
 ItemsQuest:AddSection("Instinct / Observation")
-ItemsQuest:AddToggle({ Title = "Auto Farm Observation Haki",   Default = false, Callback = function(v) Config.AutoFarmObsHaki  = v end })
-ItemsQuest:AddToggle({ Title = "Auto Haki V2",                 Default = false, Callback = function(v) Config.AutoHakiV2       = v end })
-ItemsQuest:AddToggle({ Title = "Auto Unlock Temple",           Default = false, Callback = function(v) Config.AutoUnlockTemple = v end })
+ItemsQuest:AddToggle({ Title = "Auto Farm Observation Haki",   Default = false, Flag = "AutoFarmObsHaki", Callback = function(v) Config.AutoFarmObsHaki  = v end })
+ItemsQuest:AddToggle({ Title = "Auto Haki V2",                 Default = false, Flag = "AutoHakiV2", Callback = function(v) Config.AutoHakiV2       = v end })
+ItemsQuest:AddToggle({ Title = "Auto Unlock Temple",           Default = false, Flag = "AutoUnlockTemple", Callback = function(v) Config.AutoUnlockTemple = v end })
 
 -- =====================================================
 -- TAB: FISHING
 -- =====================================================
 local FishingTab = Window:MakeTab({ Title = "Fishing", Icon = "fish" })
 FishingTab:AddSection("Auto Fishing")
-FishingTab:AddToggle({ Title = "Auto Quest Fishing",   Default = false, Callback = function(v)
+FishingTab:AddToggle({ Title = "Auto Quest Fishing",   Default = false, Flag = "G_AutoQuestFishing", Callback = function(v)
     _G.AutoQuestFishing = v
 end })
-FishingTab:AddToggle({ Title = "Auto Complete Quest",  Default = false, Callback = function(v)
+FishingTab:AddToggle({ Title = "Auto Complete Quest",  Default = false, Flag = "G_AutoCompleteQuestFishing", Callback = function(v)
     _G.AutoCompleteQuestFishing = v
 end })
-FishingTab:AddToggle({ Title = "Auto Sell Fish",       Default = false, Callback = function(v)
+FishingTab:AddToggle({ Title = "Auto Sell Fish",       Default = false, Flag = "G_AutoSellFish", Callback = function(v)
     _G.AutoSellFish = v
 end })
-FishingTab:AddToggle({ Title = "Auto Spam Skill Z",    Default = false, Callback = function(v)
+FishingTab:AddToggle({ Title = "Auto Spam Skill Z",    Default = false, Flag = "AutoSkillZ", Callback = function(v)
     Config.AutoSkillZ = v
 end })
 
@@ -1748,15 +1751,15 @@ end })
 local SeaEventTab = Window:MakeTab({ Title = T("tab_seaevent"), Icon = "waves" })
 
 SeaEventTab:AddSection("Boat")
-SeaEventTab:AddToggle({ Title = "No Clip Ship",        Default = false, Callback = function(v) _G.NoClipShip = v end })
-SeaEventTab:AddToggle({ Title = "Boat ESP",            Default = false, Callback = function(v) _G.BoatESP    = v end })
+SeaEventTab:AddToggle({ Title = "No Clip Ship",        Default = false, Flag = "G_NoClipShip", Callback = function(v) _G.NoClipShip = v end })
+SeaEventTab:AddToggle({ Title = "Boat ESP",            Default = false, Flag = "G_BoatESP", Callback = function(v) _G.BoatESP    = v end })
 SeaEventTab:AddToggle({ Title = "Auto Navegar Barco",  Default = false,
-    Callback = function(v)
+    Flag = "SailBoat", Callback = function(v)
         Config.SailBoat = v
         Notify({ Title = v and "Sail Boat ON" or "Sail Boat OFF", Image = IMG, Type = v and "Success" or "Info", Duration = 2 })
     end })
 SeaEventTab:AddToggle({ Title = "Walk on Water",       Default = false,
-    Callback = function(v)
+    Flag = "WalkWater", Callback = function(v)
         Config.WalkWater = v
         if v then
             task.spawn(function()
@@ -1783,7 +1786,7 @@ SeaEventTab:AddButton({ Title = "Craft LegendaryScroll", Callback = function() p
 SeaEventTab:AddButton({ Title = "Craft MythicalScroll",  Callback = function() pcall(function() (CommF_ or {}):InvokeServer("CraftItem","MythicalScroll") end); Notify({ Title = "Crafting MythicalScroll!", Image = IMG, Type = "Success", Duration = 2 }) end })
 
 SeaEventTab:AddSection("Settings Sea Event")
-SeaEventTab:AddToggle({ Title = "Skip Terror Shark",   Default = false, Callback = function(v) _G.SkipTerroShark = v end })
+SeaEventTab:AddToggle({ Title = "Skip Terror Shark",   Default = false, Flag = "G_SkipTerroShark", Callback = function(v) _G.SkipTerroShark = v end })
 
 SeaEventTab:AddSection("Choose Sea Event")
 SeaEventTab:AddDropdown({ Title = "Select Boats",      Options = { "Bicrement", "Dinghy", "Caravel", "Galleon", "Raft" }, Default = "Bicrement",
@@ -1796,16 +1799,16 @@ SeaEventTab:AddDropdown({ Title = "Select Sea Level",  Options = { "Sea 1", "Sea
     Callback = function(v) _G.SelectedSeaLevel = tostring(v) end })
 
 SeaEventTab:AddSection("Entity Sea")
-SeaEventTab:AddToggle({ Title = "Auto Shark",                      Default = false, Callback = function(v) Config.AutoKillShark    = v end })
-SeaEventTab:AddToggle({ Title = "Auto Piranha",                    Default = false, Callback = function(v) Config.AutoKillPiranha  = v end })
-SeaEventTab:AddToggle({ Title = "Auto Terror Shark",               Default = false, Callback = function(v) Config.AutoTerrorshark  = v end })
-SeaEventTab:AddToggle({ Title = "Auto Fish Crew Member",           Default = false, Callback = function(v) Config.AutoKillFishCrew = v end })
-SeaEventTab:AddToggle({ Title = "Auto Attack Pirate Grand Brigade",Default = false, Callback = function(v) _G.AutoAttackPirateBrigade = v end })
-SeaEventTab:AddToggle({ Title = "Auto Attack Sea Beast",           Default = false, Callback = function(v) _G.AutoAttackSeaBeast   = v end })
+SeaEventTab:AddToggle({ Title = "Auto Shark",                      Default = false, Flag = "AutoKillShark", Callback = function(v) Config.AutoKillShark    = v end })
+SeaEventTab:AddToggle({ Title = "Auto Piranha",                    Default = false, Flag = "AutoKillPiranha", Callback = function(v) Config.AutoKillPiranha  = v end })
+SeaEventTab:AddToggle({ Title = "Auto Terror Shark",               Default = false, Flag = "AutoTerrorshark", Callback = function(v) Config.AutoTerrorshark  = v end })
+SeaEventTab:AddToggle({ Title = "Auto Fish Crew Member",           Default = false, Flag = "AutoKillFishCrew", Callback = function(v) Config.AutoKillFishCrew = v end })
+SeaEventTab:AddToggle({ Title = "Auto Attack Pirate Grand Brigade",Default = false, Flag = "G_AutoAttackPirateBrigade", Callback = function(v) _G.AutoAttackPirateBrigade = v end })
+SeaEventTab:AddToggle({ Title = "Auto Attack Sea Beast",           Default = false, Flag = "G_AutoAttackSeaBeast", Callback = function(v) _G.AutoAttackSeaBeast   = v end })
 
 SeaEventTab:AddSection("Kitsune Island")
 SeaEventTab:AddToggle({ Title = "Auto Find Kitsune Island",        Default = false,
-    Callback = function(v)
+    Flag = "TweenToKitsune", Callback = function(v)
         Config.TweenToKitsune = v
         if v then
             task.spawn(function()
@@ -1822,7 +1825,7 @@ SeaEventTab:AddToggle({ Title = "Auto Find Kitsune Island",        Default = fal
         end
     end })
 SeaEventTab:AddToggle({ Title = "Auto Azure Ember",                Default = false,
-    Callback = function(v)
+    Flag = "AutoAzuerEmber", Callback = function(v)
         Config.AutoAzuerEmber = v
         if v then
             task.spawn(function()
@@ -1840,7 +1843,7 @@ SeaEventTab:AddToggle({ Title = "Auto Azure Ember",                Default = fal
         end
     end })
 SeaEventTab:AddToggle({ Title = "Auto Trade Azure Ember",          Default = false,
-    Callback = function(v) _G.AutoTradeAzureEmber = v end })
+    Flag = "G_AutoTradeAzureEmber", Callback = function(v) _G.AutoTradeAzureEmber = v end })
 SeaEventTab:AddButton({ Title = "Trade Items Azure",  Callback = function()
     pcall(function() (CommF_ or {}):InvokeServer("TradeAzureEmber") end)
     Notify({ Title = "Trading Azure Ember!", Image = IMG, Type = "Success", Duration = 2 })
@@ -1852,15 +1855,15 @@ SeaEventTab:AddButton({ Title = "Buy Spy",  Callback = function()
     pcall(function() (CommF_ or {}):InvokeServer("BuySpy") end)
     Notify({ Title = "Comprando Spy!", Image = IMG, Type = "Success", Duration = 2 })
 end })
-SeaEventTab:AddToggle({ Title = "Auto Find Leviathan",            Default = false, Callback = function(v) _G.AutoFindLeviathan     = v end })
-SeaEventTab:AddToggle({ Title = "Auto Drive To Hydra Island",     Default = false, Callback = function(v) _G.AutoDriveHydra         = v end })
-SeaEventTab:AddToggle({ Title = "Auto Attack Leviathan",          Default = false, Callback = function(v) _G.AutoAttackLeviathan    = v end })
+SeaEventTab:AddToggle({ Title = "Auto Find Leviathan",            Default = false, Flag = "G_AutoFindLeviathan", Callback = function(v) _G.AutoFindLeviathan     = v end })
+SeaEventTab:AddToggle({ Title = "Auto Drive To Hydra Island",     Default = false, Flag = "G_AutoDriveHydra", Callback = function(v) _G.AutoDriveHydra         = v end })
+SeaEventTab:AddToggle({ Title = "Auto Attack Leviathan",          Default = false, Flag = "G_AutoAttackLeviathan", Callback = function(v) _G.AutoAttackLeviathan    = v end })
 
 SeaEventTab:AddSection("Farm Especial")
 SeaEventTab:AddToggle({ Title = "Auto Farm Hydra Tree (Hydra Island)", Default = false,
-    Callback = function(v) Config.AutoHydraTree = v end })
+    Flag = "AutoHydraTree", Callback = function(v) Config.AutoHydraTree = v end })
 SeaEventTab:AddToggle({ Title = "Auto Tween para Mirage Island",  Default = false,
-    Callback = function(v)
+    Flag = "AutoMysticIsland", Callback = function(v)
         Config.AutoMysticIsland = v
         if v then
             task.spawn(function()
@@ -1879,7 +1882,7 @@ SeaEventTab:AddToggle({ Title = "Auto Tween para Mirage Island",  Default = fals
         Notify({ Title = v and "Auto Mirage Island ON" or "OFF", Image = IMG, Type = v and "Success" or "Info", Duration = 2 })
     end })
 SeaEventTab:AddToggle({ Title = "Auto Blaze Ember",               Default = false,
-    Callback = function(v)
+    Flag = "AutoBlazeEmber", Callback = function(v)
         Config.AutoBlazeEmber = v
         if v then
             task.spawn(function()
@@ -1897,7 +1900,7 @@ SeaEventTab:AddToggle({ Title = "Auto Blaze Ember",               Default = fals
         end
     end })
 SeaEventTab:AddToggle({ Title = "Auto Tween M-Gear (Mystic Island)", Default = false,
-    Callback = function(v)
+    Flag = "TweenMGear", Callback = function(v)
         Config.TweenMGear = v
         if v then
             task.spawn(function()
@@ -1923,15 +1926,15 @@ local RaceTab = Window:MakeTab({ Title = T("tab_race"), Icon = "flag" })
 
 RaceTab:AddSection("Mirage")
 RaceTab:AddToggle({ Title = "Auto Find Mirage",             Default = false,
-    Callback = function(v)
+    Flag = "AutoMysticIsland", Callback = function(v)
         Config.AutoMysticIsland = v
     end })
-RaceTab:AddToggle({ Title = "Auto Tween To Highest Point",  Default = false, Callback = function(v) _G.AutoTweenHighest  = v end })
-RaceTab:AddToggle({ Title = "Auto Collect Gear",            Default = false, Callback = function(v) _G.AutoCollectGear   = v end })
-RaceTab:AddToggle({ Title = "Auto Tween Advanced Fruit Dealer", Default = false, Callback = function(v) _G.AutoTweenFruitDealer = v end })
-RaceTab:AddToggle({ Title = "Auto Collect Mirage Chest",    Default = false, Callback = function(v) _G.AutoMirageChest   = v end })
-RaceTab:AddToggle({ Title = "Talk With Stone",              Default = false, Callback = function(v) _G.TalkWithStone     = v end })
-RaceTab:AddToggle({ Title = "Auto Look At Moon",            Default = false, Callback = function(v)
+RaceTab:AddToggle({ Title = "Auto Tween To Highest Point",  Default = false, Flag = "G_AutoTweenHighest", Callback = function(v) _G.AutoTweenHighest  = v end })
+RaceTab:AddToggle({ Title = "Auto Collect Gear",            Default = false, Flag = "G_AutoCollectGear", Callback = function(v) _G.AutoCollectGear   = v end })
+RaceTab:AddToggle({ Title = "Auto Tween Advanced Fruit Dealer", Default = false, Flag = "G_AutoTweenFruitDealer", Callback = function(v) _G.AutoTweenFruitDealer = v end })
+RaceTab:AddToggle({ Title = "Auto Collect Mirage Chest",    Default = false, Flag = "G_AutoMirageChest", Callback = function(v) _G.AutoMirageChest   = v end })
+RaceTab:AddToggle({ Title = "Talk With Stone",              Default = false, Flag = "G_TalkWithStone", Callback = function(v) _G.TalkWithStone     = v end })
+RaceTab:AddToggle({ Title = "Auto Look At Moon",            Default = false, Flag = "AutoDooHee", Callback = function(v)
     Config.AutoDooHee = v
     if v then
         task.spawn(function()
@@ -1949,24 +1952,24 @@ RaceTab:AddToggle({ Title = "Auto Look At Moon",            Default = false, Cal
         end)
     end
 end })
-RaceTab:AddToggle({ Title = "Look Moon + Auto V3",          Default = false, Callback = function(v) _G.LookMoonAutoV3   = v end })
+RaceTab:AddToggle({ Title = "Look Moon + Auto V3",          Default = false, Flag = "G_LookMoonAutoV3", Callback = function(v) _G.LookMoonAutoV3   = v end })
 
 RaceTab:AddSection("Upgrade Races (V2 e V3)")
-RaceTab:AddToggle({ Title = "Auto Upgrade Mink",            Default = false, Callback = function(v) _G.AutoUpgradeMink    = v end })
-RaceTab:AddToggle({ Title = "Auto Upgrade Human",           Default = false, Callback = function(v) _G.AutoUpgradeHuman   = v end })
-RaceTab:AddToggle({ Title = "Auto Upgrade Fishman",         Default = false, Callback = function(v) _G.AutoUpgradeFishman = v end })
-RaceTab:AddToggle({ Title = "Auto Upgrade Cyborg",          Default = false, Callback = function(v) _G.AutoUpgradeCyborg  = v end })
+RaceTab:AddToggle({ Title = "Auto Upgrade Mink",            Default = false, Flag = "G_AutoUpgradeMink", Callback = function(v) _G.AutoUpgradeMink    = v end })
+RaceTab:AddToggle({ Title = "Auto Upgrade Human",           Default = false, Flag = "G_AutoUpgradeHuman", Callback = function(v) _G.AutoUpgradeHuman   = v end })
+RaceTab:AddToggle({ Title = "Auto Upgrade Fishman",         Default = false, Flag = "G_AutoUpgradeFishman", Callback = function(v) _G.AutoUpgradeFishman = v end })
+RaceTab:AddToggle({ Title = "Auto Upgrade Cyborg",          Default = false, Flag = "G_AutoUpgradeCyborg", Callback = function(v) _G.AutoUpgradeCyborg  = v end })
 
 RaceTab:AddSection("Trials")
 RaceTab:AddToggle({ Title = "Auto Quest Race (trial de raça)", Default = false,
-    Callback = function(v)
+    Flag = "AutoQuestRace", Callback = function(v)
         Config.AutoQuestRace = v
         Notify({ Title = v and "Auto Quest Race ON" or "OFF", Image = IMG, Type = v and "Success" or "Info", Duration = 2 })
     end })
-RaceTab:AddToggle({ Title = "Auto Train V4",                Default = false, Callback = function(v) _G.AutoTrainV4       = v end })
-RaceTab:AddToggle({ Title = "Auto Teleport to Race Doors",  Default = false, Callback = function(v) _G.AutoTPRaceDoors   = v end })
-RaceTab:AddToggle({ Title = "Auto Complete Trial Race",     Default = false, Callback = function(v) _G.AutoCompleteTrialRace = v end })
-RaceTab:AddToggle({ Title = "Auto Kill Player After Trial", Default = false, Callback = function(v) _G.AutoKillAfterTrial = v end })
+RaceTab:AddToggle({ Title = "Auto Train V4",                Default = false, Flag = "G_AutoTrainV4", Callback = function(v) _G.AutoTrainV4       = v end })
+RaceTab:AddToggle({ Title = "Auto Teleport to Race Doors",  Default = false, Flag = "G_AutoTPRaceDoors", Callback = function(v) _G.AutoTPRaceDoors   = v end })
+RaceTab:AddToggle({ Title = "Auto Complete Trial Race",     Default = false, Flag = "G_AutoCompleteTrialRace", Callback = function(v) _G.AutoCompleteTrialRace = v end })
+RaceTab:AddToggle({ Title = "Auto Kill Player After Trial", Default = false, Flag = "G_AutoKillAfterTrial", Callback = function(v) _G.AutoKillAfterTrial = v end })
 RaceTab:AddSection("Temple of Time")
 RaceTab:AddButton({ Title = "TP Temple of Time", Callback = function()
     pcall(function()
@@ -1991,15 +1994,15 @@ end })
 local VulcaoTab = Window:MakeTab({ Title = T("tab_vulcano"), Icon = "flame" })
 
 VulcaoTab:AddSection("Dojo")
-VulcaoTab:AddToggle({ Title = "Auto Dojo Trainer",          Default = false, Callback = function(v) _G.AutoDojoTrainer   = v end })
-VulcaoTab:AddToggle({ Title = "Auto Dragon Hunter",         Default = false, Callback = function(v) _G.AutoDragonHunter  = v end })
+VulcaoTab:AddToggle({ Title = "Auto Dojo Trainer",          Default = false, Flag = "G_AutoDojoTrainer", Callback = function(v) _G.AutoDojoTrainer   = v end })
+VulcaoTab:AddToggle({ Title = "Auto Dragon Hunter",         Default = false, Flag = "G_AutoDragonHunter", Callback = function(v) _G.AutoDragonHunter  = v end })
 
 VulcaoTab:AddSection("Drago Trial")
-VulcaoTab:AddToggle({ Title = "Tween To Upgrade Draco Trial", Default = false, Callback = function(v) _G.TweenUpgradeDraco = v end })
-VulcaoTab:AddToggle({ Title = "Auto Train Drago V4",        Default = false, Callback = function(v) _G.AutoTrainDragoV4  = v end })
-VulcaoTab:AddToggle({ Title = "Tween to Drago Trials",      Default = false, Callback = function(v) _G.TweenDragoTrials  = v end })
-VulcaoTab:AddToggle({ Title = "Swap Dragon Race",           Default = false, Callback = function(v) _G.SwapDragonRace    = v end })
-VulcaoTab:AddToggle({ Title = "Upgrade Dragon Talon With Uzoth", Default = false, Callback = function(v) _G.UpgradeDragonTalon = v end })
+VulcaoTab:AddToggle({ Title = "Tween To Upgrade Draco Trial", Default = false, Flag = "G_TweenUpgradeDraco", Callback = function(v) _G.TweenUpgradeDraco = v end })
+VulcaoTab:AddToggle({ Title = "Auto Train Drago V4",        Default = false, Flag = "G_AutoTrainDragoV4", Callback = function(v) _G.AutoTrainDragoV4  = v end })
+VulcaoTab:AddToggle({ Title = "Tween to Drago Trials",      Default = false, Flag = "G_TweenDragoTrials", Callback = function(v) _G.TweenDragoTrials  = v end })
+VulcaoTab:AddToggle({ Title = "Swap Dragon Race",           Default = false, Flag = "G_SwapDragonRace", Callback = function(v) _G.SwapDragonRace    = v end })
+VulcaoTab:AddToggle({ Title = "Upgrade Dragon Talon With Uzoth", Default = false, Flag = "G_UpgradeDragonTalon", Callback = function(v) _G.UpgradeDragonTalon = v end })
 
 VulcaoTab:AddSection("Volcano Crafting")
 VulcaoTab:AddButton({ Title = "Craft DragonHeart",  Callback = function() pcall(function() (CommF_ or {}):InvokeServer("CraftItem","DragonHeart") end); Notify({ Title = "Crafting DragonHeart!", Image = IMG, Type = "Success", Duration = 2 }) end })
@@ -2009,9 +2012,9 @@ VulcaoTab:AddButton({ Title = "Craft T-Rex Skull",  Callback = function() pcall(
 
 VulcaoTab:AddSection("Prehistoric Island")
 VulcaoTab:AddButton({ Title = "Craft Volcanic Magnet",  Callback = function() pcall(function() (CommF_ or {}):InvokeServer("CraftItem","VolcanicMagnet") end); Notify({ Title = "Crafting Volcanic Magnet!", Image = IMG, Type = "Success", Duration = 2 }) end })
-VulcaoTab:AddToggle({ Title = "Auto Craft Volcanic Magnet", Default = false, Callback = function(v) _G.AutoCraftVolcanicMagnet = v end })
+VulcaoTab:AddToggle({ Title = "Auto Craft Volcanic Magnet", Default = false, Flag = "G_AutoCraftVolcanicMagnet", Callback = function(v) _G.AutoCraftVolcanicMagnet = v end })
 VulcaoTab:AddToggle({ Title = "Auto Find Prehistoric Island", Default = false,
-    Callback = function(v)
+    Flag = "AutoFindPrehistoric", Callback = function(v)
         Config.AutoFindPrehistoric = v
         if v then
             task.spawn(function()
@@ -2027,15 +2030,15 @@ VulcaoTab:AddToggle({ Title = "Auto Find Prehistoric Island", Default = false,
             end)
         end
     end })
-VulcaoTab:AddToggle({ Title = "Auto Start Prehistoric Event", Default = false, Callback = function(v) _G.AutoStartPrehistoric  = v end })
-VulcaoTab:AddToggle({ Title = "Auto Patch Prehistoric Event", Default = false, Callback = function(v) _G.AutoPatchPrehistoric  = v end })
+VulcaoTab:AddToggle({ Title = "Auto Start Prehistoric Event", Default = false, Flag = "G_AutoStartPrehistoric", Callback = function(v) _G.AutoStartPrehistoric  = v end })
+VulcaoTab:AddToggle({ Title = "Auto Patch Prehistoric Event", Default = false, Flag = "G_AutoPatchPrehistoric", Callback = function(v) _G.AutoPatchPrehistoric  = v end })
 VulcaoTab:AddToggle({ Title = "Kill Aura (Prehistoric)",      Default = false,
-    Callback = function(v)
+    Flag = "KillAura", Callback = function(v)
         Config.KillAura = v
         Notify({ Title = v and "Kill Aura ON" or "Kill Aura OFF", Image = IMG, Type = v and "Success" or "Info", Duration = 2 })
     end })
 VulcaoTab:AddToggle({ Title = "Auto Collect Dino Bones",      Default = false,
-    Callback = function(v)
+    Flag = "AutoCollectBone", Callback = function(v)
         Config.AutoCollectBone = v
         if v then
             task.spawn(function()
@@ -2053,7 +2056,7 @@ VulcaoTab:AddToggle({ Title = "Auto Collect Dino Bones",      Default = false,
         end
     end })
 VulcaoTab:AddToggle({ Title = "Auto Collect Dragon Eggs",     Default = false,
-    Callback = function(v)
+    Flag = "CollectEgg", Callback = function(v)
         Config.CollectEgg = v
         if v then
             task.spawn(function()
@@ -2064,14 +2067,14 @@ VulcaoTab:AddToggle({ Title = "Auto Collect Dragon Eggs",     Default = false,
             end)
         end
     end })
-VulcaoTab:AddToggle({ Title = "Auto Reset When Complete Volcano", Default = false, Callback = function(v) _G.AutoResetVolcano = v end })
+VulcaoTab:AddToggle({ Title = "Auto Reset When Complete Volcano", Default = false, Flag = "G_AutoResetVolcano", Callback = function(v) _G.AutoResetVolcano = v end })
 VulcaoTab:AddToggle({ Title = "Auto Defender Vulcão",         Default = false,
-    Callback = function(v)
+    Flag = "DefendVolcano", Callback = function(v)
         Config.DefendVolcano = v
         Notify({ Title = v and "Defend Vulcão ON" or "OFF", Image = IMG, Type = v and "Success" or "Info", Duration = 2 })
     end })
 VulcaoTab:AddToggle({ Title = "Tween para o Vulcão",          Default = false,
-    Callback = function(v)
+    Flag = "TweenVolcano", Callback = function(v)
         Config.TweenVolcano = v
         if v then
             task.spawn(function()
@@ -2089,13 +2092,13 @@ VulcaoTab:AddToggle({ Title = "Tween para o Vulcão",          Default = false,
         end
     end })
 VulcaoTab:AddToggle({ Title = "Auto Kill Lava Golem",         Default = false,
-    Callback = function(v)
+    Flag = "AutoKillGolem", Callback = function(v)
         Config.AutoKillGolem = v
         if v then task.spawn(function() Functions.StartAutoKillGolem(Config) end) end
         Notify({ Title = v and "Kill Golem ON" or "Kill Golem OFF", Image = IMG, Type = v and "Success" or "Info", Duration = 2 })
     end })
 VulcaoTab:AddToggle({ Title = "Auto Farm Mob Dragon (Floating Turtle)", Default = false,
-    Callback = function(v) Config.AutoMobDragon = v end })
+    Flag = "AutoMobDragon", Callback = function(v) Config.AutoMobDragon = v end })
 
 -- =====================================================
 -- TAB: STATS / ESP
@@ -2104,19 +2107,19 @@ local StatsEspTab = Window:MakeTab({ Title = "Stats/ESP", Icon = "eye" })
 
 StatsEspTab:AddSection("Status")
 StatsEspTab:AddSlider({ Title = "Set Status Value", Min = 1, Max = 10, Default = 1,
-    Callback = function(v) _G.StatusValue = v end })
-StatsEspTab:AddToggle({ Title = "Auto Blox Fruits Status",    Default = false, Callback = function(v) _G.AutoBloxFruitStatus = v end })
-StatsEspTab:AddToggle({ Title = "Auto Melee Status",          Default = false, Callback = function(v) _G.AutoMeleeStatus     = v end })
-StatsEspTab:AddToggle({ Title = "Auto Defense Status",        Default = false, Callback = function(v) _G.AutoDefenseStatus   = v end })
-StatsEspTab:AddToggle({ Title = "Auto Gun Status",            Default = false, Callback = function(v) _G.AutoGunStatus       = v end })
-StatsEspTab:AddToggle({ Title = "Auto Sword Status",          Default = false, Callback = function(v) _G.AutoSwordStatus     = v end })
-StatsEspTab:AddToggle({ Title = "Auto Status (geral)",        Default = false, Callback = function(v) _G.AutoStatus         = v end })
+    Flag = "G_StatusValue", Callback = function(v) _G.StatusValue = v end })
+StatsEspTab:AddToggle({ Title = "Auto Blox Fruits Status",    Default = false, Flag = "G_AutoBloxFruitStatus", Callback = function(v) _G.AutoBloxFruitStatus = v end })
+StatsEspTab:AddToggle({ Title = "Auto Melee Status",          Default = false, Flag = "G_AutoMeleeStatus", Callback = function(v) _G.AutoMeleeStatus     = v end })
+StatsEspTab:AddToggle({ Title = "Auto Defense Status",        Default = false, Flag = "G_AutoDefenseStatus", Callback = function(v) _G.AutoDefenseStatus   = v end })
+StatsEspTab:AddToggle({ Title = "Auto Gun Status",            Default = false, Flag = "G_AutoGunStatus", Callback = function(v) _G.AutoGunStatus       = v end })
+StatsEspTab:AddToggle({ Title = "Auto Sword Status",          Default = false, Flag = "G_AutoSwordStatus", Callback = function(v) _G.AutoSwordStatus     = v end })
+StatsEspTab:AddToggle({ Title = "Auto Status (geral)",        Default = false, Flag = "G_AutoStatus", Callback = function(v) _G.AutoStatus         = v end })
 
 StatsEspTab:AddSection("ESP")
 StatsEspTab:AddToggle({
     Title    = T("ui_esp_mobs"),
     Default  = false,
-    Callback = function(v)
+    Flag = "ESPEnabled", Callback = function(v)
         Config.ESPEnabled = v
         if v then
             _initMobCircleESP()
@@ -2132,7 +2135,7 @@ StatsEspTab:AddToggle({
     end,
 })
 StatsEspTab:AddToggle({ Title = "ESP Players (nome + HP + distância)", Default = false,
-    Callback = function(v)
+    Flag = "ESPTeammates", Callback = function(v)
         Config.ESPTeammates = v
         if not v then
             for _, plr in ipairs(Players:GetPlayers()) do
@@ -2150,37 +2153,37 @@ StatsEspTab:AddToggle({ Title = "ESP Players (nome + HP + distância)", Default 
     end,
 })
 StatsEspTab:AddToggle({ Title = "ESP Sea Beasts",             Default = false,
-    Callback = function(v)
+    Flag = "ESPSeaBeasts", Callback = function(v)
         Config.ESPSeaBeasts = v
         Notify({ Title = v and "ESP Sea Beasts ON" or "OFF", Image = IMG, Type = v and "Success" or "Info", Duration = 2 })
     end })
 StatsEspTab:AddToggle({ Title = "ESP NPCs",                   Default = false,
-    Callback = function(v)
+    Flag = "ESPNpcs", Callback = function(v)
         Config.ESPNpcs = v
         Notify({ Title = v and "ESP NPCs ON" or "OFF", Image = IMG, Type = v and "Success" or "Info", Duration = 2 })
     end })
 StatsEspTab:AddToggle({ Title = "ESP Ilhas",                  Default = false,
-    Callback = function(v)
+    Flag = "ESPIslands", Callback = function(v)
         Config.ESPIslands = v
         Notify({ Title = v and "ESP Ilhas ON" or "OFF", Image = IMG, Type = v and "Success" or "Info", Duration = 2 })
     end })
 StatsEspTab:AddToggle({ Title = "ESP Frutas do Diabo",        Default = false,
-    Callback = function(v)
+    Flag = "ESPFruits", Callback = function(v)
         Config.ESPFruits = v
         Notify({ Title = v and "ESP Frutas ON" or "OFF", Image = IMG, Type = v and "Success" or "Info", Duration = 2 })
     end })
 StatsEspTab:AddToggle({ Title = "ESP Baus (Chests)",          Default = false,
-    Callback = function(v)
+    Flag = "ESPChests", Callback = function(v)
         Config.ESPChests = v
         Notify({ Title = v and "ESP Baus ON" or "OFF", Image = IMG, Type = v and "Success" or "Info", Duration = 2 })
     end })
 StatsEspTab:AddToggle({ Title = "ESP Berries",                Default = false,
-    Callback = function(v)
+    Flag = "ESPBerries", Callback = function(v)
         Config.ESPBerries = v
         Notify({ Title = v and "ESP Berries ON" or "OFF", Image = IMG, Type = v and "Success" or "Info", Duration = 2 })
     end })
 StatsEspTab:AddToggle({ Title = "ESP Mirage Island",          Default = false,
-    Callback = function(v)
+    Flag = "ESPMirage", Callback = function(v)
         Config.ESPMirage = v
         Notify({ Title = v and "ESP Mirage ON" or "OFF", Image = IMG, Type = v and "Success" or "Info", Duration = 2 })
     end })
@@ -2203,10 +2206,10 @@ end)
 local FruitRaidTab = Window:MakeTab({ Title = T("tab_fruitraid"), Icon = "apple" })
 
 FruitRaidTab:AddSection("Fruit")
-FruitRaidTab:AddToggle({ Title = "Auto Random Fruit", Default = false, Callback = function(v) Config.AutoTryLuck = v end })
-FruitRaidTab:AddToggle({ Title = "Auto Drop Fruit",           Default = false, Callback = function(v) _G.AutoDropFruit     = v end })
+FruitRaidTab:AddToggle({ Title = "Auto Random Fruit", Default = false, Flag = "AutoTryLuck", Callback = function(v) Config.AutoTryLuck = v end })
+FruitRaidTab:AddToggle({ Title = "Auto Drop Fruit",           Default = false, Flag = "G_AutoDropFruit", Callback = function(v) _G.AutoDropFruit     = v end })
 FruitRaidTab:AddToggle({ Title = "Auto Store Fruit (guardar no storage)", Default = false,
-    Callback = function(v)
+    Flag = "AutoStoreFruit", Callback = function(v)
         Config.AutoStoreFruit = v
         if v then
             task.spawn(function()
@@ -2225,7 +2228,7 @@ FruitRaidTab:AddToggle({ Title = "Auto Store Fruit (guardar no storage)", Defaul
         Notify({ Title = v and "Auto Store Fruit ON" or "OFF", Image = IMG, Type = v and "Success" or "Info", Duration = 2 })
     end })
 FruitRaidTab:AddToggle({ Title = T("ui_twenfly_fruit"), Default = false,
-    Callback = function(v)
+    Flag = "TweenFlyFruit", Callback = function(v)
         Config.TweenFlyFruit = v
         if v then task.spawn(function() Functions.StartTweenFlyFruit(Config, isTeleporting, NotAutoEquip) end) end
         Notify({ Title = v and "TweenFly Fruit ON" or "OFF", Image = IMG, Type = v and "Success" or "Info", Duration = 2 })
@@ -2233,19 +2236,19 @@ FruitRaidTab:AddToggle({ Title = T("ui_twenfly_fruit"), Default = false,
 FruitRaidTab:AddDropdown({ Title = "Select Fruit Shop",
     Options = { "Devil Fruit Shop", "Advanced Fruit Dealer" }, Default = "Devil Fruit Shop",
     Callback = function(v) _G.SelectedFruitShop = tostring(v) end })
-FruitRaidTab:AddToggle({ Title = "Auto Buy Fruit Shop",       Default = false, Callback = function(v) _G.AutoBuyFruitShop = v end })
+FruitRaidTab:AddToggle({ Title = "Auto Buy Fruit Shop",       Default = false, Flag = "G_AutoBuyFruitShop", Callback = function(v) _G.AutoBuyFruitShop = v end })
 
 FruitRaidTab:AddSection("Raid")
 _G.SelectedRaidChip = _G.SelectedRaidChip or Config.SelectChipRaid or "Flame"
 FruitRaidTab:AddDropdown({ Title = "Select Chip",
     Options = { "Flame", "Ice", "Quake", "Light", "Dark", "Spider", "Magma", "Buddha", "Sand", "Dough", "Phoenix" }, Default = "Flame",
     Callback = function(v) local val = (type(v) == "table") and (v.Value or v.value or v[1] or v.Name or v.Option or "Flame") or tostring(v); _G.SelectedRaidChip = val; Config.SelectChipRaid = val end })
-FruitRaidTab:AddToggle({ Title = "Auto Buy Chip (Beli)",      Default = false, Callback = function(v) Config.AutoBuyChipRaid = v end })
-FruitRaidTab:AddToggle({ Title = "Auto Buy Chip (Devil Fruit)", Default = false, Callback = function(v) _G.AutoBuyChipDF       = v end })
-FruitRaidTab:AddToggle({ Title = "Get Fruit In Inventory Below 1M", Default = false, Callback = function(v) _G.AutoGetFruitBelow1M = v end })
-FruitRaidTab:AddToggle({ Title = "Auto Start Raid",           Default = false, Callback = function(v) Config.AutoStartRaid  = v end })
-FruitRaidTab:AddToggle({ Title = "Auto Farm Raid + Next Island", Default = false, Callback = function(v) Config.AutoRaid    = v end })
-FruitRaidTab:AddToggle({ Title = "Auto Awakening",            Default = false, Callback = function(v) _G.AutoAwakening        = v end })
+FruitRaidTab:AddToggle({ Title = "Auto Buy Chip (Beli)",      Default = false, Flag = "AutoBuyChipRaid", Callback = function(v) Config.AutoBuyChipRaid = v end })
+FruitRaidTab:AddToggle({ Title = "Auto Buy Chip (Devil Fruit)", Default = false, Flag = "G_AutoBuyChipDF", Callback = function(v) _G.AutoBuyChipDF       = v end })
+FruitRaidTab:AddToggle({ Title = "Get Fruit In Inventory Below 1M", Default = false, Flag = "G_AutoGetFruitBelow1M", Callback = function(v) _G.AutoGetFruitBelow1M = v end })
+FruitRaidTab:AddToggle({ Title = "Auto Start Raid",           Default = false, Flag = "AutoStartRaid", Callback = function(v) Config.AutoStartRaid  = v end })
+FruitRaidTab:AddToggle({ Title = "Auto Farm Raid + Next Island", Default = false, Flag = "AutoRaid", Callback = function(v) Config.AutoRaid    = v end })
+FruitRaidTab:AddToggle({ Title = "Auto Awakening",            Default = false, Flag = "G_AutoAwakening", Callback = function(v) _G.AutoAwakening        = v end })
 
 FruitRaidTab:AddSection("Items Law")
 FruitRaidTab:AddButton({ Title = "Buy Microchip Law",  Callback = function()
@@ -2256,9 +2259,9 @@ FruitRaidTab:AddButton({ Title = "Start Law Raid",  Callback = function()
     pcall(function() (CommF_ or {}):InvokeServer("StartRaidLaw") end)
     Notify({ Title = "Iniciando Law Raid!", Image = IMG, Type = "Success", Duration = 2 })
 end })
-FruitRaidTab:AddToggle({ Title = "Auto Buy Microchip",        Default = false, Callback = function(v) Config.AutoBuyChipRaidLaw = v end })
-FruitRaidTab:AddToggle({ Title = "Auto Start Law Raids",      Default = false, Callback = function(v) Config.AutoStartRaidLaw   = v end })
-FruitRaidTab:AddToggle({ Title = "Auto Attack Law",           Default = false, Callback = function(v) Config.AutoRaidLaw        = v end })
+FruitRaidTab:AddToggle({ Title = "Auto Buy Microchip",        Default = false, Flag = "AutoBuyChipRaidLaw", Callback = function(v) Config.AutoBuyChipRaidLaw = v end })
+FruitRaidTab:AddToggle({ Title = "Auto Start Law Raids",      Default = false, Flag = "AutoStartRaidLaw", Callback = function(v) Config.AutoStartRaidLaw   = v end })
+FruitRaidTab:AddToggle({ Title = "Auto Attack Law",           Default = false, Flag = "AutoRaidLaw", Callback = function(v) Config.AutoRaidLaw        = v end })
 
 -- =====================================================
 -- TAB: LOCAL PLAYER
@@ -2278,28 +2281,28 @@ LPTab:AddDropdown({ Title = "Select Player",
     Default = "Nenhum",
     Callback = function(v) Config.SelectedPlayer = tostring(v) end })
 LPTab:AddToggle({ Title = "Aimbot Method Skill",     Default = false,
-    Callback = function(v)
+    Flag = "AimbotSkill", Callback = function(v)
         Config.AimbotSkill = v
         if v then task.spawn(function() Functions.StartAimbotSkill(Config) end) end
         Notify({ Title = v and "Aimbot Skill ON" or "OFF", Image = IMG, Type = v and "Success" or "Info", Duration = 2 })
     end })
 LPTab:AddToggle({ Title = "Aimbot Camera Closest Player", Default = false,
-    Callback = function(v)
+    Flag = "AimbotGun", Callback = function(v)
         Config.AimbotGun = v
         if v then task.spawn(function() Functions.StartAimbotGun(Config) end) end
         Notify({ Title = v and "Aimbot Gun ON" or "OFF", Image = IMG, Type = v and "Success" or "Info", Duration = 2 })
     end })
 
 LPTab:AddSection("Quests Players")
-LPTab:AddToggle({ Title = "Auto Get Player Quest",    Default = false, Callback = function(v) _G.AutoGetPlayerQuest  = v end })
-LPTab:AddToggle({ Title = "Auto Kill Player Quest",   Default = false, Callback = function(v) Config.AutoKillPlayer  = v end })
+LPTab:AddToggle({ Title = "Auto Get Player Quest",    Default = false, Flag = "G_AutoGetPlayerQuest", Callback = function(v) _G.AutoGetPlayerQuest  = v end })
+LPTab:AddToggle({ Title = "Auto Kill Player Quest",   Default = false, Flag = "AutoKillPlayer", Callback = function(v) Config.AutoKillPlayer  = v end })
 LPTab:AddToggle({ Title = "Auto Enable PvP",          Default = false,
-    Callback = function(v)
+    Flag = "EnabledPvP", Callback = function(v)
         Config.EnabledPvP = v
         Notify({ Title = v and "Modo PvP ATIVADO" or "Modo PvP Desativado", Image = IMG, Type = v and "Warning" or "Info", Duration = 2 })
     end })
 LPTab:AddToggle({ Title = "Auto Safe Mode",           Default = false,
-    Callback = function(v)
+    Flag = "SafeMode", Callback = function(v)
         Config.SafeMode = v
         if v then
             task.spawn(function()
@@ -2318,27 +2321,27 @@ LPTab:AddToggle({ Title = "Auto Safe Mode",           Default = false,
             end)
         end
     end })
-LPTab:AddToggle({ Title = "Enable Invisible",         Default = false, Callback = function(v) _G.EnableInvisible = v end })
+LPTab:AddToggle({ Title = "Enable Invisible",         Default = false, Flag = "G_EnableInvisible", Callback = function(v) _G.EnableInvisible = v end })
 
 LPTab:AddSection("Player Settings")
-LPTab:AddToggle({ Title = "Enable Fly",               Default = false, Callback = function(v) _G.EnableFly = v end })
+LPTab:AddToggle({ Title = "Enable Fly",               Default = false, Flag = "G_EnableFly", Callback = function(v) _G.EnableFly = v end })
 LPTab:AddSlider({ Title = "Fly Speed", Min = 10, Max = 800, Default = 300,
-    Callback = function(v) Config.FlySpeed = v end })
-LPTab:AddToggle({ Title = "Dash No Cooldown",         Default = false, Callback = function(v) _G.DashNoCD = v end })
-LPTab:AddToggle({ Title = "Instance Mink V3",         Default = false, Callback = function(v) _G.InstanceMink = v end })
-LPTab:AddToggle({ Title = "Instance Energy",          Default = false, Callback = function(v) _G.InstanceEnergy = v end })
-LPTab:AddToggle({ Title = "Instance Soru",            Default = false, Callback = function(v) _G.InstanceSoru   = v end })
-LPTab:AddToggle({ Title = "Instance Observation Range", Default = false, Callback = function(v) _G.InstanceObsRange = v end })
-LPTab:AddToggle({ Title = "Ignore Same Teams",        Default = false, Callback = function(v) _G.IgnoreSameTeams = v end })
-LPTab:AddToggle({ Title = "Accept Allies",            Default = false, Callback = function(v) _G.AcceptAllies   = v end })
-LPTab:AddToggle({ Title = T("ui_auto_speed"),         Default = true,  Callback = function(v) Config.AutoSpeed = v end })
+    Flag = "FlySpeed", Callback = function(v) Config.FlySpeed = v end })
+LPTab:AddToggle({ Title = "Dash No Cooldown",         Default = false, Flag = "G_DashNoCD", Callback = function(v) _G.DashNoCD = v end })
+LPTab:AddToggle({ Title = "Instance Mink V3",         Default = false, Flag = "G_InstanceMink", Callback = function(v) _G.InstanceMink = v end })
+LPTab:AddToggle({ Title = "Instance Energy",          Default = false, Flag = "G_InstanceEnergy", Callback = function(v) _G.InstanceEnergy = v end })
+LPTab:AddToggle({ Title = "Instance Soru",            Default = false, Flag = "G_InstanceSoru", Callback = function(v) _G.InstanceSoru   = v end })
+LPTab:AddToggle({ Title = "Instance Observation Range", Default = false, Flag = "G_InstanceObsRange", Callback = function(v) _G.InstanceObsRange = v end })
+LPTab:AddToggle({ Title = "Ignore Same Teams",        Default = false, Flag = "G_IgnoreSameTeams", Callback = function(v) _G.IgnoreSameTeams = v end })
+LPTab:AddToggle({ Title = "Accept Allies",            Default = false, Flag = "G_AcceptAllies", Callback = function(v) _G.AcceptAllies   = v end })
+LPTab:AddToggle({ Title = T("ui_auto_speed"),         Default = true,  Flag = "AutoSpeed", Callback = function(v) Config.AutoSpeed = v end })
 LPTab:AddSlider({ Title = T("ui_speed"), Min = 20, Max = 100, Default = 20,
-    Callback = function(v) Config.Speed = v; if Humanoid then Humanoid.WalkSpeed = v end end })
-LPTab:AddToggle({ Title = T("ui_auto_jump"),          Default = true,  Callback = function(v) Config.AutoSetJump = v end })
+    Flag = "Speed", Callback = function(v) Config.Speed = v; if Humanoid then Humanoid.WalkSpeed = v end end })
+LPTab:AddToggle({ Title = T("ui_auto_jump"),          Default = true,  Flag = "AutoSetJump", Callback = function(v) Config.AutoSetJump = v end })
 LPTab:AddSlider({ Title = T("ui_jump"), Min = 50, Max = 200, Default = 50,
-    Callback = function(v) Config.Jump = v; if Humanoid then Humanoid.JumpPower = v end end })
+    Flag = "Jump", Callback = function(v) Config.Jump = v; if Humanoid then Humanoid.JumpPower = v end end })
 LPTab:AddToggle({ Title = "Turn on Walk on Water",    Default = false,
-    Callback = function(v)
+    Flag = "WalkWater", Callback = function(v)
         Config.WalkWater = v
         if v then
             task.spawn(function()
@@ -2354,12 +2357,12 @@ LPTab:AddToggle({ Title = "Turn on Walk on Water",    Default = false,
         end
     end })
 LPTab:AddToggle({ Title = T("ui_infinite_jump"),      Default = false,
-    Callback = function(v)
+    Flag = "InfiniteJump", Callback = function(v)
         Config.InfiniteJump = v
         Notify({ Title = T(v and "infinitejump_on" or "infinitejump_off"), Image = IMG, Type = v and "Success" or "Info", Duration = 2 })
     end })
 LPTab:AddToggle({ Title = T("ui_anti_afk"),           Default = false,
-    Callback = function(v)
+    Flag = "AntiAFK", Callback = function(v)
         Config.AntiAFK = v
         if v then
             task.spawn(function()
@@ -2447,7 +2450,7 @@ Teleport:AddDropdown({ Title = "Select NPC",
     Callback = function(v) _G.SelectedNPC = tostring(v) end })
 Teleport:AddToggle({ Title = "Auto Tween to NPC",
     Default = false,
-    Callback = function(v)
+    Flag = "G_AutoTweenToNPC", Callback = function(v)
         _G.AutoTweenToNPC = v
         if v then
             task.spawn(function()
@@ -2609,8 +2612,11 @@ DebugCfg:AddSection("Tween Fly")
 DebugCfg:AddToggle({ Title = "Mostrar Botão Stop Fly", Default = true,
     Callback = function(v)
         pcall(function()
-            local btn = Player.PlayerGui:FindFirstChild("LotuxStopFlyBtn")
-            if btn then btn.Enabled = v end
+            local gui = Player.PlayerGui:FindFirstChild("LotuxStopFlyBtn")
+            if gui then
+                local btn = gui:FindFirstChildWhichIsA("TextButton", true)
+                if btn then btn.Visible = v end
+            end
         end)
     end })
 DebugCfg:AddButton({ Title = "⏹ Stop Tween Fly Agora", Callback = function()
@@ -2826,7 +2832,7 @@ task.spawn(function()
     TitleFix.Parent           = TitleBar
 
     local TitleLbl = Instance.new("TextLabel")
-    TitleLbl.Text              = "Lotux Debug"
+    TitleLbl.Text              = "🔧  Lotux Debug"
     TitleLbl.Font              = Enum.Font.GothamBold
     TitleLbl.TextSize          = 12
     TitleLbl.TextColor3        = Color3.fromRGB(180, 140, 255)
@@ -2851,7 +2857,7 @@ task.spawn(function()
 
     -- botão fechar
     local CloseBtn = Instance.new("TextButton")
-    CloseBtn.Text              = "X"
+    CloseBtn.Text              = "✕"
     CloseBtn.Font              = Enum.Font.GothamBold
     CloseBtn.TextSize          = 12
     CloseBtn.TextColor3        = Color3.fromRGB(255, 100, 100)
@@ -2917,9 +2923,9 @@ task.spawn(function()
     local V_Weapon   = MakeLine("Arma",       8)
     local V_Skills   = MakeLine("Skills",     9)
     local V_Uptime   = MakeLine("Uptime",     10)
-    local V_Moon     = MakeLine("Lua",        11)
-    local V_Chalice  = MakeLine("Cálice",     12)
-    local V_Server   = MakeLine("Server",     13)
+    local V_Moon     = MakeLine("🌙 Lua",     11)
+    local V_Chalice  = MakeLine("🏆 Cálice",  12)
+    local V_Server   = MakeLine("🕐 Server",  13)
 
     -- linha de log (última ação)
     local LogRow = Instance.new("TextLabel")
@@ -3116,9 +3122,10 @@ task.spawn(function()
             -- ── Cálice: tempo até o próximo cálice no baú ─────────
             -- No BF o God's Chalice aparece no baú especial a cada 4h de server.
             -- O timer reseta quando o server inicia.
+            -- DistributedGameTime = segundos desde que o server iniciou (correto)
             pcall(function()
                 local CHALICE_INTERVAL = 4 * 3600  -- 4 horas em segundos
-                local serverAge = workspace:GetServerTimeNow()
+                local serverAge = math.floor(workspace.DistributedGameTime)
                 local secSinceLast = serverAge % CHALICE_INTERVAL
                 local secsLeft     = CHALICE_INTERVAL - secSinceLast
                 local h  = math.floor(secsLeft / 3600)
@@ -3136,13 +3143,18 @@ task.spawn(function()
                 end
             end)
 
-            -- ── Tempo do server ────────────────────────────────────
+            -- ── Tempo do server (idade real desde o início) ────────
+            -- DistributedGameTime = segundos reais desde que o server iniciou
             pcall(function()
-                local secs = math.floor(workspace:GetServerTimeNow())
+                local secs = math.floor(workspace.DistributedGameTime)
                 local h = math.floor(secs / 3600)
                 local m = math.floor((secs % 3600) / 60)
                 local s = secs % 60
-                V_Server.Text = string.format("%dh %02dm %02ds", h, m, s)
+                if h > 0 then
+                    V_Server.Text = string.format("%dh %02dm %02ds", h, m, s)
+                else
+                    V_Server.Text = string.format("%dm %02ds", m, s)
+                end
                 -- Destaca servidores velhos (>2h) em amarelo, >4h em vermelho
                 if h >= 4 then
                     V_Server.TextColor3 = Color3.fromRGB(255, 100, 100)
@@ -3247,138 +3259,200 @@ task.spawn(function()
 end)
 
 -- =====================================================
--- BOTÃO FLUTUANTE: RESET UI
--- Reseta a posição da UI principal para o centro da tela.
--- Pode ser ocultado pelo toggle "Reset UI Button" em Settings.
+-- HELPER: botão flutuante draggable com save de posição
 -- =====================================================
-task.spawn(function()
-    local PGuiR = Player:WaitForChild("PlayerGui")
-    -- Fecha botão anterior se existir (re-execução)
+local function MakeDraggableFloatBtn(opts)
+    -- opts: { GuiName, SaveKey, DefaultX, DefaultY, BtnText, BtnColor, StrokeColor, OnClick }
+    local PGuiF = Player:WaitForChild("PlayerGui")
+    -- Destroi instância anterior (re-execução)
     pcall(function()
-        local old = PGuiR:FindFirstChild("LotuxResetUIBtn")
+        local old = PGuiF:FindFirstChild(opts.GuiName)
         if old then old:Destroy() end
     end)
 
-    local ResetGui = Instance.new("ScreenGui")
-    ResetGui.Name           = "LotuxResetUIBtn"
-    ResetGui.ResetOnSpawn   = false
-    ResetGui.DisplayOrder   = 997
-    ResetGui.IgnoreGuiInset = true
-    ResetGui.Parent         = PGuiR
+    -- Carrega posição salva
+    local savedX, savedY = opts.DefaultX, opts.DefaultY
+    pcall(function()
+        if readfile and isfile and isfile(opts.SaveKey) then
+            local ok, data = pcall(function()
+                return HttpService:JSONDecode(readfile(opts.SaveKey))
+            end)
+            if ok and type(data) == "table" then
+                savedX = data.x or savedX
+                savedY = data.y or savedY
+            end
+        end
+    end)
 
-    local ResetBtn = Instance.new("TextButton")
-    ResetBtn.Text                 = "Reset UI"
-    ResetBtn.Font                 = Enum.Font.GothamBold
-    ResetBtn.TextSize             = 12
-    ResetBtn.TextColor3           = Color3.fromRGB(255, 255, 255)
-    ResetBtn.BackgroundColor3     = Color3.fromRGB(60, 40, 130)
-    ResetBtn.BackgroundTransparency = 0.2
-    ResetBtn.Size                 = UDim2.fromOffset(90, 28)
-    ResetBtn.Position             = UDim2.new(1, -100, 0, 44)  -- logo abaixo do StopFly
-    ResetBtn.BorderSizePixel      = 0
-    ResetBtn.Parent               = ResetGui
-    Instance.new("UICorner", ResetBtn).CornerRadius = UDim.new(0, 6)
+    local Gui = Instance.new("ScreenGui")
+    Gui.Name           = opts.GuiName
+    Gui.ResetOnSpawn   = false
+    Gui.DisplayOrder   = opts.DisplayOrder or 997
+    Gui.IgnoreGuiInset = true
+    Gui.Parent         = PGuiF
 
-    local Stroke = Instance.new("UIStroke", ResetBtn)
-    Stroke.Color       = Color3.fromRGB(100, 60, 220)
-    Stroke.Thickness   = 1.2
+    local Btn = Instance.new("TextButton")
+    Btn.Text                  = opts.BtnText
+    Btn.Font                  = Enum.Font.GothamBold
+    Btn.TextSize              = 12
+    Btn.TextColor3            = Color3.fromRGB(255, 255, 255)
+    Btn.BackgroundColor3      = opts.BtnColor
+    Btn.BackgroundTransparency = 0.15
+    Btn.Size                  = UDim2.fromOffset(95, 28)
+    Btn.Position              = UDim2.fromOffset(savedX, savedY)
+    Btn.BorderSizePixel       = 0
+    Btn.Active                = true
+    Btn.Parent                = Gui
+    Instance.new("UICorner", Btn).CornerRadius = UDim.new(0, 6)
+
+    local Stroke = Instance.new("UIStroke", Btn)
+    Stroke.Color        = opts.StrokeColor
+    Stroke.Thickness    = 1.2
     Stroke.Transparency = 0.4
 
-    ResetBtn.MouseButton1Click:Connect(function()
-        pcall(function()
-            -- O MainFrame da library fica em CoreGui > "redz Library V5" > "Hub"
-            local coreGui   = game:GetService("CoreGui")
-            local libGui    = coreGui:FindFirstChild("redz Library V5")
-            local mainFrame = libGui and libGui:FindFirstChild("Hub")
-            if mainFrame then
-                local vp    = workspace.CurrentCamera.ViewportSize
-                local sz    = mainFrame.Size
-                mainFrame.Position = UDim2.new(0.5, -sz.X.Offset / 2, 0.5, -sz.Y.Offset / 2)
-            end
-        end)
-        -- Feedback visual
-        ResetBtn.BackgroundColor3 = Color3.fromRGB(40, 160, 80)
-        ResetBtn.Text = "Resetado!"
-        task.delay(0.8, function()
-            if ResetBtn and ResetBtn.Parent then
-                ResetBtn.BackgroundColor3 = Color3.fromRGB(60, 40, 130)
-                ResetBtn.Text = "Reset UI"
-            end
-        end)
+    -- Drag logic
+    local UIS        = game:GetService("UserInputService")
+    local dragging   = false
+    local dragStart  = Vector3.new()
+    local startPos   = UDim2.fromOffset(0, 0)
+    local didDrag    = false
+
+    Btn.InputBegan:Connect(function(inp)
+        if inp.UserInputType == Enum.UserInputType.MouseButton1
+        or inp.UserInputType == Enum.UserInputType.Touch then
+            dragging  = true
+            didDrag   = false
+            dragStart = inp.Position
+            startPos  = Btn.Position
+        end
     end)
+
+    UIS.InputChanged:Connect(function(inp)
+        if dragging and (inp.UserInputType == Enum.UserInputType.MouseMovement
+                      or inp.UserInputType == Enum.UserInputType.Touch) then
+            local delta = inp.Position - dragStart
+            if math.abs(delta.X) > 3 or math.abs(delta.Y) > 3 then
+                didDrag = true
+            end
+            Btn.Position = UDim2.fromOffset(
+                startPos.X.Offset + delta.X,
+                startPos.Y.Offset + delta.Y
+            )
+        end
+    end)
+
+    UIS.InputEnded:Connect(function(inp)
+        if inp.UserInputType == Enum.UserInputType.MouseButton1
+        or inp.UserInputType == Enum.UserInputType.Touch then
+            if dragging then
+                -- Salva posição nova
+                pcall(function()
+                    if writefile then
+                        writefile(opts.SaveKey, HttpService:JSONEncode({
+                            x = Btn.Position.X.Offset,
+                            y = Btn.Position.Y.Offset,
+                        }))
+                    end
+                end)
+            end
+            dragging = false
+        end
+    end)
+
+    -- Click só dispara se NÃO arrastou
+    Btn.MouseButton1Click:Connect(function()
+        if didDrag then didDrag = false return end
+        opts.OnClick(Btn)
+    end)
+
+    return Btn, Gui
+end
+
+-- =====================================================
+-- BOTÃO FLUTUANTE: RESET UI  (draggable)
+-- =====================================================
+task.spawn(function()
+    local ResetBtn = MakeDraggableFloatBtn({
+        GuiName      = "LotuxResetUIBtn",
+        SaveKey      = "lotux_resetbtn_pos.json",
+        DefaultX     = math.floor((workspace.CurrentCamera.ViewportSize.X or 800) - 105),
+        DefaultY     = 44,
+        DisplayOrder = 997,
+        BtnText      = "⟳ Reset UI",
+        BtnColor     = Color3.fromRGB(55, 35, 120),
+        StrokeColor  = Color3.fromRGB(100, 60, 220),
+        OnClick = function(btn)
+            pcall(function()
+                local coreGui   = game:GetService("CoreGui")
+                local libGui    = coreGui:FindFirstChild("redz Library V5")
+                local mainFrame = libGui and libGui:FindFirstChild("Hub")
+                if mainFrame then
+                    mainFrame.Position = UDim2.new(0.5, -mainFrame.Size.X.Offset/2, 0.5, -mainFrame.Size.Y.Offset/2)
+                end
+            end)
+            btn.BackgroundColor3 = Color3.fromRGB(40, 160, 80)
+            btn.Text = "✅ Resetado!"
+            task.delay(0.8, function()
+                if btn and btn.Parent then
+                    btn.BackgroundColor3 = Color3.fromRGB(55, 35, 120)
+                    btn.Text = "⟳ Reset UI"
+                end
+            end)
+        end,
+    })
 end)
 
 -- =====================================================
--- BOTÃO FLUTUANTE: STOP TWEEN FLY
--- Fica no canto superior direito, pressione para parar
--- o voo imediatamente. Toggle na tab Debug Config.
+-- BOTÃO FLUTUANTE: STOP TWEEN FLY  (draggable)
+-- Pode ser ocultado pelo toggle na tab Debug Config.
 -- =====================================================
 task.spawn(function()
-    local PGui2 = Player:WaitForChild("PlayerGui")
-    -- Fecha botão anterior se existir (re-execução)
-    pcall(function()
-        local old = PGui2:FindFirstChild("LotuxStopFlyBtn")
-        if old then old:Destroy() end
-    end)
-    local StopGui = Instance.new("ScreenGui")
-    StopGui.Name           = "LotuxStopFlyBtn"
-    StopGui.ResetOnSpawn   = false
-    StopGui.DisplayOrder   = 998
-    StopGui.IgnoreGuiInset = true
-    StopGui.Parent         = PGui2
-
-    local StopBtn = Instance.new("TextButton")
-    StopBtn.Text            = "Stop Fly"
-    StopBtn.Font            = Enum.Font.GothamBold
-    StopBtn.TextSize        = 12
-    StopBtn.TextColor3      = Color3.fromRGB(255, 255, 255)
-    StopBtn.BackgroundColor3 = Color3.fromRGB(180, 40, 40)
-    StopBtn.BackgroundTransparency = 0.2
-    StopBtn.Size            = UDim2.fromOffset(90, 28)
-    StopBtn.Position        = UDim2.new(1, -100, 0, 10)
-    StopBtn.BorderSizePixel = 0
-    StopBtn.Parent          = StopGui
-    Instance.new("UICorner", StopBtn).CornerRadius = UDim.new(0, 6)
-
-    local function DoStopFly()
-        pcall(function()
-            isTeleporting.value = false
-            Functions.StopTeleport()
-            -- Remove BodyMovers do HRP
-            local char = Player.Character
-            local hrp  = char and char:FindFirstChild("HumanoidRootPart")
-            if hrp then
-                for _, obj in ipairs(hrp:GetChildren()) do
-                    if obj:IsA("BodyVelocity") or obj:IsA("BodyPosition") or obj:IsA("BodyGyro") then
-                        obj:Destroy()
+    local StopBtn = MakeDraggableFloatBtn({
+        GuiName      = "LotuxStopFlyBtn",
+        SaveKey      = "lotux_stopbtn_pos.json",
+        DefaultX     = math.floor((workspace.CurrentCamera.ViewportSize.X or 800) - 105),
+        DefaultY     = 10,
+        DisplayOrder = 998,
+        BtnText      = "⏹ Stop Fly",
+        BtnColor     = Color3.fromRGB(170, 35, 35),
+        StrokeColor  = Color3.fromRGB(220, 60, 60),
+        OnClick = function(btn)
+            pcall(function()
+                isTeleporting.value = false
+                Functions.StopTeleport()
+                local char = Player.Character
+                local hrp  = char and char:FindFirstChild("HumanoidRootPart")
+                if hrp then
+                    for _, obj in ipairs(hrp:GetChildren()) do
+                        if obj:IsA("BodyVelocity") or obj:IsA("BodyPosition") or obj:IsA("BodyGyro") then
+                            obj:Destroy()
+                        end
                     end
+                    local hum = char:FindFirstChildOfClass("Humanoid")
+                    if hum then hum:ChangeState(Enum.HumanoidStateType.Freefall) end
                 end
-                local hum = char:FindFirstChildOfClass("Humanoid")
-                if hum then hum:ChangeState(Enum.HumanoidStateType.Freefall) end
-            end
-        end)
-        -- Feedback visual no botão
-        StopBtn.BackgroundColor3 = Color3.fromRGB(40, 180, 40)
-        StopBtn.Text = "Parado!"
-        task.delay(0.8, function()
-            if StopBtn and StopBtn.Parent then
-                StopBtn.BackgroundColor3 = Color3.fromRGB(180, 40, 40)
-                StopBtn.Text = "Stop Fly"
-            end
-        end)
-    end
+            end)
+            btn.BackgroundColor3 = Color3.fromRGB(40, 180, 40)
+            btn.Text = "✅ Parado!"
+            task.delay(0.8, function()
+                if btn and btn.Parent then
+                    btn.BackgroundColor3 = Color3.fromRGB(170, 35, 35)
+                    btn.Text = "⏹ Stop Fly"
+                end
+            end)
+        end,
+    })
 
-    StopBtn.MouseButton1Click:Connect(DoStopFly)
-
-    -- Keybind: tecla E para parar o fly rapidamente
+    -- Keybind E para parar o fly rapidamente
     UserInputService.InputBegan:Connect(function(inp, gameProcessed)
         if gameProcessed then return end
         if inp.KeyCode == Enum.KeyCode.E then
             if Config.AutoRaid or Config.AutoFarmLevel or Config.AutoFarmNearest then return end
-            DoStopFly()
+            if StopBtn then StopBtn.MouseButton1Click:Fire() end
         end
     end)
 end)
+
 
 -- =====================================================
 -- FINALIZACAO
@@ -3415,4 +3489,4 @@ Notify({
     Type        = "Success",
 })
 
-print("UI Loaded v4.1.0")
+print("UI Loaded v4.2.0")
