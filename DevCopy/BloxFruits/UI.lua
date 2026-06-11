@@ -993,10 +993,43 @@ task.spawn(function()
                 currentTarget = mob
                 NoClip.value = true
 
-                -- Salva posição original do mob UMA vez antes do bring distorcê-la
+                -- Posição original do mob para o voo (antes de qualquer bring)
                 local mobOriginalPos = mob:FindFirstChild("HumanoidRootPart")
                     and mob.HumanoidRootPart.Position
                     or HumanoidRootPart.Position
+
+                -- Flag que controla o heartbeat de bring
+                local bringActive   = false
+                local bringPosition = CFrame.new(0, 0, 0)
+                local bringMobName  = mob.Name
+
+                -- Loop de heartbeat separado: trava todos os mobs do tipo no lugar
+                -- Roda independente do loop principal para nao travar o ataque
+                local bringConn = game:GetService("RunService").Heartbeat:Connect(function()
+                    if not bringActive then return end
+                    if not Config.BringMob then return end
+                    local enemies = workspace:FindFirstChild("Enemies")
+                    if not enemies then return end
+                    for _, otherMob in ipairs(enemies:GetChildren()) do
+                        if otherMob.Name == bringMobName then
+                            local ohrp = otherMob:FindFirstChild("HumanoidRootPart")
+                            local ohum = otherMob:FindFirstChild("Humanoid")
+                            if ohrp and ohum and ohum.Health > 0 then
+                                local dist = (ohrp.Position - HumanoidRootPart.Position).Magnitude
+                                if dist <= (Config.BringDistance or 350) then
+                                    -- Trava WalkSpeed/JumpPower no servidor via local sim
+                                    pcall(function()
+                                        ohum.WalkSpeed = 0
+                                        ohum.JumpPower = 0
+                                        ohum:ChangeState(11)
+                                        sethiddenproperty(game.Players.LocalPlayer, "SimulationRadius", math.huge)
+                                    end)
+                                    ohrp.CFrame = bringPosition
+                                end
+                            end
+                        end
+                    end
+                end)
 
                 repeat
                     task.wait()
@@ -1007,34 +1040,18 @@ task.spawn(function()
                     local distToMob = (mobOriginalPos - HumanoidRootPart.Position).Magnitude
 
                     if distToMob > 15 then
-                        -- Ainda longe: voa até a posição original (pré-bring)
+                        -- Longe: voa ate o mob, bring desativado
+                        bringActive = false
                         Functions.FlyToPosition(
                             CFrame.new(mobOriginalPos) * CFrame.new(0, Config.FlyOffset, 0),
                             TweenService, Config, isTeleporting, NotAutoEquip)
                     else
-                        -- Chegou perto: para voo e faz bring de todos os mobs do mesmo tipo
+                        -- Chegou: ativa o heartbeat de bring
                         isTeleporting.value = false
-                        if Config.BringMob then
-                            local pp = HumanoidRootPart.Position
-                            local yOffset = Config.BringYOffset or -5
-                            local playerBringPos = CFrame.new(pp.X, pp.Y + yOffset, pp.Z)
-                            local enemiesFolder = workspace:FindFirstChild("Enemies")
-                            if enemiesFolder then
-                                for _, otherMob in ipairs(enemiesFolder:GetChildren()) do
-                                    if otherMob.Name == mob.Name then
-                                        local ohrp = otherMob:FindFirstChild("HumanoidRootPart")
-                                        local ohum = otherMob:FindFirstChild("Humanoid")
-                                        if ohrp and ohum and ohum.Health > 0 then
-                                            -- Usa posição atual do mob para calcular distância (antes do bring)
-                                            local distOther = (ohrp.Position - HumanoidRootPart.Position).Magnitude
-                                            if distOther <= Config.BringDistance or distOther <= 5 then
-                                                Functions.BringMobFunc(otherMob, playerBringPos)
-                                            end
-                                        end
-                                    end
-                                end
-                            end
-                        end
+                        local pp = HumanoidRootPart.Position
+                        local yOff = Config.BringYOffset or -5
+                        bringPosition = CFrame.new(pp.X, pp.Y + yOff, pp.Z)
+                        bringActive   = true
                     end
 
                     Functions.FastAttack(mob, Config, NotAutoEquip)
@@ -1044,7 +1061,7 @@ task.spawn(function()
                    or mob.Humanoid.Health <= 0
                    or (not Config.AutoFarmNearest and not Config.AutoFarmLevel)
 
-                -- Garante que o voo para e o player cai ao sair do loop
+                bringConn:Disconnect()
                 Functions.StopTeleport()
                 NoClip.value = false
                 if mob.Humanoid and mob.Humanoid.Health <= 0 then
@@ -1134,8 +1151,39 @@ task.spawn(function()
 
                                 currentTarget = mob
                                 NoClip.value = true
-                                -- Salva posição original do mob UMA vez antes do bring distorcê-la
+                                -- Posição original do mob para o voo (antes de qualquer bring)
                                 local mobOriginalPos2 = hrp.Position
+
+                                -- Flag que controla o heartbeat de bring
+                                local bringActive2   = false
+                                local bringPosition2 = CFrame.new(0, 0, 0)
+                                local bringMobName2  = quest.Mob
+
+                                -- Loop de heartbeat separado: trava todos os mobs do tipo no lugar
+                                local bringConn2 = game:GetService("RunService").Heartbeat:Connect(function()
+                                    if not bringActive2 then return end
+                                    if not Config.BringMob then return end
+                                    local enemies = workspace:FindFirstChild("Enemies")
+                                    if not enemies then return end
+                                    for _, otherMob in ipairs(enemies:GetChildren()) do
+                                        if otherMob.Name == bringMobName2 then
+                                            local ohrp = otherMob:FindFirstChild("HumanoidRootPart")
+                                            local ohum = otherMob:FindFirstChild("Humanoid")
+                                            if ohrp and ohum and ohum.Health > 0 then
+                                                local dist = (ohrp.Position - HumanoidRootPart.Position).Magnitude
+                                                if dist <= (Config.BringDistance or 350) then
+                                                    pcall(function()
+                                                        ohum.WalkSpeed = 0
+                                                        ohum.JumpPower = 0
+                                                        ohum:ChangeState(11)
+                                                        sethiddenproperty(game.Players.LocalPlayer, "SimulationRadius", math.huge)
+                                                    end)
+                                                    ohrp.CFrame = bringPosition2
+                                                end
+                                            end
+                                        end
+                                    end
+                                end)
 
                                 repeat
                                     task.wait()
@@ -1145,33 +1193,18 @@ task.spawn(function()
 
                                     local distToMob = (mobOriginalPos2 - HumanoidRootPart.Position).Magnitude
                                     if distToMob > 15 then
-                                        -- Ainda longe: voa até a posição original (pré-bring)
+                                        -- Longe: voa ate o mob, bring desativado
+                                        bringActive2 = false
                                         Functions.FlyToPosition(
                                             CFrame.new(mobOriginalPos2) * CFrame.new(0, Config.FlyOffset, 0),
                                             TweenService, Config, isTeleporting, NotAutoEquip)
                                     else
-                                        -- Chegou perto: para voo e faz bring
+                                        -- Chegou: ativa o heartbeat de bring
                                         isTeleporting.value = false
-                                        if Config.BringMob then
-                                            local pp2 = HumanoidRootPart.Position
-                                            local yOffset2 = Config.BringYOffset or -5
-                                            local playerBringPos = CFrame.new(pp2.X, pp2.Y + yOffset2, pp2.Z)
-                                            local enemiesFolder = workspace:FindFirstChild("Enemies")
-                                            if enemiesFolder then
-                                                for _, otherMob in ipairs(enemiesFolder:GetChildren()) do
-                                                    if otherMob.Name == quest.Mob then
-                                                        local ohrp = otherMob:FindFirstChild("HumanoidRootPart")
-                                                        local ohum = otherMob:FindFirstChild("Humanoid")
-                                                        if ohrp and ohum and ohum.Health > 0 then
-                                                            local distOther = (ohrp.Position - HumanoidRootPart.Position).Magnitude
-                                                            if distOther <= Config.BringDistance or distOther <= 5 then
-                                                                Functions.BringMobFunc(otherMob, playerBringPos)
-                                                            end
-                                                        end
-                                                    end
-                                                end
-                                            end
-                                        end
+                                        local pp2 = HumanoidRootPart.Position
+                                        local yOff2 = Config.BringYOffset or -5
+                                        bringPosition2 = CFrame.new(pp2.X, pp2.Y + yOff2, pp2.Z)
+                                        bringActive2   = true
                                     end
 
                                     Functions.FastAttack(mob, Config, NotAutoEquip)
@@ -1181,7 +1214,7 @@ task.spawn(function()
                                    or mob.Humanoid.Health <= 0
                                    or not Config.AutoFarmLevel
 
-                                -- Garante que o voo para e o player cai ao sair do loop
+                                bringConn2:Disconnect()
                                 Functions.StopTeleport()
                                 NoClip.value = false
                                 if mob.Humanoid and mob.Humanoid.Health <= 0 then
@@ -3711,4 +3744,4 @@ Notify({
     Type        = "Success",
 })
 
-print("UI Loaded v4.6.1")
+print("UI Loaded v4.6.2")

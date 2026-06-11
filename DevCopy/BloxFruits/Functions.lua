@@ -870,42 +870,19 @@ function Functions.BringMobFunc(mob, targetPosition)
 
     pcall(function() sethiddenproperty(Player, "SimulationRadius", math.huge) end)
 
-    -- Aplica offset Y (BringYOffset do Config, padrao -10 = abaixo do player)
-    local bringYOffset = (_G._currentConfig and _G._currentConfig.BringYOffset) or -10
+    -- Aplica offset Y (BringYOffset do Config, padrao -5 = abaixo do player)
+    local bringYOffset = (_G._currentConfig and _G._currentConfig.BringYOffset) or -5
     local finalVec3 = targetVec3 + Vector3.new(0, bringYOffset, 0)
 
-    -- Leva o mob para baixo do player
+    -- Reposiciona o mob via CFrame puro.
+    -- O travamento (WalkSpeed=0, ChangeState) e feito pelo loop Heartbeat
+    -- no UI.lua, que roda a 60fps e mantem os mobs presos sem dessincronizar
+    -- o hitbox do servidor.
     MobHRP.CFrame = CFrame.new(finalVec3)
 
-    -- Para o mob de se mover
-    Hum.WalkSpeed = 0
-    Hum.JumpPower = 0
-    Hum:ChangeState(11)
-
-    -- Esconde partes para nao atrapalhar o click
-    MobHRP.Transparency = 1
-    MobHRP.CanCollide   = false
-    local Head = mob:FindFirstChild("Head")
-    if Head then Head.CanCollide = false end
-    local Animator = Hum:FindFirstChild("Animator")
-    if Animator then Animator.Enabled = false end
-
-    -- FIX: usa BodyVelocity=0 em vez de BodyPosition.
-    -- BodyPosition briga com o sistema do BF e causa tremor.
-    -- BodyVelocity com MaxForce enorme + Velocity=0 prende
-    -- o mob sem conflitar com o servidor.
-    local Lock = MobHRP:FindFirstChild("LotuxBringLock")
-    if not Lock then
-        Lock          = Instance.new("BodyVelocity")
-        Lock.Name     = "LotuxBringLock"
-        Lock.MaxForce = Vector3.new(1e9, 1e9, 1e9)
-        Lock.Velocity = Vector3.new(0, 0, 0)
-        Lock.Parent   = MobHRP
-    else
-        -- Reposiciona a cada tick para combater server-side movement
-        Lock.Velocity = Vector3.new(0, 0, 0)
-        MobHRP.CFrame = CFrame.new(finalVec3)
-    end
+    -- Remove lock antigo de versoes anteriores
+    local oldLock = MobHRP:FindFirstChild("LotuxBringLock")
+    if oldLock then oldLock:Destroy() end
 end
 
 -- Alias para compatibilidade com chamadas que usam o nome antigo
@@ -5226,19 +5203,32 @@ function Functions.BringMobFunc(mob, targetCFrame)
     if not mob or not mob.Parent then return end
 
     local mobHrp = mob:FindFirstChild("HumanoidRootPart")
-    if mobHrp then
-        -- Aplica offset Y (BringYOffset do Config, padrao -10 = abaixo do player)
-        local bringYOffset = (_G._currentConfig and _G._currentConfig.BringYOffset) or -10
-        local basePos
-        if typeof(targetCFrame) == "CFrame" then
-            basePos = targetCFrame.Position
-        elseif typeof(targetCFrame) == "Vector3" then
-            basePos = targetCFrame
-        else
-            basePos = mobHrp.Position
-        end
-        mobHrp.CFrame = CFrame.new(basePos + Vector3.new(0, bringYOffset, 0))
+    local mobHum = mob:FindFirstChild("Humanoid")
+    if not mobHrp or not mobHum or mobHum.Health <= 0 then return end
+
+    -- Normaliza targetCFrame para Vector3
+    local basePos
+    if typeof(targetCFrame) == "CFrame" then
+        basePos = targetCFrame.Position
+    elseif typeof(targetCFrame) == "Vector3" then
+        basePos = targetCFrame
+    else
+        basePos = mobHrp.Position
     end
+
+    -- Aplica offset Y (BringYOffset do Config, padrao -5 = abaixo do player)
+    local bringYOffset = (_G._currentConfig and _G._currentConfig.BringYOffset) or -5
+    local finalPos = basePos + Vector3.new(0, bringYOffset, 0)
+
+    -- Reposiciona via CFrame puro.
+    -- O travamento real (WalkSpeed=0, ChangeState) e feito pelo Heartbeat
+    -- no UI.lua que roda a 60fps — evita dessincronizar o hitbox do servidor.
+    pcall(function() sethiddenproperty(game.Players.LocalPlayer, "SimulationRadius", math.huge) end)
+    mobHrp.CFrame = CFrame.new(finalPos)
+
+    -- Remove lock antigo de versoes anteriores
+    local oldLock = mobHrp:FindFirstChild("LotuxBringLock")
+    if oldLock then oldLock:Destroy() end
 end
 
 -- ActivateBuso - Ativar Haki Busoushoku
@@ -6531,5 +6521,5 @@ _G.UMESP = Functions.UpdateMirageESP     -- UpdateMirageESP
 _G.USESP = Functions.UpdateSeaBeastESP   -- UpdateSeaBeastESP
 _G.TTSI  = Functions.TravelToSubmergedIsland -- TravelToSubmergedIsland
 
-print("[LotuxHub] Functions Updated Loaded v2.6")
+print("[LotuxHub] Functions Updated Loaded v2.6.1")
 return Functions
