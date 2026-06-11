@@ -993,24 +993,27 @@ task.spawn(function()
                 currentTarget = mob
                 NoClip.value = true
 
+                -- Salva posição original do mob UMA vez antes do bring distorcê-la
+                local mobOriginalPos = mob:FindFirstChild("HumanoidRootPart")
+                    and mob.HumanoidRootPart.Position
+                    or HumanoidRootPart.Position
+
                 repeat
                     task.wait()
                     if not mob.Parent then break end
                     local mhrp = mob:FindFirstChild("HumanoidRootPart")
                     if not mhrp then break end
 
-                    local mobOriginalPos = mhrp.Position
-                    BringPos = mhrp.CFrame
-
                     local distToMob = (mobOriginalPos - HumanoidRootPart.Position).Magnitude
+
                     if distToMob > 15 then
-                        -- Ainda longe: voa ate o mob (posicao original, antes do bring)
+                        -- Ainda longe: voa até a posição original (pré-bring)
                         Functions.FlyToPosition(
                             CFrame.new(mobOriginalPos) * CFrame.new(0, Config.FlyOffset, 0),
                             TweenService, Config, isTeleporting, NotAutoEquip)
                     else
-                        -- Ja chegou perto: para o voo e puxa o mob
-                        -- (so faz bring quando esta perto para nao arrastar o player junto)
+                        -- Chegou perto: para voo e faz bring de todos os mobs do mesmo tipo
+                        isTeleporting.value = false
                         if Config.BringMob then
                             local pp = HumanoidRootPart.Position
                             local yOffset = Config.BringYOffset or -5
@@ -1022,8 +1025,9 @@ task.spawn(function()
                                         local ohrp = otherMob:FindFirstChild("HumanoidRootPart")
                                         local ohum = otherMob:FindFirstChild("Humanoid")
                                         if ohrp and ohum and ohum.Health > 0 then
+                                            -- Usa posição atual do mob para calcular distância (antes do bring)
                                             local distOther = (ohrp.Position - HumanoidRootPart.Position).Magnitude
-                                            if distOther <= Config.BringDistance then
+                                            if distOther <= Config.BringDistance or distOther <= 5 then
                                                 Functions.BringMobFunc(otherMob, playerBringPos)
                                             end
                                         end
@@ -1130,7 +1134,8 @@ task.spawn(function()
 
                                 currentTarget = mob
                                 NoClip.value = true
-                                local bringPosition = hrp.CFrame
+                                -- Salva posição original do mob UMA vez antes do bring distorcê-la
+                                local mobOriginalPos2 = hrp.Position
 
                                 repeat
                                     task.wait()
@@ -1138,17 +1143,15 @@ task.spawn(function()
                                     local mhrp = mob:FindFirstChild("HumanoidRootPart")
                                     if not mhrp then break end
 
-                                    local mobOriginalPos2 = mhrp.Position
-                                    bringPosition = mhrp.CFrame
-
                                     local distToMob = (mobOriginalPos2 - HumanoidRootPart.Position).Magnitude
                                     if distToMob > 15 then
-                                        -- Ainda longe: voa ate o mob (posicao original, antes do bring)
+                                        -- Ainda longe: voa até a posição original (pré-bring)
                                         Functions.FlyToPosition(
                                             CFrame.new(mobOriginalPos2) * CFrame.new(0, Config.FlyOffset, 0),
                                             TweenService, Config, isTeleporting, NotAutoEquip)
                                     else
-                                        -- Ja chegou perto: para o voo e puxa o mob
+                                        -- Chegou perto: para voo e faz bring
+                                        isTeleporting.value = false
                                         if Config.BringMob then
                                             local pp2 = HumanoidRootPart.Position
                                             local yOffset2 = Config.BringYOffset or -5
@@ -1161,7 +1164,7 @@ task.spawn(function()
                                                         local ohum = otherMob:FindFirstChild("Humanoid")
                                                         if ohrp and ohum and ohum.Health > 0 then
                                                             local distOther = (ohrp.Position - HumanoidRootPart.Position).Magnitude
-                                                            if distOther <= Config.BringDistance then
+                                                            if distOther <= Config.BringDistance or distOther <= 5 then
                                                                 Functions.BringMobFunc(otherMob, playerBringPos)
                                                             end
                                                         end
@@ -3708,4 +3711,4 @@ Notify({
     Type        = "Success",
 })
 
-print("UI Loaded v4.6")
+print("UI Loaded v4.6.1")

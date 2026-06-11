@@ -2802,29 +2802,52 @@ end
 -- Auto Sea 3 (navegar para Sea 3 via rip_indra)
 function Functions.StartAutoSea3(config)
     task.spawn(function()
-        while task.wait() do
-            if not config.AutoSea3 then continue end
+        local SPAWN_CF   = CFrame.new(-26880.93359375, 22.848554611206, 473.18951416016)
+        local travelCooldown = false
+
+        while task.wait(0.5) do
+            if not config.AutoSea3 then
+                travelCooldown = false
+                continue
+            end
+
             pcall(function()
                 local level = Player.Data.Level.Value
                 if level < 1500 then return end
 
-                if workspace.Enemies:FindFirstChild("rip_indra") then
-                    for _, v in ipairs(workspace.Enemies:GetChildren()) do
-                        if v.Name == "rip_indra" and v:FindFirstChild("Humanoid")
-                           and v:FindFirstChild("HumanoidRootPart") and v.Humanoid.Health > 0 then
-                            repeat task.wait()
-                                Functions.AutoHaki()
-                                Functions.EquipWeapon(config.SelectedWeaponName)
-                                v.HumanoidRootPart.CanCollide = false
-                                v.HumanoidRootPart.Size = Vector3.new(50, 50, 50)
-                                Functions.TeleportTo(v.HumanoidRootPart.CFrame * CFrame.new(0, 30, 0))
-                                CF("TravelZou")
-                                pcall(function() sethiddenproperty(Player, "SimulationRadius", math.huge) end)
-                            until not config.AutoSea3 or v.Humanoid.Health <= 0 or not v.Parent
-                        end
+                local enemies = workspace:FindFirstChild("Enemies")
+                if not enemies then return end
+
+                -- Procura rip_indra vivo
+                local indra = nil
+                for _, v in ipairs(enemies:GetChildren()) do
+                    if v.Name == "rip_indra"
+                       and v:FindFirstChild("Humanoid")
+                       and v:FindFirstChild("HumanoidRootPart")
+                       and v.Humanoid.Health > 0 then
+                        indra = v
+                        break
                     end
+                end
+
+                if indra then
+                    travelCooldown = false  -- indra encontrado, reseta cooldown
+                    Functions.AutoHaki()
+                    Functions.EquipWeapon(config.SelectedWeaponName)
+                    pcall(function() indra.HumanoidRootPart.CanCollide = false end)
+                    Functions.TeleportTo(indra.HumanoidRootPart.CFrame * CFrame.new(0, 30, 0))
+                    CF("TravelZou")
+                    pcall(function() sethiddenproperty(Player, "SimulationRadius", math.huge) end)
                 else
-                    Functions.TeleportTo(CFrame.new(-26880.93359375, 22.848554611206, 473.18951416016))
+                    -- rip_indra nao esta no workspace: vai ate o spawn com cooldown
+                    -- para nao teleportar repetidamente a cada tick
+                    if not travelCooldown then
+                        travelCooldown = true
+                        Functions.TeleportTo(SPAWN_CF)
+                        task.delay(8, function()  -- aguarda 8s antes de poder teleportar de novo
+                            travelCooldown = false
+                        end)
+                    end
                 end
             end)
         end
