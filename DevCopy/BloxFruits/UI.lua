@@ -496,6 +496,7 @@ local redzlib   = _SafeLoad("https://raw.githubusercontent.com/LotuxHub/LotuxHub
 local QuestData = _SafeLoad("https://raw.githubusercontent.com/LotuxHub/LotuxHub/refs/heads/main/DevCopy/BloxFruits/Quests.lua",   "Quests",        3)
 local Config    = _SafeLoad("https://raw.githubusercontent.com/LotuxHub/LotuxHub/refs/heads/main/DevCopy/BloxFruits/Config.lua",    "Config",        3)
 local Functions = _SafeLoad("https://raw.githubusercontent.com/LotuxHub/LotuxHub/refs/heads/main/DevCopy/BloxFruits/Functions.lua", "Functions",     3)
+local SaveSystem = _SafeLoad("https://raw.githubusercontent.com/LotuxHub/LotuxHub/refs/heads/main/DevCopy/BloxFruits/SaveSystem.lua", "SaveSystem",  3)
 
 -- =====================================================
 -- SERVICES
@@ -557,30 +558,25 @@ local Bosses    = QuestData.Bosses
 local LangData    = {}
 local CurrentLang = "English"
 
--- Arquivo local para salvar idioma entre sessoes
-local LANG_SAVE_FILE = "LotuxHub_Language.txt"
+-- URL do arquivo de idioma
 local LANG_URL = "https://raw.githubusercontent.com/LotuxHub/LotuxHub/refs/heads/main/DevCopy/BloxFruits/Language.json"
 
--- Carregar idioma salvo localmente
+-- Carrega idioma salvo via SaveSystem (pasta por conta)
 local function LoadSavedLanguage()
-    pcall(function()
-        if isfile and isfile(LANG_SAVE_FILE) then
-            local saved = readfile(LANG_SAVE_FILE)
-            if saved and saved ~= "" then
-                CurrentLang = saved:gsub("%s+", "")
-            end
+    if SaveSystem then
+        local saved = SaveSystem.LoadLanguage()
+        if saved and saved ~= "" then
+            CurrentLang = saved
         end
-    end)
+    end
 end
 LoadSavedLanguage()
 
--- Salvar idioma no arquivo local
+-- Salva idioma via SaveSystem
 local function SaveLanguage(lang)
-    pcall(function()
-        if writefile then
-            writefile(LANG_SAVE_FILE, lang)
-        end
-    end)
+    if SaveSystem then
+        SaveSystem.SaveLanguage(lang)
+    end
 end
 
 local function LoadLanguage()
@@ -661,6 +657,15 @@ local CurrentSea = GetSea()
 World1 = (CurrentSea == 1)
 World2 = (CurrentSea == 2)
 World3 = (CurrentSea == 3)
+
+-- =====================================================
+-- INICIA SAVE SYSTEM (carrega configs salvas da conta)
+-- =====================================================
+if SaveSystem then
+    SaveSystem.Init(Config)
+    -- Sincroniza idioma que o SaveSystem pode ter restaurado
+    CurrentLang = Config.Language or CurrentLang
+end
 
 -- =====================================================
 -- INICIA RESOLVER DE ARMA
@@ -1500,11 +1505,19 @@ Settings:AddToggle({ Title = T("ui_auto_click"),  Default = true, Flag = "AutoCl
 Settings:AddToggle({ Title = T("ui_bring_mob"), Default = Config.BringMob, Flag = "BringMob", Callback = function(v)
     Config.BringMob = v
     print("[BringMob] " .. (v and "Ativado" or "Desativado"))
+    if SaveSystem then SaveSystem.SaveConfig(Config) end
 end })
 Settings:AddSlider({ Title = "Bring Mob Distancia (studs)", Min = 100, Max = 1000, Default = Config.BringDistance or 350,
     Flag = "BringDistance", Callback = function(v)
         Config.BringDistance = v
         print("[BringMob] Distancia: " .. tostring(v) .. " studs")
+        if SaveSystem then SaveSystem.SaveConfig(Config) end
+    end })
+Settings:AddSlider({ Title = "Bring Mob Offset Y (studs)", Min = -30, Max = 0, Default = Config.BringYOffset or -10,
+    Flag = "BringYOffset", Callback = function(v)
+        Config.BringYOffset = v
+        print("[BringMob] Offset Y: " .. tostring(v) .. " studs")
+        if SaveSystem then SaveSystem.SaveConfig(Config) end
     end })
 Settings:AddSlider({ Title = "Tween Fly Speed (studs/s)", Min = 10, Max = 800, Default = 300,
     Flag = "FlySpeed", Callback = function(v) Config.FlySpeed = v end })

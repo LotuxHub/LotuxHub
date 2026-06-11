@@ -849,8 +849,12 @@ function Functions.BringMobFunc(mob, targetPosition)
 
     pcall(function() sethiddenproperty(Player, "SimulationRadius", math.huge) end)
 
+    -- Aplica offset Y (BringYOffset do Config, padrao -10 = abaixo do player)
+    local bringYOffset = (_G._currentConfig and _G._currentConfig.BringYOffset) or -10
+    local finalVec3 = targetVec3 + Vector3.new(0, bringYOffset, 0)
+
     -- Leva o mob para baixo do player
-    MobHRP.CFrame = CFrame.new(targetVec3)
+    MobHRP.CFrame = CFrame.new(finalVec3)
 
     -- Para o mob de se mover
     Hum.WalkSpeed = 0
@@ -879,7 +883,7 @@ function Functions.BringMobFunc(mob, targetPosition)
     else
         -- Reposiciona a cada tick para combater server-side movement
         Lock.Velocity = Vector3.new(0, 0, 0)
-        MobHRP.CFrame = CFrame.new(targetVec3)
+        MobHRP.CFrame = CFrame.new(finalVec3)
     end
 end
 
@@ -5176,10 +5180,20 @@ function Functions.BringMobFunc(mob, targetCFrame)
     if _G._raidRunning then return end
     if _G._currentConfig and (_G._currentConfig.AutoRaid or _G._currentConfig.AutoFarmRaidBoss) then return end
     if not mob or not mob.Parent then return end
-    
+
     local mobHrp = mob:FindFirstChild("HumanoidRootPart")
     if mobHrp then
-        mobHrp.CFrame = targetCFrame
+        -- Aplica offset Y (BringYOffset do Config, padrao -10 = abaixo do player)
+        local bringYOffset = (_G._currentConfig and _G._currentConfig.BringYOffset) or -10
+        local basePos
+        if typeof(targetCFrame) == "CFrame" then
+            basePos = targetCFrame.Position
+        elseif typeof(targetCFrame) == "Vector3" then
+            basePos = targetCFrame
+        else
+            basePos = mobHrp.Position
+        end
+        mobHrp.CFrame = CFrame.new(basePos + Vector3.new(0, bringYOffset, 0))
     end
 end
 
