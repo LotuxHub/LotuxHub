@@ -1513,10 +1513,12 @@ Settings:AddSlider({ Title = "Bring Mob Distancia (studs)", Min = 100, Max = 100
         print("[BringMob] Distancia: " .. tostring(v) .. " studs")
         if SaveSystem then SaveSystem.SaveConfig(Config) end
     end })
-Settings:AddSlider({ Title = "Bring Mob Offset Y (studs)", Min = -30, Max = 0, Default = Config.BringYOffset or -10,
+-- Slider usa valores positivos (0-30) e inverte para negativo no Config
+-- pois a biblioteca nao suporta Min negativo (retorna nan)
+Settings:AddSlider({ Title = "Bring Mob Offset Y (studs abaixo)", Min = 0, Max = 30, Default = math.abs(Config.BringYOffset or 10),
     Flag = "BringYOffset", Callback = function(v)
-        Config.BringYOffset = v
-        print("[BringMob] Offset Y: " .. tostring(v) .. " studs")
+        Config.BringYOffset = -v  -- inverte: slider 10 = Config -10 (abaixo)
+        print("[BringMob] Offset Y: -" .. tostring(v) .. " studs")
         if SaveSystem then SaveSystem.SaveConfig(Config) end
     end })
 Settings:AddSlider({ Title = "Tween Fly Speed (studs/s)", Min = 10, Max = 800, Default = 300,
