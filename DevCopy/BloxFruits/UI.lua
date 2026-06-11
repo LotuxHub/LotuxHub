@@ -496,7 +496,6 @@ local redzlib   = _SafeLoad("https://raw.githubusercontent.com/LotuxHub/LotuxHub
 local QuestData = _SafeLoad("https://raw.githubusercontent.com/LotuxHub/LotuxHub/refs/heads/main/DevCopy/BloxFruits/Quests.lua",   "Quests",        3)
 local Config    = _SafeLoad("https://raw.githubusercontent.com/LotuxHub/LotuxHub/refs/heads/main/DevCopy/BloxFruits/Config.lua",    "Config",        3)
 local Functions = _SafeLoad("https://raw.githubusercontent.com/LotuxHub/LotuxHub/refs/heads/main/DevCopy/BloxFruits/Functions.lua", "Functions",     3)
-local SaveSystem = _SafeLoad("https://raw.githubusercontent.com/LotuxHub/LotuxHub/refs/heads/main/DevCopy/BloxFruits/SaveSystem.lua", "SaveSystem",  3)
 
 -- =====================================================
 -- SERVICES
@@ -558,25 +557,30 @@ local Bosses    = QuestData.Bosses
 local LangData    = {}
 local CurrentLang = "English"
 
--- URL do arquivo de idioma
+-- Arquivo local para salvar idioma entre sessoes
+local LANG_SAVE_FILE = "LotuxHub_Language.txt"
 local LANG_URL = "https://raw.githubusercontent.com/LotuxHub/LotuxHub/refs/heads/main/DevCopy/BloxFruits/Language.json"
 
--- Carrega idioma salvo via SaveSystem (pasta por conta)
+-- Carregar idioma salvo localmente
 local function LoadSavedLanguage()
-    if SaveSystem then
-        local saved = SaveSystem.LoadLanguage()
-        if saved and saved ~= "" then
-            CurrentLang = saved
+    pcall(function()
+        if isfile and isfile(LANG_SAVE_FILE) then
+            local saved = readfile(LANG_SAVE_FILE)
+            if saved and saved ~= "" then
+                CurrentLang = saved:gsub("%s+", "")
+            end
         end
-    end
+    end)
 end
 LoadSavedLanguage()
 
--- Salva idioma via SaveSystem
+-- Salvar idioma no arquivo local
 local function SaveLanguage(lang)
-    if SaveSystem then
-        SaveSystem.SaveLanguage(lang)
-    end
+    pcall(function()
+        if writefile then
+            writefile(LANG_SAVE_FILE, lang)
+        end
+    end)
 end
 
 local function LoadLanguage()
@@ -657,15 +661,6 @@ local CurrentSea = GetSea()
 World1 = (CurrentSea == 1)
 World2 = (CurrentSea == 2)
 World3 = (CurrentSea == 3)
-
--- =====================================================
--- INICIA SAVE SYSTEM (carrega configs salvas da conta)
--- =====================================================
-if SaveSystem then
-    SaveSystem.Init(Config)
-    -- Sincroniza idioma que o SaveSystem pode ter restaurado
-    CurrentLang = Config.Language or CurrentLang
-end
 
 -- =====================================================
 -- INICIA RESOLVER DE ARMA
@@ -868,36 +863,23 @@ task.spawn(function()
                             TweenService, Config, isTeleporting, NotAutoEquip)
                     end
 
-                    -- BringMob: puxa mobs para o chão embaixo do player
-                    -- Usa raycast para achar o chão real, evita flutuar ou afundar
+                    -- BringMob: puxa mobs para perto do player usando BringYOffset
+                    -- NAO usa raycast (player ta voando, raycast acertaria o chao
+                    -- e colocaria o mob longe, bugando o FlyToPosition)
                     if Config.BringMob then
-                        local function GetGroundBelow(pos)
-                            local rayResult = workspace:Raycast(
-                                pos + Vector3.new(0, 5, 0),
-                                Vector3.new(0, -200, 0),
-                                RaycastParams.new()
-                            )
-                            if rayResult then
-                                return rayResult.Position.Y + 3  -- 3 studs acima do chão
-                            end
-                            return pos.Y - 3  -- fallback: 3 studs abaixo do HRP
-                        end
                         local pp = HumanoidRootPart.Position
-                        local groundY = GetGroundBelow(pp)
-                        local playerBringPos = CFrame.new(pp.X, groundY, pp.Z)
-                        local _ = playerBringPos and true
-                        if playerBringPos then
-                            local enemiesFolder = workspace:FindFirstChild("Enemies")
-                            if enemiesFolder then
-                                for _, otherMob in ipairs(enemiesFolder:GetChildren()) do
-                                    if otherMob.Name == mob.Name then
-                                        local ohrp = otherMob:FindFirstChild("HumanoidRootPart")
-                                        local ohum = otherMob:FindFirstChild("Humanoid")
-                                        if ohrp and ohum and ohum.Health > 0 then
-                                            local distOther = (ohrp.Position - HumanoidRootPart.Position).Magnitude
-                                            if distOther <= Config.BringDistance then
-                                                Functions.BringMobFunc(otherMob, playerBringPos)
-                                            end
+                        local yOffset = Config.BringYOffset or -10
+                        local playerBringPos = CFrame.new(pp.X, pp.Y + yOffset, pp.Z)
+                        local enemiesFolder = workspace:FindFirstChild("Enemies")
+                        if enemiesFolder then
+                            for _, otherMob in ipairs(enemiesFolder:GetChildren()) do
+                                if otherMob.Name == mob.Name then
+                                    local ohrp = otherMob:FindFirstChild("HumanoidRootPart")
+                                    local ohum = otherMob:FindFirstChild("Humanoid")
+                                    if ohrp and ohum and ohum.Health > 0 then
+                                        local distOther = (ohrp.Position - HumanoidRootPart.Position).Magnitude
+                                        if distOther <= Config.BringDistance then
+                                            Functions.BringMobFunc(otherMob, playerBringPos)
                                         end
                                     end
                                 end
@@ -912,6 +894,8 @@ task.spawn(function()
                    or mob.Humanoid.Health <= 0
                    or (not Config.AutoFarmNearest and not Config.AutoFarmLevel)
 
+                -- Garante que o voo para e o player cai ao sair do loop
+                Functions.StopTeleport()
                 NoClip.value = false
                 if mob.Humanoid and mob.Humanoid.Health <= 0 then
                     Config.KillCount = Config.KillCount + 1
@@ -1015,30 +999,23 @@ task.spawn(function()
                                             TweenService, Config, isTeleporting, NotAutoEquip)
                                     end
 
-                                    -- BringMob: puxa mobs para o chão embaixo do player
+                                    -- BringMob: puxa mobs para perto do player usando BringYOffset
+                                    -- NAO usa raycast (player ta voando, raycast acertaria o chao
+                                    -- e colocaria o mob longe, bugando o FlyToPosition)
                                     if Config.BringMob then
-                                        local function GetGroundBelow2(pos)
-                                            local rp = workspace:Raycast(
-                                                pos + Vector3.new(0, 5, 0),
-                                                Vector3.new(0, -200, 0),
-                                                RaycastParams.new()
-                                            )
-                                            return rp and (rp.Position.Y + 3) or (pos.Y - 3)
-                                        end
                                         local pp2 = HumanoidRootPart.Position
-                                        local playerBringPos = CFrame.new(pp2.X, GetGroundBelow2(pp2), pp2.Z)
-                                        if playerBringPos then
-                                            local enemiesFolder = workspace:FindFirstChild("Enemies")
-                                            if enemiesFolder then
-                                                for _, otherMob in ipairs(enemiesFolder:GetChildren()) do
-                                                    if otherMob.Name == quest.Mob then
-                                                        local ohrp = otherMob:FindFirstChild("HumanoidRootPart")
-                                                        local ohum = otherMob:FindFirstChild("Humanoid")
-                                                        if ohrp and ohum and ohum.Health > 0 then
-                                                            local distOther = (ohrp.Position - HumanoidRootPart.Position).Magnitude
-                                                            if distOther <= Config.BringDistance then
-                                                                Functions.BringMobFunc(otherMob, playerBringPos)
-                                                            end
+                                        local yOffset2 = Config.BringYOffset or -10
+                                        local playerBringPos = CFrame.new(pp2.X, pp2.Y + yOffset2, pp2.Z)
+                                        local enemiesFolder = workspace:FindFirstChild("Enemies")
+                                        if enemiesFolder then
+                                            for _, otherMob in ipairs(enemiesFolder:GetChildren()) do
+                                                if otherMob.Name == quest.Mob then
+                                                    local ohrp = otherMob:FindFirstChild("HumanoidRootPart")
+                                                    local ohum = otherMob:FindFirstChild("Humanoid")
+                                                    if ohrp and ohum and ohum.Health > 0 then
+                                                        local distOther = (ohrp.Position - HumanoidRootPart.Position).Magnitude
+                                                        if distOther <= Config.BringDistance then
+                                                            Functions.BringMobFunc(otherMob, playerBringPos)
                                                         end
                                                     end
                                                 end
@@ -1053,6 +1030,8 @@ task.spawn(function()
                                    or mob.Humanoid.Health <= 0
                                    or not Config.AutoFarmLevel
 
+                                -- Garante que o voo para e o player cai ao sair do loop
+                                Functions.StopTeleport()
                                 NoClip.value = false
                                 if mob.Humanoid and mob.Humanoid.Health <= 0 then
                                     Config.KillCount = Config.KillCount + 1
@@ -1505,21 +1484,11 @@ Settings:AddToggle({ Title = T("ui_auto_click"),  Default = true, Flag = "AutoCl
 Settings:AddToggle({ Title = T("ui_bring_mob"), Default = Config.BringMob, Flag = "BringMob", Callback = function(v)
     Config.BringMob = v
     print("[BringMob] " .. (v and "Ativado" or "Desativado"))
-    if SaveSystem then SaveSystem.SaveConfig(Config) end
 end })
 Settings:AddSlider({ Title = "Bring Mob Distancia (studs)", Min = 100, Max = 1000, Default = Config.BringDistance or 350,
     Flag = "BringDistance", Callback = function(v)
         Config.BringDistance = v
         print("[BringMob] Distancia: " .. tostring(v) .. " studs")
-        if SaveSystem then SaveSystem.SaveConfig(Config) end
-    end })
--- Slider usa valores positivos (0-30) e inverte para negativo no Config
--- pois a biblioteca nao suporta Min negativo (retorna nan)
-Settings:AddSlider({ Title = "Bring Mob Offset Y (studs abaixo)", Min = 0, Max = 30, Default = math.abs(Config.BringYOffset or 10),
-    Flag = "BringYOffset", Callback = function(v)
-        Config.BringYOffset = -v  -- inverte: slider 10 = Config -10 (abaixo)
-        print("[BringMob] Offset Y: -" .. tostring(v) .. " studs")
-        if SaveSystem then SaveSystem.SaveConfig(Config) end
     end })
 Settings:AddSlider({ Title = "Tween Fly Speed (studs/s)", Min = 10, Max = 800, Default = 300,
     Flag = "FlySpeed", Callback = function(v) Config.FlySpeed = v end })
@@ -3610,4 +3579,4 @@ Notify({
     Type        = "Success",
 })
 
-print("UI Loaded v4.4.0")
+print("UI Loaded v4.5.0")

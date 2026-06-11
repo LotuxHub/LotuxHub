@@ -692,11 +692,32 @@ function Functions.TPP(targetCF)
 end
 
 function Functions.StopTeleport()
-    _isTeleporting = false
-    local char = Player.Character
-    if char and char:FindFirstChild("PartTele") then
-        char.PartTele:Destroy()
+    -- Cancela o tween ativo (derruba o player imediatamente)
+    if Functions._flyCancel then
+        Functions._flyCancel()
+        Functions._flyCancel = nil
     end
+    _isTeleporting = false
+    -- Remove PartTele do workspace (FlyToPosition coloca la, nao no Character)
+    for _, obj in ipairs(workspace:GetChildren()) do
+        if obj.Name == "PartTele" or obj.Name == "RaidPartTele" then
+            pcall(function() obj:Destroy() end)
+        end
+    end
+    -- Remove tambem BodyVelocity/BodyPosition do HRP que possam prender o player no ar
+    pcall(function()
+        local char = Player.Character
+        local hrp  = char and char:FindFirstChild("HumanoidRootPart")
+        if hrp then
+            for _, obj in ipairs(hrp:GetChildren()) do
+                if obj:IsA("BodyVelocity") or obj:IsA("BodyPosition") or obj:IsA("BodyGyro") then
+                    obj:Destroy()
+                end
+            end
+            local hum = char:FindFirstChildOfClass("Humanoid")
+            if hum then hum:ChangeState(Enum.HumanoidStateType.Freefall) end
+        end
+    end)
 end
 
 -- =====================================================
@@ -6487,5 +6508,5 @@ _G.UMESP = Functions.UpdateMirageESP     -- UpdateMirageESP
 _G.USESP = Functions.UpdateSeaBeastESP   -- UpdateSeaBeastESP
 _G.TTSI  = Functions.TravelToSubmergedIsland -- TravelToSubmergedIsland
 
-print("[LotuxHub] Functions Updated Loaded v2.5")
+print("[LotuxHub] Functions Updated Loaded v2.6")
 return Functions
