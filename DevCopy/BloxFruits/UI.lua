@@ -557,30 +557,173 @@ local Bosses    = QuestData.Bosses
 local LangData    = {}
 local CurrentLang = "English"
 
--- Arquivo local para salvar idioma entre sessoes
-local LANG_SAVE_FILE = "LotuxHub_Language.txt"
 local LANG_URL = "https://raw.githubusercontent.com/LotuxHub/LotuxHub/refs/heads/main/DevCopy/BloxFruits/Language.json"
 
--- Carregar idioma salvo localmente
-local function LoadSavedLanguage()
-    pcall(function()
-        if isfile and isfile(LANG_SAVE_FILE) then
-            local saved = readfile(LANG_SAVE_FILE)
-            if saved and saved ~= "" then
-                CurrentLang = saved:gsub("%s+", "")
+-- =====================================================
+-- SAVE SYSTEM (por conta de jogador)
+-- Estrutura: Lotux Hub\<PlayerName>\*
+-- =====================================================
+local SaveSystem = (function()
+    local Hs  = game:GetService("HttpService")
+    local Pl  = game:GetService("Players").LocalPlayer
+    local ROOT    = "Lotux Hub"
+    local ACC     = ROOT .. "\\" .. Pl.Name
+    local SAVE    = ACC  .. "\\LotuxHub_Save.json"
+    local LANGF   = ACC  .. "\\LotuxHub_Language.json"
+    local DEBUGF  = ACC  .. "\\lotux_debug_painel.json"
+    local REDZF   = ROOT .. "\\redz library V5.json"
+
+    local SKIP = { ScriptStartTime=true, KillCount=true, StartBring=true, MonFarm=true }
+
+    local function Folders()
+        pcall(function()
+            if not isfolder(ROOT) then makefolder(ROOT) end
+            if not isfolder(ACC)  then makefolder(ACC)  end
+        end)
+    end
+
+    local function Enc(t)
+        -- Serializa apenas primitivos para evitar "table: 0x..."
+        local parts = {}
+        for k,v in pairs(t) do
+            local vt = type(v)
+            if vt == "boolean" then
+                table.insert(parts, '"'..k..'":'.. (v and "true" or "false"))
+            elseif vt == "number" then
+                table.insert(parts, '"'..k..'":'..tostring(v))
+            elseif vt == "string" then
+                local safe = v:gsub('\\','\\\\'):gsub('"','\\"')
+                table.insert(parts, '"'..k..'":"'..safe..'"')
             end
         end
-    end)
+        return "{"..table.concat(parts,",").."}"
+    end
+
+    local function Dec(s)
+        local t = {}
+        if type(s) ~= "string" or s:sub(1,1) ~= "{" then return t end
+        local ok, decoded = pcall(function() return Hs:JSONDecode(s) end)
+        if ok and type(decoded) == "table" then return decoded end
+        -- Fallback: parse manual
+        for k,v in s:gmatch('"([%w_]+)"%s*:%s*([^,}]+)') do
+            v = v:match("^%s*(.-)%s*$")
+            if v == "true" then t[k]=true
+            elseif v == "false" then t[k]=false
+            elseif tonumber(v) then t[k]=tonumber(v)
+            else t[k]=v:match('^"(.*)"$') or v end
+        end
+        return t
+    end
+
+    local S = {}
+
+    function S.SaveConfig(cfg)
+        pcall(function()
+            Folders()
+            local t = {}
+            for k,v in pairs(cfg) do
+                if not SKIP[k] then t[k]=v end
+            end
+            writefile(SAVE, Enc(t))
+        end)
+    end
+
+    function S.LoadConfig(cfg)
+        if not pcall(function() return isfile(SAVE) end) then return false end
+        local ok, _ = pcall(function()
+            local data = Dec(readfile(SAVE))
+            for k,v in pairs(data) do
+                if cfg[k] ~= nil and not SKIP[k] then cfg[k]=v end
+            end
+        end)
+        print("[SaveSystem] Config carregada para: "..Pl.Name)
+        return ok
+    end
+
+    function S.SaveLanguage(lang)
+        pcall(function() Folders(); writefile(LANGF, Enc({Language=lang})) end)
+    end
+
+    function S.LoadLanguage()
+        local ok, r = pcall(function()
+            if not isfile(LANGF) then return nil end
+            return Dec(readfile(LANGF)).Language
+        end)
+        return (ok and type(r)=="string") and r or nil
+    end
+
+    function S.SaveDebug(data)
+        pcall(function() Folders(); writefile(DEBUGF, Enc(data)) end)
+    end
+
+    function S.LoadDebug()
+        local ok, r = pcall(function()
+            if not isfile(DEBUGF) then return {} end
+            return Dec(readfile(DEBUGF))
+        end)
+        return (ok and type(r)=="table") and r or {}
+    end
+
+    function S.SaveRedz(content)
+        pcall(function() Folders(); writefile(REDZF, content) end)
+    end
+
+    function S.LoadRedz()
+        local ok, r = pcall(function()
+            if not isfile(REDZF) then return nil end
+            return readfile(REDZF)
+        end)
+        return ok and r or nil
+    end
+
+    function S.StartAutoSave(cfg, interval)
+        task.spawn(function()
+            while task.wait(interval or 30) do S.SaveConfig(cfg) end
+        end)
+        print(("[SaveSystem] AutoSave a cada %ds para: %s"):format(interval or 30, Pl.Name))
+    end
+
+    function S.GetInfo()
+        return { account=Pl.Name, root=ROOT, folder=ACC,
+            hasSave   = pcall(function() return isfile(SAVE) end),
+            hasLang   = pcall(function() return isfile(LANGF) end),
+            hasDebug  = pcall(function() return isfile(DEBUGF) end),
+        }
+    end
+
+    -- Inicializa: carrega config + idioma + inicia autosave
+    function S.Init(cfg)
+        local had = S.LoadConfig(cfg)
+        local savedLang = S.LoadLanguage()
+        if savedLang then
+            cfg.Language = savedLang
+            CurrentLang  = savedLang
+        end
+        S.StartAutoSave(cfg, 30)
+        if had then
+            print("[SaveSystem] ✅ Configs restauradas para: "..Pl.Name)
+        else
+            print("[SaveSystem] 🆕 Primeira execução para: "..Pl.Name.." — usando padrões.")
+        end
+        return had
+    end
+
+    return S
+end)()
+
+-- Expõe globalmente para uso em outros módulos
+_G.SaveSystem = SaveSystem
+
+-- Carregar idioma salvo
+local function LoadSavedLanguage()
+    local saved = SaveSystem.LoadLanguage()
+    if saved and saved ~= "" then CurrentLang = saved end
 end
 LoadSavedLanguage()
 
--- Salvar idioma no arquivo local
+-- Salvar idioma (wrapper para compatibilidade)
 local function SaveLanguage(lang)
-    pcall(function()
-        if writefile then
-            writefile(LANG_SAVE_FILE, lang)
-        end
-    end)
+    SaveSystem.SaveLanguage(lang)
 end
 
 local function LoadLanguage()
@@ -1214,7 +1357,7 @@ end)
 local Window = redzlib:MakeWindow({
     Title      = "Lotux Hub",
     SubTitle   = "by LoadFlint/lucas v3.0",
-    SaveFolder = "LotuxHub_Save",
+    SaveFolder = "Lotux Hub\\" .. Player.Name,
 })
 
 Window:AddMinimizeButton({
@@ -1327,7 +1470,7 @@ Main:AddDropdown({
     Callback = function(v) Config.FarmAttack = (type(v) == "table" and (v[1] or next(v)) or tostring(v)) end,
 })
 
-Main:AddSection("Farm Normal")
+Main:AddSection(T("sec_farm_normal"))
 Main:AddToggle({
     Title    = T("ui_autofarm_level"),
     Default  = false,
@@ -1349,40 +1492,40 @@ Main:AddToggle({
     end,
 })
 
-Main:AddSection("Farm Sea 3")
-Main:AddToggle({ Title = "Auto Pirate Raid",   Default = false, Flag = "AutoPirateRaid", Callback = function(v) Config.AutoPirateRaid   = v end })
-Main:AddToggle({ Title = "Auto Rip Indra",     Default = false, Flag = "AutoRipIndra", Callback = function(v) Config.AutoRipIndra     = v end })
-Main:AddToggle({ Title = "Auto Tyrant Spawn",  Default = false, Flag = "AutoTyrantSpawn", Callback = function(v) Config.AutoTyrantSpawn  = v end })
-Main:AddToggle({ Title = "Auto Soul Reaper",   Default = false, Flag = "AutoSoulReaper", Callback = function(v) Config.AutoSoulReaper   = v end })
-Main:AddToggle({ Title = "Auto Big Mom",        Default = false, Flag = "AutoBigMom", Callback = function(v) Config.AutoBigMom       = v end })
-Main:AddToggle({ Title = "Auto Farm Bone",      Default = false, Flag = "AutoFarmBone", Callback = function(v) Config.AutoFarmBone     = v end })
-Main:AddToggle({ Title = "Auto Cake Prince",    Default = false, Flag = "AutoCakePrince", Callback = function(v) Config.AutoCakePrince   = v end })
+Main:AddSection(T("sec_farm_sea3"))
+Main:AddToggle({ Title = T("ui_auto_pirate_raid"),   Default = false, Flag = "AutoPirateRaid", Callback = function(v) Config.AutoPirateRaid   = v end })
+Main:AddToggle({ Title = T("ui_auto_rip_indra"),     Default = false, Flag = "AutoRipIndra", Callback = function(v) Config.AutoRipIndra     = v end })
+Main:AddToggle({ Title = T("ui_auto_tyrant"),  Default = false, Flag = "AutoTyrantSpawn", Callback = function(v) Config.AutoTyrantSpawn  = v end })
+Main:AddToggle({ Title = T("ui_auto_soul_reaper"),   Default = false, Flag = "AutoSoulReaper", Callback = function(v) Config.AutoSoulReaper   = v end })
+Main:AddToggle({ Title = T("ui_auto_big_mom"),        Default = false, Flag = "AutoBigMom", Callback = function(v) Config.AutoBigMom       = v end })
+Main:AddToggle({ Title = T("ui_auto_farm_bone"),      Default = false, Flag = "AutoFarmBone", Callback = function(v) Config.AutoFarmBone     = v end })
+Main:AddToggle({ Title = T("ui_auto_cake_prince"),    Default = false, Flag = "AutoCakePrince", Callback = function(v) Config.AutoCakePrince   = v end })
 Main:AddToggle({ Title = "Auto Dough King",     Default = false, Flag = "AutoDoughKing", Callback = function(v) Config.AutoDoughKing    = v end })
 
 Main:AddSection("Farming (Sea 2)")
-Main:AddToggle({ Title = "Auto Sea 3",          Default = false, Flag = "AutoSea3", Callback = function(v) Config.AutoSea3        = v end })
-Main:AddToggle({ Title = "Auto Factory",        Default = false, Flag = "AutoFactory", Callback = function(v) Config.AutoFactory     = v end })
+Main:AddToggle({ Title = T("ui_auto_sea3"),          Default = false, Flag = "AutoSea3", Callback = function(v) Config.AutoSea3        = v end })
+Main:AddToggle({ Title = T("ui_auto_factory"),        Default = false, Flag = "AutoFactory", Callback = function(v) Config.AutoFactory     = v end })
 
 Main:AddSection("Farming (Sea 1)")
-Main:AddToggle({ Title = "Auto Sea 2",          Default = false, Flag = "AutoSea2", Callback = function(v) Config.AutoSea2        = v end })
+Main:AddToggle({ Title = T("ui_auto_sea2"),          Default = false, Flag = "AutoSea2", Callback = function(v) Config.AutoSea2        = v end })
 Main:AddToggle({ Title = "Auto Spawn Darkbeard",Default = false, Flag = "AutoDarkBeard", Callback = function(v) Config.AutoDarkBeard   = v end })
 
-Main:AddSection("Farm Boss")
+Main:AddSection(T("sec_boss"))
 Main:AddDropdown({ Title = T("ui_select_boss"), Options = Bosses[CurrentSea], Default = Bosses[CurrentSea][1],
     Callback = function(v) Config.SelectedBoss = (type(v) == "table" and (v[1] or next(v)) or tostring(v)) end })
 Main:AddToggle({ Title = T("ui_auto_farm_boss"),      Default = false, Flag = "AutoFarmBoss", Callback = function(v) Config.AutoFarmBoss     = v end })
 Main:AddToggle({ Title = T("ui_auto_farm_all_boss"),  Default = false, Flag = "AutoFarmAllBoss", Callback = function(v) Config.AutoFarmAllBoss  = v end })
 Main:AddToggle({ Title = T("ui_auto_farm_raid_boss"), Default = false, Flag = "AutoFarmRaidBoss", Callback = function(v) Config.AutoFarmRaidBoss = v end })
 
-Main:AddSection("Material")
+Main:AddSection(T("sec_material"))
 Main:AddDropdown({ Title = T("ui_select_material"), Options = Materials[CurrentSea], Default = Materials[CurrentSea][1],
     Callback = function(v) Config.SelectedMaterial = (type(v) == "table" and (v[1] or next(v)) or tostring(v)) end })
 Main:AddToggle({ Title = T("ui_auto_material"), Default = false, Flag = "AutoFarmMaterial", Callback = function(v) Config.AutoFarmMaterial = v end })
 
-Main:AddSection("Mastery")
+Main:AddSection(T("sec_mastery"))
 Main:AddDropdown({ Title = T("ui_mastery_weapon"), Options = { "Gun","Sword","Melee","BloxFruits" }, Default = "Gun",
     Callback = function(v) Config.MasteryWeapon = (type(v) == "table" and (v[1] or next(v)) or tostring(v)) end })
-Main:AddSlider({ Title = "Health Kill Mob (%)", Min = 1, Max = 100, Default = 30,
+Main:AddSlider({ Title = T("ui_health_kill"), Min = 1, Max = 100, Default = 30,
     Flag = "HealthKillMob", Callback = function(v) Config.HealthKillMob = v end })
 Main:AddDropdown({ Title = T("ui_selection_island"), Options = Islands[CurrentSea], Default = Islands[CurrentSea][1],
     Callback = function(v) Config.MasteryIsland = (type(v) == "table" and (v[1] or next(v)) or tostring(v)) end })
@@ -1462,7 +1605,7 @@ Main:AddToggle({ Title = "Server Hop se sem Elite Hunter", Default = false,
 Main:AddSection("Farming Bone")
 Main:AddToggle({ Title = "Auto Farm Bone (Prehistoric)", Default = false,
     Flag = "AutoFarmBone", Callback = function(v) Config.AutoFarmBone = v end })
-Main:AddToggle({ Title = "Auto Soul Reaper", Default = false, Flag = "AutoSoulReaper", Callback = function(v) Config.AutoSoulReaper = v end })
+Main:AddToggle({ Title = T("ui_auto_soul_reaper"), Default = false, Flag = "AutoSoulReaper", Callback = function(v) Config.AutoSoulReaper = v end })
 Main:AddToggle({ Title = "Auto Try Luck Gravestone", Default = false,
     Flag = "AutoTryLuck", Callback = function(v)
         Config.AutoTryLuck = v
@@ -1545,7 +1688,7 @@ Settings:AddToggle({ Title = "Auto Use V4 (tecla Y)", Default = false,
         end
     end })
 
-Settings:AddSection("Extras")
+Settings:AddSection(T("sec_extras"))
 Settings:AddToggle({ Title = T("ui_auto_speed"), Default = true, Flag = "AutoSpeed", Callback = function(v) Config.AutoSpeed = v end })
 Settings:AddSlider({ Title = T("ui_speed"), Min = 20, Max = 100, Default = 20,
     Flag = "Speed", Callback = function(v) Config.Speed = v; if Humanoid then Humanoid.WalkSpeed = v end end })
@@ -1554,7 +1697,7 @@ Settings:AddSlider({ Title = T("ui_jump"), Min = 50, Max = 200, Default = 50,
     Flag = "Jump", Callback = function(v) Config.Jump = v; if Humanoid then Humanoid.JumpPower = v end end })
 
 Settings:AddSection("PvP / Kill Aura")
-Settings:AddToggle({ Title = "Kill Aura", Default = false,
+Settings:AddToggle({ Title = T("ui_kill_aura"), Default = false,
     Flag = "KillAura", Callback = function(v)
         Config.KillAura = v
         Notify({ Title = v and "Kill Aura ON" or "Kill Aura OFF", Image = IMG, Type = v and "Warning" or "Info", Duration = 2 })
@@ -1572,7 +1715,7 @@ Settings:AddToggle({ Title = "Aimbot (Gun)", Default = false,
 Settings:AddToggle({ Title = "Aimbot (Skills)", Default = false,
     Flag = "AimbotSkill", Callback = function(v) Config.AimbotSkill = v end })
 
-Settings:AddSection("Visual")
+Settings:AddSection(T("sec_visual"))
 local _uiScaleDebounce = nil
 Settings:AddSlider({
     Title   = "Tamanho da UI (%)",
@@ -1605,7 +1748,7 @@ Settings:AddToggle({ Title = T("ui_noclip"), Default = false,
         Notify({ Title = T(v and "noclip_on" or "noclip_off"), Image = IMG, Type = v and "Success" or "Info", Duration = 2 })
     end })
 
-Settings:AddSection("Select Language")
+Settings:AddSection(T("sec_select_lang"))
 Settings:AddDropdown({
     Title    = T("ui_lang_dropdown"),
     Options  = { "English","Portugues_Brazil","Portugues_Portugal","Espanol","Vietnam" },
@@ -1649,9 +1792,9 @@ Settings:AddToggle({
 local ItemsQuest = Window:MakeTab({ Title = T("tab_itemquest"), Icon = "swords" })
 
 ItemsQuest:AddSection("Items Sea 3")
-ItemsQuest:AddToggle({ Title = "Auto Dragon Taylor",           Default = false, Flag = "AutoDragonTaylor", Callback = function(v) Config.AutoDragonTaylor  = v end })
-ItemsQuest:AddToggle({ Title = "Auto Electric Claw",           Default = false, Flag = "AutoElectricClaw", Callback = function(v) Config.AutoElectricClaw  = v end })
-ItemsQuest:AddToggle({ Title = "Auto God Human",               Default = false, Flag = "AutoGodHuman", Callback = function(v) Config.AutoGodHuman      = v end })
+ItemsQuest:AddToggle({ Title = T("ui_auto_dragon"),           Default = false, Flag = "AutoDragonTaylor", Callback = function(v) Config.AutoDragonTaylor  = v end })
+ItemsQuest:AddToggle({ Title = T("ui_auto_electric_claw"),           Default = false, Flag = "AutoElectricClaw", Callback = function(v) Config.AutoElectricClaw  = v end })
+ItemsQuest:AddToggle({ Title = T("ui_auto_god_human"),               Default = false, Flag = "AutoGodHuman", Callback = function(v) Config.AutoGodHuman      = v end })
 ItemsQuest:AddToggle({ Title = "Auto Pegar Tushita (Farm Longma)", Default = false,
     Flag = "AutoGetTushita", Callback = function(v)
         Config.AutoGetTushita = v
@@ -1673,7 +1816,7 @@ ItemsQuest:AddToggle({ Title = T("ui_auto_buy_sword_legends"), Default = false,
     end })
 ItemsQuest:AddToggle({ Title = T("ui_auto_buy_ttk"), Default = false,
     Flag = "AutoBuyTTK", Callback = function(v) Config.AutoBuyTTK = v end })
-ItemsQuest:AddToggle({ Title = "Auto Death Step (Sea 2)",      Default = false, Flag = "AutoDeathStep", Callback = function(v) Config.AutoDeathStep    = v end })
+ItemsQuest:AddToggle({ Title = T("ui_auto_death_step"),      Default = false, Flag = "AutoDeathStep", Callback = function(v) Config.AutoDeathStep    = v end })
 ItemsQuest:AddToggle({ Title = "Auto Sharkman V2 (Sea 2)",     Default = false, Flag = "AutoSharkmanV2", Callback = function(v) Config.AutoSharkmanV2   = v end })
 ItemsQuest:AddButton({ Title = "Buy Dragon Style V1",  Callback = function()
     pcall(function() (CommF_ or {}):InvokeServer("BuyFightingStyle", "Dragon Talon") end)
@@ -1734,14 +1877,14 @@ ItemsQuest:AddButton({ Title = "Buy Buso Colors",  Callback = function()
 end })
 
 ItemsQuest:AddSection("Instinct / Observation")
-ItemsQuest:AddToggle({ Title = "Auto Farm Observation Haki",   Default = false, Flag = "AutoFarmObsHaki", Callback = function(v) Config.AutoFarmObsHaki  = v end })
-ItemsQuest:AddToggle({ Title = "Auto Haki V2",                 Default = false, Flag = "AutoHakiV2", Callback = function(v) Config.AutoHakiV2       = v end })
-ItemsQuest:AddToggle({ Title = "Auto Unlock Temple",           Default = false, Flag = "AutoUnlockTemple", Callback = function(v) Config.AutoUnlockTemple = v end })
+ItemsQuest:AddToggle({ Title = T("ui_auto_obs_haki"),   Default = false, Flag = "AutoFarmObsHaki", Callback = function(v) Config.AutoFarmObsHaki  = v end })
+ItemsQuest:AddToggle({ Title = T("ui_auto_haki_v2"),                 Default = false, Flag = "AutoHakiV2", Callback = function(v) Config.AutoHakiV2       = v end })
+ItemsQuest:AddToggle({ Title = T("ui_auto_temple"),           Default = false, Flag = "AutoUnlockTemple", Callback = function(v) Config.AutoUnlockTemple = v end })
 
 -- =====================================================
 -- TAB: FISHING
 -- =====================================================
-local FishingTab = Window:MakeTab({ Title = "Fishing", Icon = "fish" })
+local FishingTab = Window:MakeTab({ Title = T("tab_fishing"), Icon = "fish" })
 FishingTab:AddSection("Auto Fishing")
 FishingTab:AddToggle({ Title = "Auto Quest Fishing",   Default = false, Flag = "G_AutoQuestFishing", Callback = function(v)
     _G.AutoQuestFishing = v
@@ -2389,7 +2532,7 @@ LPTab:AddToggle({ Title = T("ui_anti_afk"),           Default = false,
         end
         Notify({ Title = T(v and "antiafk_on" or "antiafk_off"), Image = IMG, Type = v and "Success" or "Info", Duration = 2 })
     end })
-LPTab:AddSection("Actions")
+LPTab:AddSection(T("sec_actions"))
 LPTab:AddButton({ Title = T("ui_check_hp"),
     Callback = function()
         if Humanoid then
@@ -2556,7 +2699,7 @@ ShopTab:AddButton({ Title = "Buy Draco Race",    Callback = function() pcall(fun
 -- =====================================================
 -- TAB: MISCELLANEOUS
 -- =====================================================
-local Misc = Window:MakeTab({ Title = "Misc", Icon = "calendarsearch" })
+local Misc = Window:MakeTab({ Title = T("tab_misc"), Icon = "calendarsearch" })
 
 -- =====================================================
 -- TAB: DEBUG CONFIG
@@ -2749,50 +2892,25 @@ task.spawn(function()
     local PGui      = Player:WaitForChild("PlayerGui")
     local TS        = game:GetService("TweenService")
 
-    -- ── Save/Load do painel ────────────────────────
-    local DEBUG_SAVE_FILE = "lotux_debug_panel.json"
+    -- ── Save/Load do painel via SaveSystem ────────
     local debugSave = {
-        x          = 14,
-        y          = 14,
-        minimized  = false,
-        visible    = true,
-        -- quais linhas mostrar
-        show_mode    = true,
-        show_status  = true,
-        show_target  = true,
-        show_island  = true,
-        show_sea     = true,
-        show_kills   = true,
-        show_bring   = true,
-        show_weapon  = true,
-        show_skills  = true,
-        show_uptime  = true,
-        show_moon    = true,
-        show_chalice = true,
-        show_server  = true,
-        w            = 240,
-        h            = 285,
+        x=14, y=14, minimized=false, visible=true,
+        show_mode=true, show_status=true, show_target=true,
+        show_island=true, show_sea=true, show_kills=true,
+        show_bring=true, show_weapon=true, show_skills=true,
+        show_uptime=true, show_moon=true, show_chalice=true,
+        show_server=true, w=240, h=285,
     }
-    pcall(function()
-        if readfile and isfile and isfile(DEBUG_SAVE_FILE) then
-            local ok, data = pcall(function()
-                return HttpService:JSONDecode(readfile(DEBUG_SAVE_FILE))
-            end)
-            if ok and type(data) == "table" then
-                for k, v in pairs(data) do debugSave[k] = v end
-            end
-        end
-    end)
+    -- Carrega dados salvos por conta de jogador
+    local savedDebug = SaveSystem.LoadDebug()
+    for k,v in pairs(savedDebug) do debugSave[k] = v end
+
     local function SaveDebugPanel()
-        pcall(function()
-            if writefile then
-                writefile(DEBUG_SAVE_FILE, HttpService:JSONEncode(debugSave))
-            end
-        end)
+        SaveSystem.SaveDebug(debugSave)
     end
     -- Expõe para a tab Debug Config poder ler/escrever
-    _G._debugSave        = debugSave
-    _G._saveDebugPanel   = SaveDebugPanel
+    _G._debugSave      = debugSave
+    _G._saveDebugPanel = SaveDebugPanel
 
     -- ── Fecha painel anterior se existir (re-execução) ──
     pcall(function()
@@ -3019,7 +3137,7 @@ task.spawn(function()
     ResizeHandle.Parent            = Main
     Instance.new("UICorner", ResizeHandle).CornerRadius = UDim.new(0, 3)
     local ResizeIcon = Instance.new("TextLabel")
-    ResizeIcon.Text              = "25E2"
+    ResizeIcon.Text              = "◢"
     ResizeIcon.TextSize          = 10
     ResizeIcon.Font              = Enum.Font.GothamBold
     ResizeIcon.TextColor3        = Color3.fromRGB(255, 255, 255)
@@ -3552,6 +3670,12 @@ end)
 -- =====================================================
 -- FINALIZACAO
 -- =====================================================
+
+-- Inicializa SaveSystem: carrega configs salvas por conta
+-- (roda ANTES do uiReady para que os valores já estejam
+-- aplicados quando a UI abrir)
+pcall(function() SaveSystem.Init(Config) end)
+
 uiReady = true
 
 -- Fecha o painel de loading com animacao suave
@@ -3584,4 +3708,4 @@ Notify({
     Type        = "Success",
 })
 
-print("UI Loaded v4.5.5")
+print("UI Loaded v4.6")
