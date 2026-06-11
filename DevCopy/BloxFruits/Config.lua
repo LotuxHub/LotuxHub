@@ -7,11 +7,11 @@ local Config = {
     AutoFarmNearest     = false,
     FarmIsland          = "",
     FlySpeed            = 300,
-    RaidFlySpeed        = 80,
+    RaidFlySpeed        = 80,   -- velocidade de voo exclusiva da raid (studs/s)
     FlyOffset           = 15,
     BringMob            = true,
     BringDistance       = 350,
-    BringYOffset        = -10,
+    BringYOffset        = -5,  -- studs abaixo do player (negativo = abaixo)
 
     AutoPirateRaid      = false,
     AutoRipIndra        = false,

@@ -855,31 +855,34 @@ task.spawn(function()
                     if not mob.Parent then break end
                     local mhrp = mob:FindFirstChild("HumanoidRootPart")
                     if not mhrp then break end
+
+                    local mobOriginalPos = mhrp.Position
                     BringPos = mhrp.CFrame
 
-                    local distToMob = (mhrp.Position - HumanoidRootPart.Position).Magnitude
+                    local distToMob = (mobOriginalPos - HumanoidRootPart.Position).Magnitude
                     if distToMob > 15 then
-                        Functions.FlyToPosition(mhrp.CFrame * CFrame.new(0, Config.FlyOffset, 0),
+                        -- Ainda longe: voa ate o mob (posicao original, antes do bring)
+                        Functions.FlyToPosition(
+                            CFrame.new(mobOriginalPos) * CFrame.new(0, Config.FlyOffset, 0),
                             TweenService, Config, isTeleporting, NotAutoEquip)
-                    end
-
-                    -- BringMob: puxa mobs para perto do player usando BringYOffset
-                    -- NAO usa raycast (player ta voando, raycast acertaria o chao
-                    -- e colocaria o mob longe, bugando o FlyToPosition)
-                    if Config.BringMob then
-                        local pp = HumanoidRootPart.Position
-                        local yOffset = Config.BringYOffset or -10
-                        local playerBringPos = CFrame.new(pp.X, pp.Y + yOffset, pp.Z)
-                        local enemiesFolder = workspace:FindFirstChild("Enemies")
-                        if enemiesFolder then
-                            for _, otherMob in ipairs(enemiesFolder:GetChildren()) do
-                                if otherMob.Name == mob.Name then
-                                    local ohrp = otherMob:FindFirstChild("HumanoidRootPart")
-                                    local ohum = otherMob:FindFirstChild("Humanoid")
-                                    if ohrp and ohum and ohum.Health > 0 then
-                                        local distOther = (ohrp.Position - HumanoidRootPart.Position).Magnitude
-                                        if distOther <= Config.BringDistance then
-                                            Functions.BringMobFunc(otherMob, playerBringPos)
+                    else
+                        -- Ja chegou perto: para o voo e puxa o mob
+                        -- (so faz bring quando esta perto para nao arrastar o player junto)
+                        if Config.BringMob then
+                            local pp = HumanoidRootPart.Position
+                            local yOffset = Config.BringYOffset or -5
+                            local playerBringPos = CFrame.new(pp.X, pp.Y + yOffset, pp.Z)
+                            local enemiesFolder = workspace:FindFirstChild("Enemies")
+                            if enemiesFolder then
+                                for _, otherMob in ipairs(enemiesFolder:GetChildren()) do
+                                    if otherMob.Name == mob.Name then
+                                        local ohrp = otherMob:FindFirstChild("HumanoidRootPart")
+                                        local ohum = otherMob:FindFirstChild("Humanoid")
+                                        if ohrp and ohum and ohum.Health > 0 then
+                                            local distOther = (ohrp.Position - HumanoidRootPart.Position).Magnitude
+                                            if distOther <= Config.BringDistance then
+                                                Functions.BringMobFunc(otherMob, playerBringPos)
+                                            end
                                         end
                                     end
                                 end
@@ -991,31 +994,33 @@ task.spawn(function()
                                     if not mob.Parent then break end
                                     local mhrp = mob:FindFirstChild("HumanoidRootPart")
                                     if not mhrp then break end
+
+                                    local mobOriginalPos2 = mhrp.Position
                                     bringPosition = mhrp.CFrame
 
-                                    local distToMob = (mhrp.Position - HumanoidRootPart.Position).Magnitude
+                                    local distToMob = (mobOriginalPos2 - HumanoidRootPart.Position).Magnitude
                                     if distToMob > 15 then
-                                        Functions.FlyToPosition(mhrp.CFrame * CFrame.new(0, Config.FlyOffset, 0),
+                                        -- Ainda longe: voa ate o mob (posicao original, antes do bring)
+                                        Functions.FlyToPosition(
+                                            CFrame.new(mobOriginalPos2) * CFrame.new(0, Config.FlyOffset, 0),
                                             TweenService, Config, isTeleporting, NotAutoEquip)
-                                    end
-
-                                    -- BringMob: puxa mobs para perto do player usando BringYOffset
-                                    -- NAO usa raycast (player ta voando, raycast acertaria o chao
-                                    -- e colocaria o mob longe, bugando o FlyToPosition)
-                                    if Config.BringMob then
-                                        local pp2 = HumanoidRootPart.Position
-                                        local yOffset2 = Config.BringYOffset or -10
-                                        local playerBringPos = CFrame.new(pp2.X, pp2.Y + yOffset2, pp2.Z)
-                                        local enemiesFolder = workspace:FindFirstChild("Enemies")
-                                        if enemiesFolder then
-                                            for _, otherMob in ipairs(enemiesFolder:GetChildren()) do
-                                                if otherMob.Name == quest.Mob then
-                                                    local ohrp = otherMob:FindFirstChild("HumanoidRootPart")
-                                                    local ohum = otherMob:FindFirstChild("Humanoid")
-                                                    if ohrp and ohum and ohum.Health > 0 then
-                                                        local distOther = (ohrp.Position - HumanoidRootPart.Position).Magnitude
-                                                        if distOther <= Config.BringDistance then
-                                                            Functions.BringMobFunc(otherMob, playerBringPos)
+                                    else
+                                        -- Ja chegou perto: para o voo e puxa o mob
+                                        if Config.BringMob then
+                                            local pp2 = HumanoidRootPart.Position
+                                            local yOffset2 = Config.BringYOffset or -5
+                                            local playerBringPos = CFrame.new(pp2.X, pp2.Y + yOffset2, pp2.Z)
+                                            local enemiesFolder = workspace:FindFirstChild("Enemies")
+                                            if enemiesFolder then
+                                                for _, otherMob in ipairs(enemiesFolder:GetChildren()) do
+                                                    if otherMob.Name == quest.Mob then
+                                                        local ohrp = otherMob:FindFirstChild("HumanoidRootPart")
+                                                        local ohum = otherMob:FindFirstChild("Humanoid")
+                                                        if ohrp and ohum and ohum.Health > 0 then
+                                                            local distOther = (ohrp.Position - HumanoidRootPart.Position).Magnitude
+                                                            if distOther <= Config.BringDistance then
+                                                                Functions.BringMobFunc(otherMob, playerBringPos)
+                                                            end
                                                         end
                                                     end
                                                 end
@@ -3579,4 +3584,4 @@ Notify({
     Type        = "Success",
 })
 
-print("UI Loaded v4.5.0")
+print("UI Loaded v4.5.5")
