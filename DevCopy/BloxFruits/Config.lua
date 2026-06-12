@@ -11,7 +11,7 @@ local Config = {
     FlyOffset           = 15,
     BringMob            = true,
     BringDistance       = 350,
-    BringYOffset        = -5,  -- studs abaixo do player (negativo = abaixo)
+    BringYOffset        = -10,  -- studs abaixo do player (negativo = abaixo)
 
     AutoPirateRaid      = false,
     AutoRipIndra        = false,
