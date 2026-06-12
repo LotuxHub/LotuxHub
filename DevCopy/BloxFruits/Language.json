@@ -186,7 +186,8 @@
         "ui_bring_dist_slider": "Bring Mob Distance (studs)",
         "ui_bring_yoffset": "Bring Mob Offset Y (studs below)",
         "ui_tween_fly_speed": "Tween Fly Speed (studs/s)",
-        "ui_fly_offset": "Fly Offset (height above mob)"
+        "ui_fly_offset": "Fly Offset (height above mob)",
+        "ui_notify_fruit_spawn": "Notify Fruit Spawn"
     },
     "Portugues_Brazil": {
         "notify_starting_title": "Redux Hub está iniciando...",
@@ -375,7 +376,8 @@
         "ui_bring_dist_slider": "Distância Bring Mob (studs)",
         "ui_bring_yoffset": "Offset Y Bring Mob (studs abaixo)",
         "ui_tween_fly_speed": "Velocidade Voo Tween (studs/s)",
-        "ui_fly_offset": "Offset de Voo (altura acima do mob)"
+        "ui_fly_offset": "Offset de Voo (altura acima do mob)",
+        "ui_notify_fruit_spawn": "Notificar Fruta Spawnada"
     },
     "Portugues_Portugal": {
         "notify_starting_title": "Redux Hub está a iniciar...",
@@ -564,7 +566,8 @@
         "ui_bring_dist_slider": "Distância Bring Mob (studs)",
         "ui_bring_yoffset": "Offset Y Bring Mob (studs abaixo)",
         "ui_tween_fly_speed": "Velocidade Voo Tween (studs/s)",
-        "ui_fly_offset": "Offset de Voo (altura acima do mob)"
+        "ui_fly_offset": "Offset de Voo (altura acima do mob)",
+        "ui_notify_fruit_spawn": "Notificar Fruta Spawnada"
     },
     "Espanol": {
         "notify_starting_title": "Redux Hub está iniciando...",
@@ -753,7 +756,8 @@
         "ui_bring_dist_slider": "Distancia Bring Mob (studs)",
         "ui_bring_yoffset": "Offset Y Bring Mob (studs abajo)",
         "ui_tween_fly_speed": "Velocidad Vuelo Tween (studs/s)",
-        "ui_fly_offset": "Offset de Vuelo (altura sobre mob)"
+        "ui_fly_offset": "Offset de Vuelo (altura sobre mob)",
+        "ui_notify_fruit_spawn": "Notificar Fruta Spawnada"
     },
     "Vietnam": {
         "notify_starting_title": "Redux Hub đang khởi động...",
@@ -942,6 +946,7 @@
         "ui_bring_dist_slider": "Khoảng Bring Mob (studs)",
         "ui_bring_yoffset": "Offset Y Bring Mob (studs dưới)",
         "ui_tween_fly_speed": "Tốc độ Bay Tween (studs/s)",
-        "ui_fly_offset": "Độ cao Bay (trên mob)"
+        "ui_fly_offset": "Độ cao Bay (trên mob)",
+        "ui_notify_fruit_spawn": "Thông báo Trái cây Spawn"
     }
 }

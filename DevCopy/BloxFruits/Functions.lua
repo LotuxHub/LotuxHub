@@ -1927,13 +1927,12 @@ function Functions.StartAutoFarmBone(config)
               CFrameMon   = CFrame.new(-9582.022460, 6.251527, 6205.478515) },
         }
 
-        -- Escolhe o mob pelo level do player
+        -- Rota entre todos os mobs do Haunted Castle em sequencia
+        -- (nao usa level pq player MAX sempre cairia no mesmo mob)
+        local _boneIdx = 0
         local function GetBoneMob()
-            local lvl = Player.Data and Player.Data.Level and Player.Data.Level.Value or 1975
-            if lvl >= 2050 then return HAUNTED_MOBS[4]
-            elseif lvl >= 2025 then return HAUNTED_MOBS[3]
-            elseif lvl >= 2000 then return HAUNTED_MOBS[2]
-            else return HAUNTED_MOBS[1] end
+            _boneIdx = (_boneIdx % #HAUNTED_MOBS) + 1
+            return HAUNTED_MOBS[_boneIdx]
         end
 
         while task.wait(0.5) do
@@ -3822,6 +3821,75 @@ function Functions.StartTweenFlyFruit(config, isTeleportingRef, notAutoEquipRef)
 
                 watchConn:Disconnect()
             end)
+        end
+    end)
+end
+
+-- Notificador de fruta spawnada
+-- Chama Notify quando uma nova fruta aparece no Workspace.Fruit ou workspace direto
+function Functions.StartFruitSpawnNotifier(config, notifyFn)
+    task.spawn(function()
+        local knownFruits = {}
+
+        -- Inicializa com as frutas ja existentes (nao notifica as atuais)
+        local function ScanExisting()
+            local fruitFolder = workspace:FindFirstChild("Fruit")
+            if fruitFolder then
+                for _, v in ipairs(fruitFolder:GetChildren()) do
+                    knownFruits[v] = true
+                end
+            end
+            for _, v in ipairs(workspace:GetChildren()) do
+                if v:IsA("Tool") and WeaponSets.BloxFruits[v.Name] then
+                    knownFruits[v] = true
+                end
+            end
+        end
+        ScanExisting()
+
+        local function CheckNew()
+            local fruitFolder = workspace:FindFirstChild("Fruit")
+            if fruitFolder then
+                for _, v in ipairs(fruitFolder:GetChildren()) do
+                    if not knownFruits[v] then
+                        knownFruits[v] = true
+                        if config.NotifyFruitSpawn and notifyFn then
+                            local name = v.Name or "Fruta"
+                            notifyFn({
+                                Title       = "🍎 Fruta Spawnada!",
+                                Description = name .. " apareceu no mapa!",
+                                Type        = "Success",
+                                Duration    = 8,
+                            })
+                        end
+                    end
+                end
+            end
+            for _, v in ipairs(workspace:GetChildren()) do
+                if v:IsA("Tool") and WeaponSets.BloxFruits[v.Name] then
+                    if not knownFruits[v] then
+                        knownFruits[v] = true
+                        if config.NotifyFruitSpawn and notifyFn then
+                            notifyFn({
+                                Title       = "🍎 Fruta Dropada!",
+                                Description = v.Name .. " foi dropada no mapa!",
+                                Type        = "Success",
+                                Duration    = 8,
+                            })
+                        end
+                    end
+                end
+            end
+            -- Limpa frutas que ja foram pego (nao existem mais)
+            for fruit, _ in pairs(knownFruits) do
+                if not fruit or not fruit.Parent then
+                    knownFruits[fruit] = nil
+                end
+            end
+        end
+
+        while task.wait(2) do
+            pcall(CheckNew)
         end
     end)
 end

@@ -829,6 +829,9 @@ if not ok_loops then
     _ConsoleLog("[ERRO] StartAllLoops: " .. tostring(err_loops):sub(1,60))
 end
 
+-- Inicia notificador de frutas spawnadas
+pcall(function() Functions.StartFruitSpawnNotifier(Config, Notify) end)
+
 -- =====================================================
 -- NOCLIP LOOP
 -- =====================================================
@@ -993,10 +996,38 @@ task.spawn(function()
                 currentTarget = mob
                 NoClip.value = true
 
-                -- Salva posição original do mob UMA vez antes do bring distorcê-la
+                -- Posicao original do mob para o voo (antes de qualquer bring)
                 local mobOriginalPos = mob:FindFirstChild("HumanoidRootPart")
                     and mob.HumanoidRootPart.Position
                     or HumanoidRootPart.Position
+
+                -- Heartbeat: trava todos os mobs do tipo no lugar a 60fps
+                local bringActive   = false
+                local bringPosition = CFrame.new(0, 0, 0)
+                local bringMobName  = mob.Name
+                local bringConn = RunService.Heartbeat:Connect(function()
+                    if not bringActive or not Config.BringMob then return end
+                    local enm = workspace:FindFirstChild("Enemies")
+                    if not enm then return end
+                    for _, otherMob in ipairs(enm:GetChildren()) do
+                        if otherMob.Name == bringMobName then
+                            local ohrp = otherMob:FindFirstChild("HumanoidRootPart")
+                            local ohum = otherMob:FindFirstChild("Humanoid")
+                            if ohrp and ohum and ohum.Health > 0 then
+                                local d = (ohrp.Position - HumanoidRootPart.Position).Magnitude
+                                if d <= (Config.BringDistance or 350) then
+                                    pcall(function()
+                                        ohum.WalkSpeed = 0
+                                        ohum.JumpPower = 0
+                                        ohum:ChangeState(11)
+                                        sethiddenproperty(Player, "SimulationRadius", math.huge)
+                                    end)
+                                    ohrp.CFrame = bringPosition
+                                end
+                            end
+                        end
+                    end
+                end)
 
                 repeat
                     task.wait()
@@ -1012,28 +1043,18 @@ task.spawn(function()
                             CFrame.new(mobOriginalPos) * CFrame.new(0, Config.FlyOffset, 0),
                             TweenService, Config, isTeleporting, NotAutoEquip)
                     else
-                        -- Chegou perto: para voo e faz bring de todos os mobs do mesmo tipo
+                        -- Chegou: para o voo completamente e ativa heartbeat de bring
+                        Functions.StopTeleport()
                         isTeleporting.value = false
-                        if Config.BringMob then
-                            local pp = HumanoidRootPart.Position
-                            local yOffset = Config.BringYOffset or -5
-                            local playerBringPos = CFrame.new(pp.X, pp.Y + yOffset, pp.Z)
-                            local enemiesFolder = workspace:FindFirstChild("Enemies")
-                            if enemiesFolder then
-                                for _, otherMob in ipairs(enemiesFolder:GetChildren()) do
-                                    if otherMob.Name == mob.Name then
-                                        local ohrp = otherMob:FindFirstChild("HumanoidRootPart")
-                                        local ohum = otherMob:FindFirstChild("Humanoid")
-                                        if ohrp and ohum and ohum.Health > 0 then
-                                            -- Usa posição atual do mob para calcular distância (antes do bring)
-                                            local distOther = (ohrp.Position - HumanoidRootPart.Position).Magnitude
-                                            if distOther <= Config.BringDistance or distOther <= 5 then
-                                                Functions.BringMobFunc(otherMob, playerBringPos)
-                                            end
-                                        end
-                                    end
-                                end
+                        -- bringPosition calculado UMA vez na posicao do mob no chao
+                        if not bringActive then
+                            local mhrpNow = mob:FindFirstChild("HumanoidRootPart")
+                            if mhrpNow then
+                                local yOff = Config.BringYOffset or -10
+                                local mp   = mhrpNow.Position
+                                bringPosition = CFrame.new(mp.X, mp.Y + yOff, mp.Z)
                             end
+                            bringActive = true
                         end
                     end
 
@@ -1044,7 +1065,7 @@ task.spawn(function()
                    or mob.Humanoid.Health <= 0
                    or (not Config.AutoFarmNearest and not Config.AutoFarmLevel)
 
-                -- Garante que o voo para e o player cai ao sair do loop
+                bringConn:Disconnect()
                 Functions.StopTeleport()
                 NoClip.value = false
                 if mob.Humanoid and mob.Humanoid.Health <= 0 then
@@ -1134,8 +1155,36 @@ task.spawn(function()
 
                                 currentTarget = mob
                                 NoClip.value = true
-                                -- Salva posição original do mob UMA vez antes do bring distorcê-la
+                                -- Posicao original do mob para o voo (antes de qualquer bring)
                                 local mobOriginalPos2 = hrp.Position
+
+                                -- Heartbeat: trava todos os mobs do tipo no lugar a 60fps
+                                local bringActive2   = false
+                                local bringPosition2 = CFrame.new(0, 0, 0)
+                                local bringMobName2  = quest.Mob
+                                local bringConn2 = RunService.Heartbeat:Connect(function()
+                                    if not bringActive2 or not Config.BringMob then return end
+                                    local enm = workspace:FindFirstChild("Enemies")
+                                    if not enm then return end
+                                    for _, otherMob in ipairs(enm:GetChildren()) do
+                                        if otherMob.Name == bringMobName2 then
+                                            local ohrp = otherMob:FindFirstChild("HumanoidRootPart")
+                                            local ohum = otherMob:FindFirstChild("Humanoid")
+                                            if ohrp and ohum and ohum.Health > 0 then
+                                                local d = (ohrp.Position - HumanoidRootPart.Position).Magnitude
+                                                if d <= (Config.BringDistance or 350) then
+                                                    pcall(function()
+                                                        ohum.WalkSpeed = 0
+                                                        ohum.JumpPower = 0
+                                                        ohum:ChangeState(11)
+                                                        sethiddenproperty(Player, "SimulationRadius", math.huge)
+                                                    end)
+                                                    ohrp.CFrame = bringPosition2
+                                                end
+                                            end
+                                        end
+                                    end
+                                end)
 
                                 repeat
                                     task.wait()
@@ -1150,27 +1199,17 @@ task.spawn(function()
                                             CFrame.new(mobOriginalPos2) * CFrame.new(0, Config.FlyOffset, 0),
                                             TweenService, Config, isTeleporting, NotAutoEquip)
                                     else
-                                        -- Chegou perto: para voo e faz bring
+                                        -- Chegou: para o voo e ativa heartbeat de bring
+                                        Functions.StopTeleport()
                                         isTeleporting.value = false
-                                        if Config.BringMob then
-                                            local pp2 = HumanoidRootPart.Position
-                                            local yOffset2 = Config.BringYOffset or -5
-                                            local playerBringPos = CFrame.new(pp2.X, pp2.Y + yOffset2, pp2.Z)
-                                            local enemiesFolder = workspace:FindFirstChild("Enemies")
-                                            if enemiesFolder then
-                                                for _, otherMob in ipairs(enemiesFolder:GetChildren()) do
-                                                    if otherMob.Name == quest.Mob then
-                                                        local ohrp = otherMob:FindFirstChild("HumanoidRootPart")
-                                                        local ohum = otherMob:FindFirstChild("Humanoid")
-                                                        if ohrp and ohum and ohum.Health > 0 then
-                                                            local distOther = (ohrp.Position - HumanoidRootPart.Position).Magnitude
-                                                            if distOther <= Config.BringDistance or distOther <= 5 then
-                                                                Functions.BringMobFunc(otherMob, playerBringPos)
-                                                            end
-                                                        end
-                                                    end
-                                                end
+                                        if not bringActive2 then
+                                            local mhrpNow2 = mob:FindFirstChild("HumanoidRootPart")
+                                            if mhrpNow2 then
+                                                local yOff2 = Config.BringYOffset or -10
+                                                local mp2   = mhrpNow2.Position
+                                                bringPosition2 = CFrame.new(mp2.X, mp2.Y + yOff2, mp2.Z)
                                             end
+                                            bringActive2 = true
                                         end
                                     end
 
@@ -1181,7 +1220,7 @@ task.spawn(function()
                                    or mob.Humanoid.Health <= 0
                                    or not Config.AutoFarmLevel
 
-                                -- Garante que o voo para e o player cai ao sair do loop
+                                bringConn2:Disconnect()
                                 Functions.StopTeleport()
                                 NoClip.value = false
                                 if mob.Humanoid and mob.Humanoid.Health <= 0 then
@@ -2396,6 +2435,11 @@ FruitRaidTab:AddToggle({ Title = T("ui_twenfly_fruit"), Default = false,
         if v then task.spawn(function() Functions.StartTweenFlyFruit(Config, isTeleporting, NotAutoEquip) end) end
         Notify({ Title = v and "TweenFly Fruit ON" or "OFF", Image = IMG, Type = v and "Success" or "Info", Duration = 2 })
     end })
+FruitRaidTab:AddToggle({ Title = T("ui_notify_fruit_spawn"), Default = false,
+    Flag = "NotifyFruitSpawn", Callback = function(v)
+        Config.NotifyFruitSpawn = v
+        if SaveSystem then SaveSystem.SaveConfig(Config) end
+    end })
 FruitRaidTab:AddDropdown({ Title = "Select Fruit Shop",
     Options = { "Devil Fruit Shop", "Advanced Fruit Dealer" }, Default = "Devil Fruit Shop",
     Callback = function(v) _G.SelectedFruitShop = (type(v) == "table" and (v[1] or next(v)) or tostring(v)) end })
@@ -3268,45 +3312,59 @@ task.spawn(function()
             local kpm = math.floor((kTotal / kElapsed) * 60)
             V_Kills.Text  = tostring(kTotal) .. "  (" .. kpm .. "/min)"
 
-            -- ── Lua: quantas noites faltam para lua cheia ──────────
-            -- BF sincroniza o ciclo via workspace:GetServerTimeNow() (Unix timestamp).
-            -- Cada dia BF = 1200s (20min). Noite = metade par do ciclo.
-            -- Lua cheia ocorre a cada 3 noites (ciclo real do BF = 3 noites).
-            -- Fonte de verdade: Lighting.ClockTime (0-24) indica dia/noite agora.
+            -- ── Lua: detecta lua cheia pelo atributo real do BF ────────
             pcall(function()
-                local Lighting        = game:GetService("Lighting")
-                local BF_DAY_SECS     = 1200   -- 20 min por ciclo completo dia+noite
-                local FULL_MOON_EVERY = 3      -- lua cheia a cada 3 noites no BF
-                -- Usa GetServerTimeNow para o número do dia (é isso que o BF usa internamente)
-                local serverTime      = workspace:GetServerTimeNow()
-                local halfDay         = BF_DAY_SECS / 2   -- 600s = metade do ciclo
-                local cyclePos        = serverTime % BF_DAY_SECS
-                local isNight         = cyclePos >= halfDay
-                local secInPhase      = cyclePos - (isNight and halfDay or 0)
-                local secsLeftPhase   = halfDay - secInPhase
+                local Lighting = game:GetService("Lighting")
 
-                -- Número de noites que já passaram no servidor
-                local totalNights     = math.floor(serverTime / halfDay / 2)
-                -- Dentro do ciclo de lua cheia
-                local nightInCycle    = totalNights % FULL_MOON_EVERY
-                local nightsLeft      = FULL_MOON_EVERY - nightInCycle  -- noites até lua cheia
+                -- Tenta ler o atributo MoonPhase que o BF seta diretamente
+                local phase = workspace:GetAttribute("MoonPhase")
+                    or Lighting:GetAttribute("MoonPhase")
+                    or nil
 
-                -- Valida com Lighting: ClockTime 18-6 = noite
+                local BF_DAY_SECS  = 1200  -- 20 min por ciclo
+                local FULL_MOON_EVERY = 3  -- lua cheia a cada 3 noites
+                local halfDay = BF_DAY_SECS / 2
+
+                -- Usa DistributedGameTime (tempo do servidor desde start) para calcular
+                -- o numero de noites reais que passaram neste servidor
+                local serverAge    = math.floor(workspace.DistributedGameTime)
+                local cyclePos     = serverAge % BF_DAY_SECS
+                local isNight      = cyclePos >= halfDay
+                local secInPhase   = cyclePos - (isNight and halfDay or 0)
+                local secsLeftPhase = halfDay - secInPhase
+
+                -- Numero de meios-ciclos (dias ou noites) desde o start
+                local halfCycles   = math.floor(serverAge / halfDay)
+                -- Noites: meios-ciclos impares
+                local totalNights  = math.floor(halfCycles / 2)
+                local nightInCycle = totalNights % FULL_MOON_EVERY
+                local nightsLeft   = FULL_MOON_EVERY - nightInCycle
+
+                -- Se o BF exporta o atributo, usa ele como override
+                local isFullMoon = false
+                if phase ~= nil then
+                    -- Atributo pode ser numero (0=nova, 1=cheia) ou string "Full"
+                    if type(phase) == "number" then
+                        isFullMoon = (phase >= 0.9)
+                    elseif type(phase) == "string" then
+                        isFullMoon = phase:lower():find("full") ~= nil
+                    end
+                else
+                    -- Fallback: considera lua cheia quando nightsLeft == 3 E e noite
+                    isFullMoon = (nightsLeft == FULL_MOON_EVERY and isNight)
+                end
+
                 local clock = Lighting.ClockTime
                 local isNightLighting = (clock >= 18 or clock < 6)
 
-                if nightsLeft == FULL_MOON_EVERY and isNightLighting then
-                    -- Lua cheia agora
+                if isFullMoon and isNightLighting then
                     V_Moon.Text = "🌕 CHEIA! " .. string.format("%dm%02ds", math.floor(secsLeftPhase/60), secsLeftPhase%60)
                     V_Moon.TextColor3 = Color3.fromRGB(255, 230, 80)
                 elseif nightsLeft == 1 and not isNightLighting then
-                    -- Próxima noite é lua cheia
                     V_Moon.Text = "🌔 Hoje! " .. string.format("%dm%02ds", math.floor(secsLeftPhase/60), secsLeftPhase%60)
                     V_Moon.TextColor3 = Color3.fromRGB(220, 210, 80)
                 else
-                    -- N noites restantes
-                    local nightsToWait = nightsLeft - (isNightLighting and 0 or 0)
-                    local secsTotal    = (nightsToWait * BF_DAY_SECS) - secInPhase
+                    local secsTotal = (nightsLeft * BF_DAY_SECS) - secInPhase
                     if secsTotal < 0 then secsTotal = 0 end
                     local h = math.floor(secsTotal / 3600)
                     local m = math.floor((secsTotal % 3600) / 60)
@@ -3419,6 +3477,15 @@ task.spawn(function()
                     end
                 end
                 V_Target.Text = targetName
+
+            elseif Config.AutoFarmBone then
+                V_Mode.Text = "Farm Bone"
+                V_Mode.TextColor3 = Color3.fromRGB(180, 120, 255)
+                V_Island.Text = "Haunted Castle"
+                V_Island.TextColor3 = Color3.fromRGB(200, 150, 255)
+                V_Status.Text = farmRunning and "Farmando" or "Aguardando"
+                ColorStatus(V_Status, farmRunning)
+                V_Target.Text = currentTarget and currentTarget.Name:sub(1, 18) or "—"
 
             elseif Config.AutoFarmLevel then
                 V_Mode.Text = "Farm Level"

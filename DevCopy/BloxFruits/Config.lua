@@ -85,6 +85,7 @@ local Config = {
     GrabFruit           = false,
     AutoFruit           = false,
     AutoFarmFruits      = false,
+    NotifyFruitSpawn    = false,
     SelectFruitFarm     = "Farm Level Mastery",
     SelectChipRaid      = "Flame",
 
