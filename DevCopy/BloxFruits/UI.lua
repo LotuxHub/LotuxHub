@@ -1042,6 +1042,12 @@ task.spawn(function()
                     if distToMob > 15 then
                         -- Longe: voa ate o mob, bring desativado
                         bringActive = false
+                        -- Atualiza posicao do mob a cada tick (so quando bring off)
+                        -- para o player seguir o mob sem empurra-lo
+                        if not Config.BringMob then
+                            local mhrp2 = mob:FindFirstChild("HumanoidRootPart")
+                            if mhrp2 then mobOriginalPos = mhrp2.Position end
+                        end
                         Functions.FlyToPosition(
                             CFrame.new(mobOriginalPos) * CFrame.new(0, Config.FlyOffset, 0),
                             TweenService, Config, isTeleporting, NotAutoEquip)
@@ -1049,7 +1055,7 @@ task.spawn(function()
                         -- Chegou: ativa o heartbeat de bring
                         isTeleporting.value = false
                         local pp = HumanoidRootPart.Position
-                        local yOff = Config.BringYOffset or -5
+                        local yOff = Config.BringYOffset or -10
                         bringPosition = CFrame.new(pp.X, pp.Y + yOff, pp.Z)
                         bringActive   = true
                     end
@@ -1195,6 +1201,11 @@ task.spawn(function()
                                     if distToMob > 15 then
                                         -- Longe: voa ate o mob, bring desativado
                                         bringActive2 = false
+                                        -- Atualiza posicao do mob a cada tick (so quando bring off)
+                                        if not Config.BringMob then
+                                            local mhrp3 = mob:FindFirstChild("HumanoidRootPart")
+                                            if mhrp3 then mobOriginalPos2 = mhrp3.Position end
+                                        end
                                         Functions.FlyToPosition(
                                             CFrame.new(mobOriginalPos2) * CFrame.new(0, Config.FlyOffset, 0),
                                             TweenService, Config, isTeleporting, NotAutoEquip)
@@ -1202,7 +1213,7 @@ task.spawn(function()
                                         -- Chegou: ativa o heartbeat de bring
                                         isTeleporting.value = false
                                         local pp2 = HumanoidRootPart.Position
-                                        local yOff2 = Config.BringYOffset or -5
+                                        local yOff2 = Config.BringYOffset or -10
                                         bringPosition2 = CFrame.new(pp2.X, pp2.Y + yOff2, pp2.Z)
                                         bringActive2   = true
                                     end
@@ -3744,4 +3755,4 @@ Notify({
     Type        = "Success",
 })
 
-print("UI Loaded v4.6.2")
+print("UI Loaded v4.6.3")
