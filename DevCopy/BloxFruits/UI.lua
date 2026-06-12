@@ -1054,10 +1054,19 @@ task.spawn(function()
                     else
                         -- Chegou: ativa o heartbeat de bring
                         isTeleporting.value = false
-                        local pp = HumanoidRootPart.Position
-                        local yOff = Config.BringYOffset or -10
-                        bringPosition = CFrame.new(pp.X, pp.Y + yOff, pp.Z)
-                        bringActive   = true
+                        -- Trava o mob na posicao DELE (no chao), nao no Y do player voando
+                        -- bringPosition so e definido uma vez quando bringActive vira true
+                        -- para nao ficar resetando a posicao a cada tick
+                        if not bringActive then
+                            local mhrpNow = mob:FindFirstChild("HumanoidRootPart")
+                            if mhrpNow then
+                                -- Usa posicao atual do mob no chao + offset Y do config
+                                local yOff = Config.BringYOffset or -10
+                                local mp = mhrpNow.Position
+                                bringPosition = CFrame.new(mp.X, mp.Y + yOff, mp.Z)
+                            end
+                            bringActive = true
+                        end
                     end
 
                     Functions.FastAttack(mob, Config, NotAutoEquip)
@@ -1212,10 +1221,16 @@ task.spawn(function()
                                     else
                                         -- Chegou: ativa o heartbeat de bring
                                         isTeleporting.value = false
-                                        local pp2 = HumanoidRootPart.Position
-                                        local yOff2 = Config.BringYOffset or -10
-                                        bringPosition2 = CFrame.new(pp2.X, pp2.Y + yOff2, pp2.Z)
-                                        bringActive2   = true
+                                        -- Trava o mob na posicao DELE (no chao), nao no Y do player voando
+                                        if not bringActive2 then
+                                            local mhrpNow2 = mob:FindFirstChild("HumanoidRootPart")
+                                            if mhrpNow2 then
+                                                local yOff2 = Config.BringYOffset or -10
+                                                local mp2 = mhrpNow2.Position
+                                                bringPosition2 = CFrame.new(mp2.X, mp2.Y + yOff2, mp2.Z)
+                                            end
+                                            bringActive2 = true
+                                        end
                                     end
 
                                     Functions.FastAttack(mob, Config, NotAutoEquip)
@@ -3755,4 +3770,4 @@ Notify({
     Type        = "Success",
 })
 
-print("UI Loaded v4.6.3")
+print("UI Loaded v4.7.2")
