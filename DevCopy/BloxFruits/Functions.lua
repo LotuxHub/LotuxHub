@@ -870,19 +870,42 @@ function Functions.BringMobFunc(mob, targetPosition)
 
     pcall(function() sethiddenproperty(Player, "SimulationRadius", math.huge) end)
 
-    -- Aplica offset Y (BringYOffset do Config, padrao -5 = abaixo do player)
-    local bringYOffset = (_G._currentConfig and _G._currentConfig.BringYOffset) or -5
+    -- Aplica offset Y (BringYOffset do Config, padrao -10 = abaixo do player)
+    local bringYOffset = (_G._currentConfig and _G._currentConfig.BringYOffset) or -10
     local finalVec3 = targetVec3 + Vector3.new(0, bringYOffset, 0)
 
-    -- Reposiciona o mob via CFrame puro.
-    -- O travamento (WalkSpeed=0, ChangeState) e feito pelo loop Heartbeat
-    -- no UI.lua, que roda a 60fps e mantem os mobs presos sem dessincronizar
-    -- o hitbox do servidor.
+    -- Leva o mob para baixo do player
     MobHRP.CFrame = CFrame.new(finalVec3)
 
-    -- Remove lock antigo de versoes anteriores
-    local oldLock = MobHRP:FindFirstChild("LotuxBringLock")
-    if oldLock then oldLock:Destroy() end
+    -- Para o mob de se mover
+    Hum.WalkSpeed = 0
+    Hum.JumpPower = 0
+    Hum:ChangeState(11)
+
+    -- Esconde partes para nao atrapalhar o click
+    MobHRP.Transparency = 1
+    MobHRP.CanCollide   = false
+    local Head = mob:FindFirstChild("Head")
+    if Head then Head.CanCollide = false end
+    local Animator = Hum:FindFirstChild("Animator")
+    if Animator then Animator.Enabled = false end
+
+    -- FIX: usa BodyVelocity=0 em vez de BodyPosition.
+    -- BodyPosition briga com o sistema do BF e causa tremor.
+    -- BodyVelocity com MaxForce enorme + Velocity=0 prende
+    -- o mob sem conflitar com o servidor.
+    local Lock = MobHRP:FindFirstChild("LotuxBringLock")
+    if not Lock then
+        Lock          = Instance.new("BodyVelocity")
+        Lock.Name     = "LotuxBringLock"
+        Lock.MaxForce = Vector3.new(1e9, 1e9, 1e9)
+        Lock.Velocity = Vector3.new(0, 0, 0)
+        Lock.Parent   = MobHRP
+    else
+        -- Reposiciona a cada tick para combater server-side movement
+        Lock.Velocity = Vector3.new(0, 0, 0)
+        MobHRP.CFrame = CFrame.new(finalVec3)
+    end
 end
 
 -- Alias para compatibilidade com chamadas que usam o nome antigo
@@ -2626,66 +2649,86 @@ function Functions.StartTweenFruit(config)
         while task.wait(0.5) do
             if not config.TweenFlyFruit then continue end
             pcall(function()
-                -- Frutas no workspace raiz (estilo Tiroreal)
-                for _, obj in pairs(workspace:GetChildren()) do
-                    if obj:IsA("Tool") and obj.Name:find("Fruit") then
+                local hrp = Player.Character and Player.Character:FindFirstChild("HumanoidRootPart")
+                if not hrp then return end
+
+                local bestHandle = nil
+                local bestDist   = math.huge
+
+                -- Lugar 1: Workspace.Fruit (spawn normal do jogo)
+                local fruitFolder = workspace:FindFirstChild("Fruit")
+                if fruitFolder then
+                    for _, obj in ipairs(fruitFolder:GetChildren()) do
                         local handle = obj:FindFirstChild("Handle")
                         if handle then
-                            local hrp = Player.Character and Player.Character:FindFirstChild("HumanoidRootPart")
-                            if hrp then
-                                local dist = (handle.Position - hrp.Position).Magnitude
-                                local tween = TweenService:Create(
-                                    hrp,
-                                    TweenInfo.new(dist / 300, Enum.EasingStyle.Linear),
-                                    { CFrame = CFrame.new(handle.Position) }
-                                )
-                                tween:Play()
-                                tween.Completed:Wait()
-                            end
+                            local dist = (handle.Position - hrp.Position).Magnitude
+                            if dist < bestDist then bestDist = dist; bestHandle = handle end
                         end
                     end
                 end
 
-                -- Frutas no AppleSpawner
-                local spawner = workspace:FindFirstChild("AppleSpawner")
-                if spawner then
-                    for _, obj in pairs(spawner:GetChildren()) do
-                        if obj:IsA("Tool") then
-                            local handle = obj:FindFirstChild("Handle")
-                            if handle then
-                                local hrp = Player.Character and Player.Character:FindFirstChild("HumanoidRootPart")
-                                if hrp then
-                                    local dist = (handle.Position - hrp.Position).Magnitude
-                                    local tween = TweenService:Create(
-                                        hrp,
-                                        TweenInfo.new(dist / 300, Enum.EasingStyle.Linear),
-                                        { CFrame = CFrame.new(handle.Position) }
-                                    )
-                                    tween:Play()
-                                    tween.Completed:Wait()
-                                end
-                            end
+                -- Lugar 2: frutas dropadas no workspace (Tool com nome do BFWirelist)
+                for _, obj in ipairs(workspace:GetChildren()) do
+                    if obj:IsA("Tool") and WeaponSets.BloxFruits[obj.Name] then
+                        local handle = obj:FindFirstChild("Handle")
+                        if handle then
+                            local dist = (handle.Position - hrp.Position).Magnitude
+                            if dist < bestDist then bestDist = dist; bestHandle = handle end
                         end
                     end
+                end
+
+                if bestHandle then
+                    local tween = TweenService:Create(
+                        hrp,
+                        TweenInfo.new(bestDist / 300, Enum.EasingStyle.Linear),
+                        { CFrame = CFrame.new(bestHandle.Position) }
+                    )
+                    tween:Play()
+                    tween.Completed:Wait()
                 end
             end)
         end
     end)
 end
 
--- Grab Fruit: TP direto (sem tween, instantâneo)
+-- Grab Fruit: TP direto (sem tween, instantaneo)
 function Functions.StartGrabFruit(config)
     task.spawn(function()
         while task.wait(0.5) do
             if not config.GrabFruit then continue end
             pcall(function()
-                for _, obj in pairs(workspace:GetChildren()) do
-                    if obj:IsA("Tool") and obj.Name:find("Fruit") then
+                local hrp = Player.Character and Player.Character:FindFirstChild("HumanoidRootPart")
+                if not hrp then return end
+
+                local bestHandle = nil
+                local bestDist   = math.huge
+
+                -- Lugar 1: Workspace.Fruit
+                local fruitFolder = workspace:FindFirstChild("Fruit")
+                if fruitFolder then
+                    for _, obj in ipairs(fruitFolder:GetChildren()) do
                         local handle = obj:FindFirstChild("Handle")
                         if handle then
-                            Functions.TeleportTo(CFrame.new(handle.Position))
+                            local dist = (handle.Position - hrp.Position).Magnitude
+                            if dist < bestDist then bestDist = dist; bestHandle = handle end
                         end
                     end
+                end
+
+                -- Lugar 2: frutas dropadas no workspace
+                for _, obj in ipairs(workspace:GetChildren()) do
+                    if obj:IsA("Tool") and WeaponSets.BloxFruits[obj.Name] then
+                        local handle = obj:FindFirstChild("Handle")
+                        if handle then
+                            local dist = (handle.Position - hrp.Position).Magnitude
+                            if dist < bestDist then bestDist = dist; bestHandle = handle end
+                        end
+                    end
+                end
+
+                if bestHandle then
+                    Functions.TeleportTo(CFrame.new(bestHandle.Position))
                 end
             end)
         end
@@ -3594,43 +3637,44 @@ function Functions.StartTweenFlyFruit(config, isTeleportingRef, notAutoEquipRef)
                 local hrp  = char and char:FindFirstChild("HumanoidRootPart")
                 if not hrp then return end
 
-                -- Frutas diretas no workspace
-                for _, v in ipairs(workspace:GetChildren()) do
-                    if v:IsA("Tool") and v.Name:lower():find("fruit") then
+                local bestFruit  = nil
+                local bestDist   = math.huge
+
+                -- Lugar 1: Workspace.Fruit (spawn normal do jogo)
+                local fruitFolder = workspace:FindFirstChild("Fruit")
+                if fruitFolder then
+                    for _, v in ipairs(fruitFolder:GetChildren()) do
                         local handle = v:FindFirstChild("Handle")
                         if handle then
                             local dist = (handle.Position - hrp.Position).Magnitude
-                            if dist > 5 then
-                                Functions.FlyToPosition(
-                                    CFrame.new(handle.Position),
-                                    TweenService, config,
-                                    isTeleportingRef, notAutoEquipRef
-                                )
+                            if dist < bestDist then
+                                bestDist  = dist
+                                bestFruit = handle
                             end
-                            return
                         end
                     end
                 end
 
-                -- Frutas no AppleSpawner
-                local spawner = workspace:FindFirstChild("AppleSpawner")
-                if spawner then
-                    for _, v in ipairs(spawner:GetChildren()) do
-                        if v:IsA("Tool") then
-                            local handle = v:FindFirstChild("Handle")
-                            if handle then
-                                local dist = (handle.Position - hrp.Position).Magnitude
-                                if dist > 5 then
-                                    Functions.FlyToPosition(
-                                        CFrame.new(handle.Position),
-                                        TweenService, config,
-                                        isTeleportingRef, notAutoEquipRef
-                                    )
-                                end
-                                return
+                -- Lugar 2: frutas dropadas no workspace (Tool com nome da fruta)
+                for _, v in ipairs(workspace:GetChildren()) do
+                    if v:IsA("Tool") and WeaponSets.BloxFruits[v.Name] then
+                        local handle = v:FindFirstChild("Handle")
+                        if handle then
+                            local dist = (handle.Position - hrp.Position).Magnitude
+                            if dist < bestDist then
+                                bestDist  = dist
+                                bestFruit = handle
                             end
                         end
                     end
+                end
+
+                if bestFruit and bestDist > 5 then
+                    Functions.FlyToPosition(
+                        CFrame.new(bestFruit.Position),
+                        TweenService, config,
+                        isTeleportingRef, notAutoEquipRef
+                    )
                 end
             end)
         end
@@ -4326,16 +4370,46 @@ function Functions.UpdateIslandESP(enabled)
 end
 
 function Functions.UpdateDevilFruitESP(enabled)
+    -- Coleta frutas validas dos dois lugares onde o BF spawna:
+    -- 1) Workspace.Fruit  -> frutas spawnadas pelo jogo (Model com Handle)
+    -- 2) Workspace.<Nome> -> frutas jogadas no chao (Tool direto no workspace)
+    -- Filtra pelo BFWirelist para nao mostrar macas/abacaxis/frutas reais
+    local validFruits = {}
+
+    -- Lugar 1: Workspace.Fruit (spawn normal do jogo)
+    local fruitFolder = workspace:FindFirstChild("Fruit")
+    if fruitFolder then
+        for _, v in ipairs(fruitFolder:GetChildren()) do
+            if v:FindFirstChild("Handle") then
+                table.insert(validFruits, v)
+            end
+        end
+    end
+
+    -- Lugar 2: frutas dropadas diretamente no workspace
+    -- (nome da fruta = "Flame-Flame", "Ice-Ice", etc.)
     for _, v in ipairs(workspace:GetChildren()) do
+        if v:IsA("Tool") and v:FindFirstChild("Handle") then
+            -- Verifica se o nome bate com alguma fruta do BFWirelist
+            if WeaponSets.BloxFruits[v.Name] then
+                table.insert(validFruits, v)
+            end
+        end
+    end
+
+    -- Aplica/remove ESP
+    for _, v in ipairs(validFruits) do
         pcall(function()
-            if enabled and string.find(v.Name, "Fruit") and v:FindFirstChild("Handle") then
-                local tag = "LotuxFruitESP" .. _espNumber
-                if not v.Handle:FindFirstChild(tag) then
-                    local bill = Instance.new("BillboardGui", v.Handle)
+            local handle = v:FindFirstChild("Handle")
+            if not handle then return end
+            local tag = "LotuxFruitESP" .. _espNumber
+            if enabled then
+                if not handle:FindFirstChild(tag) then
+                    local bill = Instance.new("BillboardGui", handle)
                     bill.Name          = tag
                     bill.ExtentsOffset = Vector3.new(0, 1, 0)
                     bill.Size          = UDim2.new(1, 200, 1, 30)
-                    bill.Adornee       = v.Handle
+                    bill.Adornee       = handle
                     bill.AlwaysOnTop   = true
                     local lbl = Instance.new("TextLabel", bill)
                     lbl.Font               = Enum.Font.GothamSemibold
@@ -4344,16 +4418,34 @@ function Functions.UpdateDevilFruitESP(enabled)
                     lbl.Size               = UDim2.new(1, 0, 1, 0)
                     lbl.BackgroundTransparency = 1
                     lbl.TextStrokeTransparency = 0.5
-                    lbl.TextColor3         = Color3.fromRGB(255, 255, 255)
+                    lbl.TextColor3         = Color3.fromRGB(255, 215, 0)
                 end
-                local dist = math.floor((Player.Character.Head.Position - v.Handle.Position).Magnitude / 3)
-                v.Handle["LotuxFruitESP".. _espNumber].TextLabel.Text = v.Name .. "\n" .. dist .. "m"
+                local char = Player.Character
+                if char and char:FindFirstChild("Head") then
+                    local dist = math.floor((char.Head.Position - handle.Position).Magnitude / 3)
+                    handle[tag].TextLabel.Text = v.Name .. "\n" .. dist .. "m"
+                end
             else
-                if v:FindFirstChild("Handle") then
-                    local tag = "LotuxFruitESP" .. _espNumber
-                    if v.Handle:FindFirstChild(tag) then
-                        v.Handle[tag]:Destroy()
+                if handle:FindFirstChild(tag) then
+                    handle[tag]:Destroy()
+                end
+            end
+        end)
+    end
+
+    -- Remove ESP de objetos antigos que nao sao mais frutas validas
+    for _, v in ipairs(workspace:GetChildren()) do
+        pcall(function()
+            local handle = v:FindFirstChild("Handle")
+            if handle then
+                local tag = "LotuxFruitESP" .. _espNumber
+                if handle:FindFirstChild(tag) then
+                    -- Se nao esta na lista valida, remove
+                    local isValid = false
+                    for _, vf in ipairs(validFruits) do
+                        if vf == v then isValid = true break end
                     end
+                    if not isValid then handle[tag]:Destroy() end
                 end
             end
         end)
@@ -5203,32 +5295,19 @@ function Functions.BringMobFunc(mob, targetCFrame)
     if not mob or not mob.Parent then return end
 
     local mobHrp = mob:FindFirstChild("HumanoidRootPart")
-    local mobHum = mob:FindFirstChild("Humanoid")
-    if not mobHrp or not mobHum or mobHum.Health <= 0 then return end
-
-    -- Normaliza targetCFrame para Vector3
-    local basePos
-    if typeof(targetCFrame) == "CFrame" then
-        basePos = targetCFrame.Position
-    elseif typeof(targetCFrame) == "Vector3" then
-        basePos = targetCFrame
-    else
-        basePos = mobHrp.Position
+    if mobHrp then
+        -- Aplica offset Y (BringYOffset do Config, padrao -10 = abaixo do player)
+        local bringYOffset = (_G._currentConfig and _G._currentConfig.BringYOffset) or -10
+        local basePos
+        if typeof(targetCFrame) == "CFrame" then
+            basePos = targetCFrame.Position
+        elseif typeof(targetCFrame) == "Vector3" then
+            basePos = targetCFrame
+        else
+            basePos = mobHrp.Position
+        end
+        mobHrp.CFrame = CFrame.new(basePos + Vector3.new(0, bringYOffset, 0))
     end
-
-    -- Aplica offset Y (BringYOffset do Config, padrao -5 = abaixo do player)
-    local bringYOffset = (_G._currentConfig and _G._currentConfig.BringYOffset) or -5
-    local finalPos = basePos + Vector3.new(0, bringYOffset, 0)
-
-    -- Reposiciona via CFrame puro.
-    -- O travamento real (WalkSpeed=0, ChangeState) e feito pelo Heartbeat
-    -- no UI.lua que roda a 60fps — evita dessincronizar o hitbox do servidor.
-    pcall(function() sethiddenproperty(game.Players.LocalPlayer, "SimulationRadius", math.huge) end)
-    mobHrp.CFrame = CFrame.new(finalPos)
-
-    -- Remove lock antigo de versoes anteriores
-    local oldLock = mobHrp:FindFirstChild("LotuxBringLock")
-    if oldLock then oldLock:Destroy() end
 end
 
 -- ActivateBuso - Ativar Haki Busoushoku
@@ -6521,5 +6600,5 @@ _G.UMESP = Functions.UpdateMirageESP     -- UpdateMirageESP
 _G.USESP = Functions.UpdateSeaBeastESP   -- UpdateSeaBeastESP
 _G.TTSI  = Functions.TravelToSubmergedIsland -- TravelToSubmergedIsland
 
-print("[LotuxHub] Functions Updated Loaded v2.6.1")
+print("[LotuxHub] Functions Updated Loaded v2.7.1")
 return Functions
