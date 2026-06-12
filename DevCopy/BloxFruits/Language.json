@@ -182,7 +182,11 @@
         "ui_auto_skill_c": "Auto Skill C (farm)",
         "language_restart_title": "Restart Required",
         "language_restart_desc": "Re-execute the script to apply the new language.",
-        "ui_auto_buy_legendary": "Auto Buy Sword Legends"
+        "ui_auto_buy_legendary": "Auto Buy Sword Legends",
+        "ui_bring_dist_slider": "Bring Mob Distance (studs)",
+        "ui_bring_yoffset": "Bring Mob Offset Y (studs below)",
+        "ui_tween_fly_speed": "Tween Fly Speed (studs/s)",
+        "ui_fly_offset": "Fly Offset (height above mob)"
     },
     "Portugues_Brazil": {
         "notify_starting_title": "Redux Hub está iniciando...",
@@ -367,7 +371,11 @@
         "ui_auto_skill_c": "Auto Skill C (farm)",
         "language_restart_title": "Reinicialização Necessária",
         "language_restart_desc": "Re-execute o script para aplicar o novo idioma.",
-        "ui_auto_buy_legendary": "Auto Comprar Espadas Lendárias"
+        "ui_auto_buy_legendary": "Auto Comprar Espadas Lendárias",
+        "ui_bring_dist_slider": "Distância Bring Mob (studs)",
+        "ui_bring_yoffset": "Offset Y Bring Mob (studs abaixo)",
+        "ui_tween_fly_speed": "Velocidade Voo Tween (studs/s)",
+        "ui_fly_offset": "Offset de Voo (altura acima do mob)"
     },
     "Portugues_Portugal": {
         "notify_starting_title": "Redux Hub está a iniciar...",
@@ -552,7 +560,11 @@
         "ui_auto_skill_c": "Auto Skill C (farm)",
         "language_restart_title": "Reinicialização Necessária",
         "language_restart_desc": "Re-execute o script para aplicar o novo idioma.",
-        "ui_auto_buy_legendary": "Auto Comprar Espadas Lendárias"
+        "ui_auto_buy_legendary": "Auto Comprar Espadas Lendárias",
+        "ui_bring_dist_slider": "Distância Bring Mob (studs)",
+        "ui_bring_yoffset": "Offset Y Bring Mob (studs abaixo)",
+        "ui_tween_fly_speed": "Velocidade Voo Tween (studs/s)",
+        "ui_fly_offset": "Offset de Voo (altura acima do mob)"
     },
     "Espanol": {
         "notify_starting_title": "Redux Hub está iniciando...",
@@ -737,7 +749,11 @@
         "ui_auto_skill_c": "Auto Skill C (farm)",
         "language_restart_title": "Reinicio Necesario",
         "language_restart_desc": "Re-ejecuta el script para aplicar el nuevo idioma.",
-        "ui_auto_buy_legendary": "Auto Comprar Espadas Legendarias"
+        "ui_auto_buy_legendary": "Auto Comprar Espadas Legendarias",
+        "ui_bring_dist_slider": "Distancia Bring Mob (studs)",
+        "ui_bring_yoffset": "Offset Y Bring Mob (studs abajo)",
+        "ui_tween_fly_speed": "Velocidad Vuelo Tween (studs/s)",
+        "ui_fly_offset": "Offset de Vuelo (altura sobre mob)"
     },
     "Vietnam": {
         "notify_starting_title": "Redux Hub đang khởi động...",
@@ -922,6 +938,10 @@
         "ui_auto_skill_c": "Tự động Skill C (farm)",
         "language_restart_title": "Cần Khởi động lại",
         "language_restart_desc": "Chạy lại script để áp dụng ngôn ngữ mới.",
-        "ui_auto_buy_legendary": "Tự động Mua Kiếm Huyền thoại"
+        "ui_auto_buy_legendary": "Tự động Mua Kiếm Huyền thoại",
+        "ui_bring_dist_slider": "Khoảng Bring Mob (studs)",
+        "ui_bring_yoffset": "Offset Y Bring Mob (studs dưới)",
+        "ui_tween_fly_speed": "Tốc độ Bay Tween (studs/s)",
+        "ui_fly_offset": "Độ cao Bay (trên mob)"
     }
 }
