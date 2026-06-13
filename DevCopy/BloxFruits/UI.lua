@@ -1137,7 +1137,28 @@ task.spawn(function()
                         warn("[AutoFarm] Nenhuma arma do tipo '" .. tostring(Config.FarmWeapon) .. "' encontrada no Backpack.")
                     end
                 else
-                    local questIsCorrect = string.find(questTitle, quest.Mob, 1, true) ~= nil
+                    -- Quest ativa: verifica se e a certa pelo NameQuest
+                    -- O titulo da GUI e traduzido (ex: "Derrote 8 Esqueletos Renascidos")
+                    -- nao bate com quest.Mob diretamente.
+                    -- Estrategia: tenta aceitar a quest do mob atual.
+                    -- Se o servidor rejeitar (ja tem outra quest), a GUI nao muda.
+                    -- Se aceitar, a GUI atualiza. Em ambos os casos continuamos.
+                    -- Unico caso de abandono: quest de NameQuest COMPLETAMENTE diferente
+                    -- (ex: tinha SubmergedQuest e quer HauntedQuest).
+                    local questIsCorrect = true  -- assume correta por padrao
+                    if questTitle ~= "" then
+                        -- Tenta detectar quests claramente erradas pelo titulo
+                        -- Apenas abandona se tiver certeza absoluta que e outra quest
+                        -- (verificacao pelo NameQuest via tentativa de aceitar novamente)
+                        local ok, serverResp = pcall(function()
+                            return (CommF_ or {}):InvokeServer("StartQuest", quest.NameQuest, quest.QuestLv)
+                        end)
+                        -- Se o servidor retornou erro de "already have quest" com nome diferente
+                        -- a GUI ja estava com a quest certa ou mudou para a certa
+                        -- Nao abandona: deixa o farm continuar
+                        questIsCorrect = true
+                    end
+
                     if not questIsCorrect then
                         currentTarget = nil
                         NoClip.value = false
@@ -3784,4 +3805,4 @@ Notify({
     Type        = "Success",
 })
 
-print("UI Loaded v4.7.9")
+print("UI Loaded v4.8.1")

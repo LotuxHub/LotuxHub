@@ -1912,185 +1912,191 @@ function Functions.StartAutoFarmBone(config)
         local CommF_       = GetCommF()
 
         local HAUNTED_MOBS = {
-            { Mob = "Reborn Skeleton",  NameQuest = "HauntedQuest1", QuestLv = 1,
+            { Mob = "Reborn Skeleton", NameQuest = "HauntedQuest1", QuestLv = 1,
               CFrameQuest = CFrame.new(-9479.2168, 141.215088, 5566.09277, 0,0,1,0,1,0,-1,0,0),
               CFrameMon   = CFrame.new(-8763.723632, 165.722991, 6159.861816) },
-            { Mob = "Living Zombie",    NameQuest = "HauntedQuest1", QuestLv = 2,
+            { Mob = "Living Zombie",   NameQuest = "HauntedQuest1", QuestLv = 2,
               CFrameQuest = CFrame.new(-9479.2168, 141.215088, 5566.09277, 0,0,1,0,1,0,-1,0,0),
               CFrameMon   = CFrame.new(-10144.131835, 138.626678, 5838.088867) },
-            { Mob = "Demonic Soul",     NameQuest = "HauntedQuest2", QuestLv = 1,
+            { Mob = "Demonic Soul",    NameQuest = "HauntedQuest2", QuestLv = 1,
               CFrameQuest = CFrame.new(-9516.99316, 172.017181, 6078.46533, 0,0,-1,0,1,0,1,0,0),
               CFrameMon   = CFrame.new(-9505.872070, 172.104827, 6158.993164) },
-            { Mob = "Posessed Mummy",   NameQuest = "HauntedQuest2", QuestLv = 2,
+            { Mob = "Posessed Mummy",  NameQuest = "HauntedQuest2", QuestLv = 2,
               CFrameQuest = CFrame.new(-9516.99316, 172.017181, 6078.46533, 0,0,-1,0,1,0,1,0,0),
               CFrameMon   = CFrame.new(-9582.022460, 6.251527, 6205.478515) },
         }
 
-        -- FIX: _boneIdx SÓ avança quando a quest for completada (mob morreu).
-        -- Antes avançava a cada 0.5s causando o ping-pong entre NPCs.
-        local _boneIdx = 1
-        local _currentQuest = HAUNTED_MOBS[_boneIdx]
+        -- Maquina de estado: IDLE -> GET_QUEST -> TRAVEL -> FARM
+        -- Evita ping-pong entre NPCs de quest e comparacao de titulo traduzido
+        local STATE        = "IDLE"
+        local _boneIdx     = 1
+        local _activeMob   = nil
+        local _bringConn   = nil
+        local _bringActive = false
+        local _bringPos    = CFrame.new(0,0,0)
+        local _isTp        = {value = false}
 
-        local function AdvanceBoneMob()
+        local function CurrentQuest() return HAUNTED_MOBS[_boneIdx] end
+
+        local function NextMob()
             _boneIdx = (_boneIdx % #HAUNTED_MOBS) + 1
-            _currentQuest = HAUNTED_MOBS[_boneIdx]
-            print("[AutoFarmBone] Proximo mob: " .. _currentQuest.Mob)
+            print("[FarmBone] Proximo mob: " .. HAUNTED_MOBS[_boneIdx].Mob)
         end
 
-        while task.wait(0.5) do
-            if not config.AutoFarmBone then continue end
-            pcall(function()
-                local char = Player.Character
-                local hrp  = char and char:FindFirstChild("HumanoidRootPart")
-                if not hrp then return end
+        local function HasQuest()
+            local gui = Player.PlayerGui:FindFirstChild("Main")
+                and Player.PlayerGui.Main:FindFirstChild("Quest")
+            return gui and gui.Visible or false
+        end
 
-                CommF_ = CommF_ or GetCommF()
+        local function DisconnectBring()
+            if _bringConn then _bringConn:Disconnect(); _bringConn = nil end
+            _bringActive = false
+        end
 
-                local quest = _currentQuest
-
-                -- 1) Verifica quest ativa
-                local questGui = Player.PlayerGui:FindFirstChild("Main")
-                    and Player.PlayerGui.Main:FindFirstChild("Quest")
-                local questVisible = questGui and questGui.Visible or false
-                local questTitle   = ""
-                pcall(function()
-                    questTitle = Player.PlayerGui.Main.Quest.Container.QuestTitle.Title.Text
-                end)
-
-                if not questVisible then
-                    -- Sem quest: vai ate o NPC e aceita
-                    print("[AutoFarmBone] Indo pegar quest: " .. quest.Mob)
-                    if (quest.CFrameQuest.Position - hrp.Position).Magnitude > 10 then
-                        Functions.FlyToPosition(quest.CFrameQuest, TweenService, config,
-                            {value = false}, {value = false})
-                    end
-                    task.wait(0.3)
-                    pcall(function() CommF_:InvokeServer("StartQuest", quest.NameQuest, quest.QuestLv) end)
-                    task.wait(0.5)
-                    Functions.EquipWeapon(config, {value = false})
-                    return
-                end
-
-                -- Quest errada (pode ter pego a quest de outro NPC): abandona
-                -- FIX: só abandona se o titulo NÃO contém o mob DA QUEST ATUAL
-                local questIsCorrect = string.find(questTitle, quest.Mob, 1, true) ~= nil
-                if not questIsCorrect then
-                    print("[AutoFarmBone] Quest errada (" .. questTitle .. "), abandonando...")
-                    pcall(function() CommF_:InvokeServer("AbandonQuest") end)
-                    task.wait(0.5)
-                    return
-                end
-
-                -- 2) Tem quest certa: busca mob mais proximo
-                local enemies = workspace:FindFirstChild("Enemies")
-                if not enemies then return end
-
-                local mob = nil
-                local minDist = math.huge
-                for _, v in ipairs(enemies:GetChildren()) do
-                    if v.Name == quest.Mob then
-                        local vhrp = v:FindFirstChild("HumanoidRootPart")
-                        local vhum = v:FindFirstChild("Humanoid")
-                        if vhrp and vhum and vhum.Health > 0 then
-                            local d = (vhrp.Position - hrp.Position).Magnitude
-                            if d < minDist then minDist = d; mob = v end
-                        end
-                    end
-                end
-
-                if not mob then
-                    Functions.FlyToPosition(quest.CFrameMon, TweenService, config,
-                        {value = false}, {value = false})
-                    return
-                end
-
-                -- 3) Farm com bring via Heartbeat
-                local mobHrp = mob:FindFirstChild("HumanoidRootPart")
-                if not mobHrp then return end
-
-                local mobOriginalPos = mobHrp.Position
-                local bringActive    = false
-                local bringPos       = CFrame.new(0,0,0)
-                local bringMobName   = quest.Mob
-                local isTp           = {value = false}
-
-                local bringConn = RunService.Heartbeat:Connect(function()
-                    if not bringActive or not config.BringMob then return end
-                    local enm = workspace:FindFirstChild("Enemies")
-                    if not enm then return end
-                    for _, otherMob in ipairs(enm:GetChildren()) do
-                        if otherMob.Name == bringMobName then
-                            local ohrp = otherMob:FindFirstChild("HumanoidRootPart")
-                            local ohum = otherMob:FindFirstChild("Humanoid")
-                            if ohrp and ohum and ohum.Health > 0 then
-                                local d = (ohrp.Position - hrp.Position).Magnitude
-                                if d <= (config.BringDistance or 350) then
-                                    pcall(function()
-                                        ohum.WalkSpeed = 0
-                                        ohum.JumpPower = 0
-                                        ohum:ChangeState(11)
-                                        sethiddenproperty(Player, "SimulationRadius", math.huge)
-                                    end)
-                                    ohrp.CFrame = bringPos
-                                end
+        local function StartBringHeartbeat(mobName, hrp)
+            DisconnectBring()
+            _bringConn = RunService.Heartbeat:Connect(function()
+                if not _bringActive or not config.BringMob then return end
+                local enm = workspace:FindFirstChild("Enemies")
+                if not enm then return end
+                for _, om in ipairs(enm:GetChildren()) do
+                    if om.Name == mobName then
+                        local ohrp = om:FindFirstChild("HumanoidRootPart")
+                        local ohum = om:FindFirstChild("Humanoid")
+                        if ohrp and ohum and ohum.Health > 0 then
+                            if (ohrp.Position - hrp.Position).Magnitude <= (config.BringDistance or 350) then
+                                pcall(function()
+                                    ohum.WalkSpeed = 0
+                                    ohum.JumpPower = 0
+                                    ohum:ChangeState(11)
+                                    sethiddenproperty(Player, "SimulationRadius", math.huge)
+                                end)
+                                ohrp.CFrame = _bringPos
                             end
                         end
                     end
-                end)
+                end
+            end)
+        end
 
-                local killed = false
-                repeat
-                    task.wait()
-                    if not mob.Parent then break end
-                    local mhrp2 = mob:FindFirstChild("HumanoidRootPart")
-                    if not mhrp2 then break end
+        while task.wait(0.3) do
+            if not config.AutoFarmBone then
+                DisconnectBring()
+                Functions.StopTeleport()
+                STATE = "IDLE"; _activeMob = nil
+                continue
+            end
 
-                    local dist = (mobOriginalPos - hrp.Position).Magnitude
+            local char = Player.Character
+            local hrp  = char and char:FindFirstChild("HumanoidRootPart")
+            if not hrp then continue end
+            CommF_ = CommF_ or GetCommF()
 
-                    if dist > 15 then
-                        bringActive = false
-                        if not config.BringMob then
-                            mobOriginalPos = mhrp2.Position
-                        end
-                        Functions.FlyToPosition(
-                            CFrame.new(mobOriginalPos) * CFrame.new(0, config.FlyOffset or 15, 0),
-                            TweenService, config, isTp, {value = false})
+            pcall(function()
+                local quest = CurrentQuest()
+
+                -- ── IDLE ──────────────────────────────────────────────
+                if STATE == "IDLE" then
+                    if HasQuest() then
+                        -- Tem quest ativa: re-aceita a do mob atual
+                        -- NAO compara titulo (e traduzido, nunca bate com quest.Mob)
+                        -- Se o servidor aceitar = trocou para a certa
+                        -- Se rejeitar (ja tem esta) = continua com a atual
+                        pcall(function() CommF_:InvokeServer("StartQuest", quest.NameQuest, quest.QuestLv) end)
+                        task.wait(0.3)
+                        STATE = "TRAVEL"
                     else
-                        isTp.value = false
-                        if not bringActive then
-                            local yOff = config.BringYOffset or -10
-                            local cp   = hrp.Position
-                            bringPos   = CFrame.new(cp.X, cp.Y + yOff, cp.Z)
-                            bringActive = true
-                        end
+                        STATE = "GET_QUEST"
                     end
 
+                -- ── GET_QUEST ──────────────────────────────────────────
+                elseif STATE == "GET_QUEST" then
+                    if HasQuest() then
+                        pcall(function() CommF_:InvokeServer("StartQuest", quest.NameQuest, quest.QuestLv) end)
+                        task.wait(0.3)
+                        STATE = "TRAVEL"
+                        return
+                    end
+                    -- Vai ate o NPC
+                    if (quest.CFrameQuest.Position - hrp.Position).Magnitude > 10 then
+                        Functions.FlyToPosition(quest.CFrameQuest, TweenService, config, _isTp, {value=false})
+                        return
+                    end
+                    pcall(function() CommF_:InvokeServer("StartQuest", quest.NameQuest, quest.QuestLv) end)
+                    task.wait(0.5)
+                    if HasQuest() then STATE = "TRAVEL" end
+
+                -- ── TRAVEL ──────────────────────────────────────────────
+                elseif STATE == "TRAVEL" then
+                    if not HasQuest() then
+                        DisconnectBring(); Functions.StopTeleport()
+                        _activeMob = nil; NextMob(); STATE = "IDLE"
+                        return
+                    end
+                    local enemies = workspace:FindFirstChild("Enemies")
+                    if not enemies then
+                        Functions.FlyToPosition(quest.CFrameMon, TweenService, config, _isTp, {value=false})
+                        return
+                    end
+                    local mob, minDist = nil, math.huge
+                    for _, v in ipairs(enemies:GetChildren()) do
+                        if v.Name == quest.Mob then
+                            local vhrp = v:FindFirstChild("HumanoidRootPart")
+                            local vhum = v:FindFirstChild("Humanoid")
+                            if vhrp and vhum and vhum.Health > 0 then
+                                local d = (vhrp.Position - hrp.Position).Magnitude
+                                if d < minDist then minDist = d; mob = v end
+                            end
+                        end
+                    end
+                    if not mob then
+                        Functions.FlyToPosition(quest.CFrameMon, TweenService, config, _isTp, {value=false})
+                        return
+                    end
+                    _activeMob = mob
+                    StartBringHeartbeat(quest.Mob, hrp)
+                    STATE = "FARM"
+
+                -- ── FARM ──────────────────────────────────────────────
+                elseif STATE == "FARM" then
+                    local mob = _activeMob
+                    if not mob or not mob.Parent then
+                        DisconnectBring(); Functions.StopTeleport()
+                        _activeMob = nil; STATE = "TRAVEL"
+                        return
+                    end
+                    local mobHum = mob:FindFirstChild("Humanoid")
+                    local mobHrp = mob:FindFirstChild("HumanoidRootPart")
+                    if not mobHum or mobHum.Health <= 0 then
+                        DisconnectBring(); Functions.StopTeleport()
+                        _activeMob = nil
+                        config.KillCount = (config.KillCount or 0) + 1
+                        if not HasQuest() then NextMob(); STATE = "IDLE"
+                        else STATE = "TRAVEL" end
+                        return
+                    end
+                    if not mobHrp then return end
+                    local dist = (mobHrp.Position - hrp.Position).Magnitude
+                    if dist > 15 then
+                        _bringActive = false
+                        Functions.FlyToPosition(
+                            CFrame.new(mobHrp.Position) * CFrame.new(0, config.FlyOffset or 15, 0),
+                            TweenService, config, _isTp, {value=false})
+                    else
+                        Functions.StopTeleport()
+                        _isTp.value = false
+                        if not _bringActive then
+                            local yOff = config.BringYOffset or -10
+                            local mp   = mobHrp.Position
+                            _bringPos  = CFrame.new(mp.X, mp.Y + yOff, mp.Z)
+                            _bringActive = true
+                        end
+                    end
                     Functions.AutoHaki()
-                    Functions.EquipWeapon(config, {value = false})
+                    Functions.EquipWeapon(config, {value=false})
                     VirtualUser:CaptureController()
                     VirtualUser:Button1Down(Vector2.new(1280, 672))
-
-                until not config.AutoFarmBone
-                   or not mob.Parent
-                   or not mob:FindFirstChild("Humanoid")
-                   or mob.Humanoid.Health <= 0
-
-                bringConn:Disconnect()
-                Functions.StopTeleport()
-
-                -- FIX: só avança para o próximo mob AQUI, depois de matar
-                if mob:FindFirstChild("Humanoid") == nil
-                or mob.Humanoid.Health <= 0 then
-                    killed = true
-                end
-                if killed then
-                    config.KillCount = (config.KillCount or 0) + 1
-                    print("[AutoFarmBone] Mob morto! Kill #" .. config.KillCount)
-                    AdvanceBoneMob()
-                end
-
-                if mob:FindFirstChild("Humanoid") and mob.Humanoid.Health <= 0 then
-                    config.KillCount = (config.KillCount or 0) + 1
                 end
             end)
         end
@@ -6783,5 +6789,5 @@ _G.UMESP = Functions.UpdateMirageESP     -- UpdateMirageESP
 _G.USESP = Functions.UpdateSeaBeastESP   -- UpdateSeaBeastESP
 _G.TTSI  = Functions.TravelToSubmergedIsland -- TravelToSubmergedIsland
 
-print("[LotuxHub] Functions Updated Loaded v2.7.5")
+print("[LotuxHub] Functions Updated Loaded v2.7.8")
 return Functions
