@@ -1911,7 +1911,6 @@ function Functions.StartAutoFarmBone(config)
         local TweenService = game:GetService("TweenService")
         local CommF_       = GetCommF()
 
-        -- Tabela de mobs do Haunted Castle com quest e localização
         local HAUNTED_MOBS = {
             { Mob = "Reborn Skeleton",  NameQuest = "HauntedQuest1", QuestLv = 1,
               CFrameQuest = CFrame.new(-9479.2168, 141.215088, 5566.09277, 0,0,1,0,1,0,-1,0,0),
@@ -1927,12 +1926,15 @@ function Functions.StartAutoFarmBone(config)
               CFrameMon   = CFrame.new(-9582.022460, 6.251527, 6205.478515) },
         }
 
-        -- Rota entre todos os mobs do Haunted Castle em sequencia
-        -- (nao usa level pq player MAX sempre cairia no mesmo mob)
-        local _boneIdx = 0
-        local function GetBoneMob()
+        -- FIX: _boneIdx SÓ avança quando a quest for completada (mob morreu).
+        -- Antes avançava a cada 0.5s causando o ping-pong entre NPCs.
+        local _boneIdx = 1
+        local _currentQuest = HAUNTED_MOBS[_boneIdx]
+
+        local function AdvanceBoneMob()
             _boneIdx = (_boneIdx % #HAUNTED_MOBS) + 1
-            return HAUNTED_MOBS[_boneIdx]
+            _currentQuest = HAUNTED_MOBS[_boneIdx]
+            print("[AutoFarmBone] Proximo mob: " .. _currentQuest.Mob)
         end
 
         while task.wait(0.5) do
@@ -1944,9 +1946,9 @@ function Functions.StartAutoFarmBone(config)
 
                 CommF_ = CommF_ or GetCommF()
 
-                local quest = GetBoneMob()
+                local quest = _currentQuest
 
-                -- 1) Verifica se tem quest ativa
+                -- 1) Verifica quest ativa
                 local questGui = Player.PlayerGui:FindFirstChild("Main")
                     and Player.PlayerGui.Main:FindFirstChild("Quest")
                 local questVisible = questGui and questGui.Visible or false
@@ -1957,6 +1959,7 @@ function Functions.StartAutoFarmBone(config)
 
                 if not questVisible then
                     -- Sem quest: vai ate o NPC e aceita
+                    print("[AutoFarmBone] Indo pegar quest: " .. quest.Mob)
                     if (quest.CFrameQuest.Position - hrp.Position).Magnitude > 10 then
                         Functions.FlyToPosition(quest.CFrameQuest, TweenService, config,
                             {value = false}, {value = false})
@@ -1968,15 +1971,17 @@ function Functions.StartAutoFarmBone(config)
                     return
                 end
 
-                -- Quest errada: abandona
+                -- Quest errada (pode ter pego a quest de outro NPC): abandona
+                -- FIX: só abandona se o titulo NÃO contém o mob DA QUEST ATUAL
                 local questIsCorrect = string.find(questTitle, quest.Mob, 1, true) ~= nil
                 if not questIsCorrect then
+                    print("[AutoFarmBone] Quest errada (" .. questTitle .. "), abandonando...")
                     pcall(function() CommF_:InvokeServer("AbandonQuest") end)
                     task.wait(0.5)
                     return
                 end
 
-                -- 2) Tem quest certa: vai ate o mob mais proximo
+                -- 2) Tem quest certa: busca mob mais proximo
                 local enemies = workspace:FindFirstChild("Enemies")
                 if not enemies then return end
 
@@ -1994,13 +1999,12 @@ function Functions.StartAutoFarmBone(config)
                 end
 
                 if not mob then
-                    -- Sem mob visivel: vai pra regiao do mob
                     Functions.FlyToPosition(quest.CFrameMon, TweenService, config,
                         {value = false}, {value = false})
                     return
                 end
 
-                -- 3) Farm com bring mob via Heartbeat
+                -- 3) Farm com bring via Heartbeat
                 local mobHrp = mob:FindFirstChild("HumanoidRootPart")
                 if not mobHrp then return end
 
@@ -2010,10 +2014,8 @@ function Functions.StartAutoFarmBone(config)
                 local bringMobName   = quest.Mob
                 local isTp           = {value = false}
 
-                -- Heartbeat: trava todos os mobs do tipo no lugar
                 local bringConn = RunService.Heartbeat:Connect(function()
-                    if not bringActive then return end
-                    if not config.BringMob then return end
+                    if not bringActive or not config.BringMob then return end
                     local enm = workspace:FindFirstChild("Enemies")
                     if not enm then return end
                     for _, otherMob in ipairs(enm:GetChildren()) do
@@ -2036,7 +2038,7 @@ function Functions.StartAutoFarmBone(config)
                     end
                 end)
 
-                -- Loop de ataque
+                local killed = false
                 repeat
                     task.wait()
                     if not mob.Parent then break end
@@ -2046,7 +2048,6 @@ function Functions.StartAutoFarmBone(config)
                     local dist = (mobOriginalPos - hrp.Position).Magnitude
 
                     if dist > 15 then
-                        -- Voando ate o mob
                         bringActive = false
                         if not config.BringMob then
                             mobOriginalPos = mhrp2.Position
@@ -2055,17 +2056,15 @@ function Functions.StartAutoFarmBone(config)
                             CFrame.new(mobOriginalPos) * CFrame.new(0, config.FlyOffset or 15, 0),
                             TweenService, config, isTp, {value = false})
                     else
-                        -- Chegou: ativa bring uma vez
                         isTp.value = false
                         if not bringActive then
                             local yOff = config.BringYOffset or -10
-                            local mp   = mhrp2.Position
-                            bringPos   = CFrame.new(mp.X, mp.Y + yOff, mp.Z)
+                            local cp   = hrp.Position
+                            bringPos   = CFrame.new(cp.X, cp.Y + yOff, cp.Z)
                             bringActive = true
                         end
                     end
 
-                    -- Haki + ataque
                     Functions.AutoHaki()
                     Functions.EquipWeapon(config, {value = false})
                     VirtualUser:CaptureController()
@@ -2078,6 +2077,17 @@ function Functions.StartAutoFarmBone(config)
 
                 bringConn:Disconnect()
                 Functions.StopTeleport()
+
+                -- FIX: só avança para o próximo mob AQUI, depois de matar
+                if mob:FindFirstChild("Humanoid") == nil
+                or mob.Humanoid.Health <= 0 then
+                    killed = true
+                end
+                if killed then
+                    config.KillCount = (config.KillCount or 0) + 1
+                    print("[AutoFarmBone] Mob morto! Kill #" .. config.KillCount)
+                    AdvanceBoneMob()
+                end
 
                 if mob:FindFirstChild("Humanoid") and mob.Humanoid.Health <= 0 then
                     config.KillCount = (config.KillCount or 0) + 1
@@ -2614,17 +2624,32 @@ function Functions.StartAutoRaid(config)
 
 	-- ==========================================
 	-- LOOP PRINCIPAL: FARM RAID
+	-- FIX: SafeFlyTo era bloqueante (tween.Completed:Wait())
+	-- o que travava o loop inteiro enquanto voava.
+	-- Agora o voo roda em task.spawn (nao bloqueia) e o
+	-- loop continua checando mobs em paralelo.
 	-- ==========================================
 	task.spawn(function()
 		local currentIslandNum = 0
 		local atCenter         = false
+		local isFlying         = false  -- evita iniciar multiplos tweens simultaneos
 
-		while task.wait(0.05) do
+		local function FlyAsync(targetCF)
+			if isFlying then return end
+			isFlying = true
+			task.spawn(function()
+				Functions.FlyToRaid(targetCF, config)
+				isFlying = false
+			end)
+		end
+
+		while task.wait(0.1) do
 			if not config.AutoRaid then
 				_G._raidRunning  = false
 				DestroyRaidPart()
 				currentIslandNum = 0
 				atCenter         = false
+				isFlying         = false
 				_portalFired     = false
 				continue
 			end
@@ -2637,6 +2662,7 @@ function Functions.StartAutoRaid(config)
 				_G._raidRunning  = false
 				currentIslandNum = 0
 				atCenter         = false
+				isFlying         = false
 				print("[AutoRaid] Raid encerrada, aguardando proxima...")
 			end
 
@@ -2646,11 +2672,11 @@ function Functions.StartAutoRaid(config)
 				local hum  = char and char:FindFirstChildOfClass("Humanoid")
 				if not hrp or not hum or hum.Health <= 0 then return end
 
-				-- Aguarda confirmacao do teleporte para a raid
 				if not PortalConfirmed() then
 					DestroyRaidPart()
 					currentIslandNum = 0
 					atCenter         = false
+					isFlying         = false
 					return
 				end
 
@@ -2664,93 +2690,85 @@ function Functions.StartAutoRaid(config)
 						highestNum    = i
 					end
 				end
-
 				if not highestIsland then return end
 
-				-- Nova ilha apareceu: precisa voar ate ela
+				-- Nova ilha apareceu
 				if highestNum ~= currentIslandNum then
 					currentIslandNum = highestNum
 					atCenter         = false
-					print("[AutoRaid] Nova ilha detectada: RaidIsland" .. currentIslandNum)
+					isFlying         = false
+					print("[AutoRaid] Nova ilha: RaidIsland" .. currentIslandNum)
 				end
 
 				local centerPos = GetIslandPivotPos(highestIsland)
 				if not centerPos then return end
-
-				-- +8 studs acima do centro da ilha
 				local centerCF = CFrame.new(centerPos.X, centerPos.Y + 8, centerPos.Z)
+				local distToCenter = (hrp.Position - centerCF.Position).Magnitude
 
-				-- Ainda nao chegou ao centro: voa com FlyToRaid (nao cai ao chegar)
+				-- Precisa voar para o centro: usa FlyAsync (nao bloqueia)
 				if not atCenter then
-					print("[AutoRaid] Voando para RaidIsland" .. currentIslandNum)
-					SafeFlyTo(centerCF)
-					local hrpNow = Player.Character and Player.Character:FindFirstChild("HumanoidRootPart")
-					if hrpNow and (hrpNow.Position - centerCF.Position).Magnitude < 40 then
+					if distToCenter < 40 then
 						atCenter = true
+						isFlying = false
 						print("[AutoRaid] No centro de RaidIsland" .. currentIslandNum)
+					else
+						FlyAsync(centerCF)
 					end
 					return
 				end
 
-				-- Reaplica o voo se o _raidPart sumiu ou ficou longe
-				local raidPt = workspace:FindFirstChild("RaidPartTele")
-				if not raidPt then
-					Functions.FlyToRaid(centerCF, config)
-				elseif (hrp.Position - centerCF.Position).Magnitude > 80 then
+				-- Mantém no ar perto do centro se afastou
+				if distToCenter > 80 then
+					FlyAsync(centerCF)
+					return
+				end
+
+				-- Garante RaidPart ativo
+				if not workspace:FindFirstChild("RaidPartTele") then
 					Functions.FlyToRaid(centerCF, config)
 				end
 
 				local enemies = workspace:FindFirstChild("Enemies")
+				if not enemies then return end
 
-				-- ILHA 5: boss tem prioridade
-				if currentIslandNum == 5 and enemies then
+				-- Busca mobs na ilha atual
+				local function FindMobs(bossOnly)
 					for _, v in ipairs(enemies:GetChildren()) do
-						if not config.AutoRaid then return end
-						if RAID_BOSS_SET[v.Name] or v.Name:find("%[Raid Boss%]") then
-							local vHum = v:FindFirstChild("Humanoid")
-							local vHrp = v:FindFirstChild("HumanoidRootPart")
-							if vHrp and vHum and vHum.Health > 0 then
-								print("[AutoRaid] Boss na ilha 5: " .. v.Name)
-								KillBossInstant(v, centerCF)
-								atCenter = true
-								return
-							end
-						end
-					end
-					-- Mobs normais da ilha 5
-					for _, v in ipairs(enemies:GetChildren()) do
-						if not config.AutoRaid then return end
 						local vHrp = v:FindFirstChild("HumanoidRootPart")
 						local vHum = v:FindFirstChild("Humanoid")
-						if vHrp and vHum and vHum.Health > 0
-							and not (RAID_BOSS_SET[v.Name] or v.Name:find("%[Raid Boss%]"))
-							and (vHrp.Position - centerPos).Magnitude <= 2500
-						then
-							print("[AutoRaid] Mob na ilha 5: " .. v.Name)
-							KillMob(v, centerCF)
+						if not vHrp or not vHum or vHum.Health <= 0 then continue end
+						local isBoss = RAID_BOSS_SET[v.Name] or v.Name:find("%[Raid Boss%]")
+						local near   = (vHrp.Position - centerPos).Magnitude <= 2500
+						if not near then continue end
+						if bossOnly and isBoss then return v end
+						if not bossOnly and not isBoss then return v end
+					end
+					return nil
+				end
+
+				-- ILHA 5: boss primeiro, depois mobs normais
+				if currentIslandNum == 5 then
+					local boss = FindMobs(true)
+					if boss then
+						print("[AutoRaid] Boss ilha 5: " .. boss.Name)
+						task.spawn(function()
+							KillBossInstant(boss, centerCF)
 							atCenter = true
-							return
-						end
+						end)
+						return
 					end
 				end
 
-				-- ILHAS 1-4: apenas mobs normais
-				if currentIslandNum >= 1 and currentIslandNum <= 4 and enemies then
-					for _, v in ipairs(enemies:GetChildren()) do
-						if not config.AutoRaid then return end
-						local vHrp = v:FindFirstChild("HumanoidRootPart")
-						local vHum = v:FindFirstChild("Humanoid")
-						if vHrp and vHum and vHum.Health > 0
-							and (vHrp.Position - centerPos).Magnitude <= 2500
-						then
-							print("[AutoRaid] Mob na ilha " .. currentIslandNum .. ": " .. v.Name)
-							KillMob(v, centerCF)
-							atCenter = true
-							return
-						end
-					end
+				-- ILHAS 1-5: mobs normais
+				local mob = FindMobs(false)
+				if mob then
+					print("[AutoRaid] Mob ilha " .. currentIslandNum .. ": " .. mob.Name)
+					task.spawn(function()
+						KillMob(mob, centerCF)
+						atCenter = true
+					end)
 				end
-				-- Sem mobs: fica no ar no centro aguardando proxima ilha
+				-- Sem mobs: fica no centro aguardando spawn
 			end)
 		end
 	end)
