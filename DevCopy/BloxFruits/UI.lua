@@ -3784,4 +3784,4 @@ Notify({
     Type        = "Success",
 })
 
-print("UI Loaded v4.7.3")
+print("UI Loaded v4.7.9")
