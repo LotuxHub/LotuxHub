@@ -1925,11 +1925,16 @@ function Functions.StartAutoFarmBone(config)
               CFrameQuest = CFrame.new(-9516.99316, 172.017181, 6078.46533, 0,0,-1,0,1,0,1,0,0),
               CFrameMon   = CFrame.new(-9582.022460, 6.251527, 6205.478515) },
         }
+        local KILLS_PER_QUEST = 8  -- todas as quests do Haunted Castle pedem 8 kills
 
         -- Maquina de estado: IDLE -> GET_QUEST -> TRAVEL -> FARM
-        -- Evita ping-pong entre NPCs de quest e comparacao de titulo traduzido
+        -- NAO depende do titulo da GUI (e traduzido, nunca bate com quest.Mob).
+        -- NAO chama StartQuest repetidamente (pode resetar progresso no servidor).
+        -- Conta kills localmente: ao atingir KILLS_PER_QUEST, avanca para o
+        -- proximo mob/quest da lista.
         local STATE        = "IDLE"
         local _boneIdx     = 1
+        local _killsThis   = 0
         local _activeMob   = nil
         local _bringConn   = nil
         local _bringActive = false
@@ -1939,7 +1944,8 @@ function Functions.StartAutoFarmBone(config)
         local function CurrentQuest() return HAUNTED_MOBS[_boneIdx] end
 
         local function NextMob()
-            _boneIdx = (_boneIdx % #HAUNTED_MOBS) + 1
+            _boneIdx   = (_boneIdx % #HAUNTED_MOBS) + 1
+            _killsThis = 0
             print("[FarmBone] Proximo mob: " .. HAUNTED_MOBS[_boneIdx].Mob)
         end
 
@@ -1996,29 +2002,23 @@ function Functions.StartAutoFarmBone(config)
             pcall(function()
                 local quest = CurrentQuest()
 
-                -- ── IDLE ──────────────────────────────────────────────
+                -- ── IDLE: decide se precisa pegar quest nova ───────────
                 if STATE == "IDLE" then
                     if HasQuest() then
-                        -- Tem quest ativa: re-aceita a do mob atual
-                        -- NAO compara titulo (e traduzido, nunca bate com quest.Mob)
-                        -- Se o servidor aceitar = trocou para a certa
-                        -- Se rejeitar (ja tem esta) = continua com a atual
-                        pcall(function() CommF_:InvokeServer("StartQuest", quest.NameQuest, quest.QuestLv) end)
-                        task.wait(0.3)
+                        -- Ja tem uma quest ativa (de qualquer mob): assume
+                        -- que serve e vai farmar o mob da lista atual.
+                        -- Nao chama StartQuest aqui (evita reset de progresso).
                         STATE = "TRAVEL"
                     else
                         STATE = "GET_QUEST"
                     end
 
-                -- ── GET_QUEST ──────────────────────────────────────────
+                -- ── GET_QUEST: vai ate o NPC e aceita (UMA vez) ────────
                 elseif STATE == "GET_QUEST" then
                     if HasQuest() then
-                        pcall(function() CommF_:InvokeServer("StartQuest", quest.NameQuest, quest.QuestLv) end)
-                        task.wait(0.3)
                         STATE = "TRAVEL"
                         return
                     end
-                    -- Vai ate o NPC
                     if (quest.CFrameQuest.Position - hrp.Position).Magnitude > 10 then
                         Functions.FlyToPosition(quest.CFrameQuest, TweenService, config, _isTp, {value=false})
                         return
@@ -2027,13 +2027,8 @@ function Functions.StartAutoFarmBone(config)
                     task.wait(0.5)
                     if HasQuest() then STATE = "TRAVEL" end
 
-                -- ── TRAVEL ──────────────────────────────────────────────
+                -- ── TRAVEL: vai ate a area do mob atual ────────────────
                 elseif STATE == "TRAVEL" then
-                    if not HasQuest() then
-                        DisconnectBring(); Functions.StopTeleport()
-                        _activeMob = nil; NextMob(); STATE = "IDLE"
-                        return
-                    end
                     local enemies = workspace:FindFirstChild("Enemies")
                     if not enemies then
                         Functions.FlyToPosition(quest.CFrameMon, TweenService, config, _isTp, {value=false})
@@ -2058,7 +2053,7 @@ function Functions.StartAutoFarmBone(config)
                     StartBringHeartbeat(quest.Mob, hrp)
                     STATE = "FARM"
 
-                -- ── FARM ──────────────────────────────────────────────
+                -- ── FARM: ataca o mob atual ─────────────────────────────
                 elseif STATE == "FARM" then
                     local mob = _activeMob
                     if not mob or not mob.Parent then
@@ -2072,8 +2067,20 @@ function Functions.StartAutoFarmBone(config)
                         DisconnectBring(); Functions.StopTeleport()
                         _activeMob = nil
                         config.KillCount = (config.KillCount or 0) + 1
-                        if not HasQuest() then NextMob(); STATE = "IDLE"
-                        else STATE = "TRAVEL" end
+                        _killsThis = _killsThis + 1
+                        print(("[FarmBone] %s morto! (%d/%d)"):format(quest.Mob, _killsThis, KILLS_PER_QUEST))
+
+                        if _killsThis >= KILLS_PER_QUEST then
+                            -- Quest deveria estar completa: abandona (se ainda visivel)
+                            -- e avanca para o proximo mob/quest da lista
+                            pcall(function() CommF_:InvokeServer("AbandonQuest") end)
+                            task.wait(0.3)
+                            NextMob()
+                            STATE = "IDLE"
+                        else
+                            -- Ainda nao completou: procura outro mob do mesmo tipo
+                            STATE = "TRAVEL"
+                        end
                         return
                     end
                     if not mobHrp then return end
@@ -2329,6 +2336,74 @@ function Functions.StartAutoFactory(config)
     end)
 end
 
+-- =====================================================
+-- DETECTAR ENTRADA NA RAID POR POSICAO/ESTADO DO PLAYER
+-- Metodo confirmado (igual Tiroreal):
+--   1) workspace._WorldOrigin.Locations:FindFirstChild("Island N") (N=1..5)
+--   2) Player.PlayerGui.Main.Timer.Visible == true
+-- RaidMap.RaidIslandN mantido como fallback secundario
+-- =====================================================
+function Functions.StartRaidPositionDetector(config, onRaidDetected)
+    task.spawn(function()
+        local _wasInRaid = false
+
+        while task.wait(0.5) do
+            if not config.AutoRaid then
+                _wasInRaid = false
+                continue
+            end
+
+            pcall(function()
+                local inRaid = false
+
+                -- Sinal 1: _WorldOrigin.Locations."Island N"
+                local origin = workspace:FindFirstChild("_WorldOrigin")
+                local locs   = origin and origin:FindFirstChild("Locations")
+                if locs then
+                    for i = 1, 5 do
+                        if locs:FindFirstChild("Island " .. i) then
+                            inRaid = true
+                            break
+                        end
+                    end
+                end
+
+                -- Sinal 2: Timer da raid visivel
+                if not inRaid then
+                    local ok, vis = pcall(function()
+                        return Player.PlayerGui.Main.Timer.Visible
+                    end)
+                    if ok and vis then inRaid = true end
+                end
+
+                -- Fallback: RaidMap.RaidIslandN
+                if not inRaid then
+                    local map     = workspace:FindFirstChild("Map")
+                    local raidMap = map and map:FindFirstChild("RaidMap")
+                    if raidMap then
+                        for i = 1, 5 do
+                            if raidMap:FindFirstChild("RaidIsland" .. i) then
+                                inRaid = true
+                                break
+                            end
+                        end
+                    end
+                end
+
+                if inRaid and not _wasInRaid then
+                    _wasInRaid = true
+                    print("[RaidDetector] Raid detectada!")
+                    if onRaidDetected then
+                        task.spawn(onRaidDetected)
+                    end
+                elseif not inRaid then
+                    _wasInRaid = false
+                end
+            end)
+        end
+    end)
+end
+
 function Functions.StartAutoRaid(config)
 	_G._currentConfig = config
 
@@ -2359,14 +2434,39 @@ function Functions.StartAutoRaid(config)
 	local _portalFired = false
 
 	-- ==========================================
-	-- DETECCAO: verifica se ha RaidIsland no workspace
+	-- DETECCAO: Timer.Visible + _WorldOrigin.Locations "Island N"
+	-- (metodo confirmado, usado pelo Tiroreal)
+	-- RaidMap.RaidIslandN mantido como fallback secundario
 	-- ==========================================
+	local function GetWorldLocations()
+		local origin = workspace:FindFirstChild("_WorldOrigin")
+		return origin and origin:FindFirstChild("Locations")
+	end
+
+	local function TimerVisible()
+		local ok, vis = pcall(function()
+			return Player.PlayerGui.Main.Timer.Visible
+		end)
+		return ok and vis or false
+	end
+
 	local function IsInRaid()
+		-- Sinal 1: Timer visivel + pelo menos "Island 1" existe
+		local locs = GetWorldLocations()
+		if locs then
+			for i = 1, 5 do
+				if locs:FindFirstChild("Island " .. i) then return true end
+			end
+		end
+		if TimerVisible() then return true end
+
+		-- Fallback: RaidMap.RaidIslandN (caminho alternativo)
 		local map     = workspace:FindFirstChild("Map")
 		local raidMap = map and map:FindFirstChild("RaidMap")
-		if not raidMap then return false end
-		for i = 1, 5 do
-			if raidMap:FindFirstChild("RaidIsland" .. i) then return true end
+		if raidMap then
+			for i = 1, 5 do
+				if raidMap:FindFirstChild("RaidIsland" .. i) then return true end
+			end
 		end
 		return false
 	end
@@ -2402,7 +2502,25 @@ function Functions.StartAutoRaid(config)
 		print("[AutoRaid] Hook xisd instalado")
 	end)
 
-	-- ChildAdded no RaidMap: detecta RaidIsland em tempo real
+	-- ChildAdded em _WorldOrigin.Locations: detecta "Island N" em tempo real
+	-- (metodo primario, confirmado pelo Tiroreal)
+	task.spawn(function()
+		local origin = workspace:FindFirstChild("_WorldOrigin") or workspace:WaitForChild("_WorldOrigin", 60)
+		if not origin then return end
+		local locs = origin:FindFirstChild("Locations") or origin:WaitForChild("Locations", 60)
+		if not locs then return end
+		locs.ChildAdded:Connect(function(child)
+			if child.Name:match("^Island %d$") and not _portalFired then
+				_portalFired = true
+				print("[AutoRaid] " .. child.Name .. " detectada via ChildAdded (_WorldOrigin.Locations)!")
+			end
+		end)
+		if not _portalFired and IsInRaid() then
+			_portalFired = true
+		end
+	end)
+
+	-- ChildAdded no RaidMap: detecta RaidIsland em tempo real (fallback)
 	-- (cobre o caso do hook falhar ou o script iniciar com a raid ja ativa)
 	task.spawn(function()
 		local map = workspace:FindFirstChild("Map") or workspace:WaitForChild("Map", 60)
@@ -2435,6 +2553,10 @@ function Functions.StartAutoRaid(config)
 	-- HELPERS DE ILHA
 	-- ==========================================
 	local function GetIslandPivotPos(island)
+		-- Locations marker geralmente tem .Position direto (Attachment/Part)
+		local ok0, pos0 = pcall(function() return island.Position end)
+		if ok0 and typeof(pos0) == "Vector3" then return pos0 end
+
 		local ok, cf = pcall(function() return island:GetPivot() end)
 		if ok and cf then return cf.Position end
 		if island.PrimaryPart then return island.PrimaryPart.Position end
@@ -2445,6 +2567,13 @@ function Functions.StartAutoRaid(config)
 	end
 
 	local function GetRaidIsland(n)
+		-- Fonte primaria: _WorldOrigin.Locations."Island N"
+		local locs = GetWorldLocations()
+		if locs then
+			local island = locs:FindFirstChild("Island " .. n)
+			if island then return island end
+		end
+		-- Fallback: RaidMap.RaidIslandN
 		local map     = workspace:FindFirstChild("Map")
 		local raidMap = map and map:FindFirstChild("RaidMap")
 		if not raidMap then return nil end
@@ -2639,6 +2768,7 @@ function Functions.StartAutoRaid(config)
 		local currentIslandNum = 0
 		local atCenter         = false
 		local isFlying         = false  -- evita iniciar multiplos tweens simultaneos
+		local _killing         = false  -- guard: evita multiplos task.spawn no mesmo mob
 
 		local function FlyAsync(targetCF)
 			if isFlying then return end
@@ -2755,11 +2885,13 @@ function Functions.StartAutoRaid(config)
 				-- ILHA 5: boss primeiro, depois mobs normais
 				if currentIslandNum == 5 then
 					local boss = FindMobs(true)
-					if boss then
+					if boss and not _killing then
 						print("[AutoRaid] Boss ilha 5: " .. boss.Name)
+						_killing = true
 						task.spawn(function()
 							KillBossInstant(boss, centerCF)
 							atCenter = true
+							_killing = false
 						end)
 						return
 					end
@@ -2767,11 +2899,13 @@ function Functions.StartAutoRaid(config)
 
 				-- ILHAS 1-5: mobs normais
 				local mob = FindMobs(false)
-				if mob then
+				if mob and not _killing then
 					print("[AutoRaid] Mob ilha " .. currentIslandNum .. ": " .. mob.Name)
+					_killing = true
 					task.spawn(function()
 						KillMob(mob, centerCF)
 						atCenter = true
+						_killing = false
 					end)
 				end
 				-- Sem mobs: fica no centro aguardando spawn
@@ -6789,5 +6923,5 @@ _G.UMESP = Functions.UpdateMirageESP     -- UpdateMirageESP
 _G.USESP = Functions.UpdateSeaBeastESP   -- UpdateSeaBeastESP
 _G.TTSI  = Functions.TravelToSubmergedIsland -- TravelToSubmergedIsland
 
-print("[LotuxHub] Functions Updated Loaded v2.7.8")
+print("[LotuxHub] Functions Updated Loaded v2.7.5")
 return Functions
