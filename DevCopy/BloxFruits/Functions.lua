@@ -5,6 +5,24 @@
 local Functions = {}
 
 -- =====================================================
+-- SAFE TASK.SPAWN (captura crashes SEH)
+-- =====================================================
+local _origSpawn = task.spawn
+task.spawn = function(fn, ...)
+    local args = {...}
+    return _origSpawn(function()
+        local ok, err = xpcall(function()
+            fn(table.unpack(args))
+        end, function(e)
+            return tostring(e) .. "\n" .. debug.traceback("", 2)
+        end)
+        if not ok then
+            warn("[LotuxHub] task.spawn crash:\n" .. tostring(err))
+        end
+    end)
+end
+
+-- =====================================================
 -- SERVICES
 -- =====================================================
 local Players             = game:GetService("Players")
