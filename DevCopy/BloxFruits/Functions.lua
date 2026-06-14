@@ -2451,23 +2451,47 @@ function Functions.StartAutoRaid(config)
 	end
 
 	local function IsInRaid()
-		-- Sinal 1: Timer visivel + pelo menos "Island 1" existe
+		local char = Player.Character
+		local hrp  = char and char:FindFirstChild("HumanoidRootPart")
+
+		-- Sinal mais confiavel: Timer da raid visivel NO PLAYER LOCAL
+		-- Esse GUI so aparece para o dono da raid, nao e compartilhado
+		if TimerVisible() then return true end
+
+		-- _WorldOrigin.Locations e especifico por player, nao conflita
 		local locs = GetWorldLocations()
 		if locs then
 			for i = 1, 5 do
 				if locs:FindFirstChild("Island " .. i) then return true end
 			end
 		end
-		if TimerVisible() then return true end
 
-		-- Fallback: RaidMap.RaidIslandN (caminho alternativo)
+		-- Fallback: RaidMap pode ter multiplas raids.
+		-- Considera "na raid" somente se alguma RaidIsland estiver
+		-- a menos de 4000 studs do player (ignora raids de outros)
 		local map     = workspace:FindFirstChild("Map")
 		local raidMap = map and map:FindFirstChild("RaidMap")
-		if raidMap then
-			for i = 1, 5 do
-				if raidMap:FindFirstChild("RaidIsland" .. i) then return true end
+		if raidMap and hrp then
+			for _, child in ipairs(raidMap:GetChildren()) do
+				if child.Name:match("^RaidIsland%d") then
+					local pos = nil
+					pcall(function()
+						if child:IsA("Model") and child.PrimaryPart then
+							pos = child.PrimaryPart.Position
+						elseif child:IsA("Model") then
+							local ok, cf = pcall(function() return child:GetPivot() end)
+							if ok then pos = cf.Position end
+						elseif child:IsA("BasePart") then
+							pos = child.Position
+						end
+					end)
+					if pos and (pos - hrp.Position).Magnitude <= 4000 then
+						return true
+					end
+				end
 			end
 		end
+
 		return false
 	end
 
@@ -2567,17 +2591,79 @@ function Functions.StartAutoRaid(config)
 	end
 
 	local function GetRaidIsland(n)
+		local char = Player.Character
+		local hrp  = char and char:FindFirstChild("HumanoidRootPart")
+
 		-- Fonte primaria: _WorldOrigin.Locations."Island N"
+		-- Quando ha multiplas raids, cada player tem seu proprio
+		-- _WorldOrigin apontando para a ILHA DELE especificamente.
+		-- O ObjectValue/IntValue dentro de Locations referencia
+		-- o modelo fisico correto sem ambiguidade.
 		local locs = GetWorldLocations()
 		if locs then
 			local island = locs:FindFirstChild("Island " .. n)
-			if island then return island end
+			if island then
+				-- Se for um ObjectValue/IntValue que aponta pro modelo real
+				if island:IsA("ObjectValue") and island.Value then
+					return island.Value
+				end
+				-- Se for o proprio modelo (BasePart ou Model)
+				if island:IsA("Model") or island:IsA("BasePart") then
+					return island
+				end
+			end
 		end
-		-- Fallback: RaidMap.RaidIslandN
+
+		-- Fallback: RaidMap pode ter multiplos RaidIsland1/2/3...
+		-- quando dois jogadores fazem raid ao mesmo tempo.
+		-- Filtra pelo mais proximo do player para pegar o correto.
 		local map     = workspace:FindFirstChild("Map")
 		local raidMap = map and map:FindFirstChild("RaidMap")
 		if not raidMap then return nil end
-		return raidMap:FindFirstChild("RaidIsland" .. n)
+
+		if not hrp then
+			-- Sem HRP: retorna o primeiro que achar (comportamento legado)
+			return raidMap:FindFirstChild("RaidIsland" .. n)
+		end
+
+		-- Coleta TODOS os objetos com o nome "RaidIslandN" (pode haver varios)
+		local candidates = {}
+		for _, child in ipairs(raidMap:GetChildren()) do
+			if child.Name == "RaidIsland" .. n then
+				table.insert(candidates, child)
+			end
+		end
+
+		if #candidates == 0 then return nil end
+		if #candidates == 1 then return candidates[1] end
+
+		-- Ha multiplos (duas raids simultaneas): pega o mais perto do player
+		local best, bestDist = nil, math.huge
+		for _, island in ipairs(candidates) do
+			local pos = nil
+			pcall(function()
+				if island:IsA("Model") and island.PrimaryPart then
+					pos = island.PrimaryPart.Position
+				elseif island:IsA("Model") then
+					local ok, cf = pcall(function() return island:GetPivot() end)
+					if ok then pos = cf.Position end
+				elseif island:IsA("BasePart") then
+					pos = island.Position
+				end
+			end)
+			if pos then
+				local d = (pos - hrp.Position).Magnitude
+				if d < bestDist then
+					bestDist = d
+					best     = island
+				end
+			end
+		end
+
+		if best then
+			print(("[AutoRaid] Multiplas RaidIsland%d detectadas (%d total) — usando a mais proxima (%.0f studs)"):format(n, #candidates, bestDist))
+		end
+		return best
 	end
 
 	-- ==========================================
@@ -6923,5 +7009,5 @@ _G.UMESP = Functions.UpdateMirageESP     -- UpdateMirageESP
 _G.USESP = Functions.UpdateSeaBeastESP   -- UpdateSeaBeastESP
 _G.TTSI  = Functions.TravelToSubmergedIsland -- TravelToSubmergedIsland
 
-print("[LotuxHub] Functions Updated Loaded v2.7.5")
+print("[LotuxHub] Functions Updated Loaded v2.7.9")
 return Functions
