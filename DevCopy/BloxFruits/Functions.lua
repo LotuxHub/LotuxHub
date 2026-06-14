@@ -5,19 +5,18 @@
 local Functions = {}
 
 -- =====================================================
--- SAFE TASK.SPAWN (captura crashes SEH)
+-- SAFE SPAWN (captura crashes SEH sem modificar task)
 -- =====================================================
-local _origSpawn = task.spawn
-task.spawn = function(fn, ...)
+local function SafeSpawn(fn, ...)
     local args = {...}
-    return _origSpawn(function()
+    return task.spawn(function()
         local ok, err = xpcall(function()
             fn(table.unpack(args))
         end, function(e)
             return tostring(e) .. "\n" .. debug.traceback("", 2)
         end)
         if not ok then
-            warn("[LotuxHub] task.spawn crash:\n" .. tostring(err))
+            warn("[LotuxHub] SafeSpawn crash:\n" .. tostring(err))
         end
     end)
 end
@@ -290,7 +289,7 @@ end
 
 -- StartWeaponResolver - Loop de fundo que mantem SelectedWeaponName atualizado
 function Functions.StartWeaponResolver(config)
-    task.spawn(function()
+    SafeSpawn(function()
         while task.wait(0.3) do
             Functions.ResolveWeaponNow(config)
         end
@@ -424,7 +423,7 @@ function Functions.ActivateBuso(commF_)
 end
 
 function Functions.StartHakiLoop(config, commF_)
-    task.spawn(function()
+    SafeSpawn(function()
         while task.wait(2) do
             if config.AutoBusoHaki then
                 Functions.AutoHaki()
@@ -930,7 +929,7 @@ end
 Functions.BringMob = Functions.BringMobFunc
 
 --[[function Functions.StartBringMobLoop(config, stateRef) -- referencia
-    task.spawn(function()
+    SafeSpawn(function()
         while task.wait() do
             pcall(function()
                 if not config.BringMob or not stateRef.StartBring or not stateRef.MonFarm then return end
@@ -1104,7 +1103,7 @@ function Functions.FastAttack(targetMob, config, notAutoEquipRef)
 end
 
 function Functions.FastAttackAdvanced()
-    task.spawn(function()
+    SafeSpawn(function()
         -- Descobre o RemoteEvent com Id (usado pelo anti-cheat do BF para validar hits)
         local remote, idremote
         local function scanForRemote(container)
@@ -1223,7 +1222,7 @@ end
 
 function Functions.StartAutoSkill(config)
     -- Loop geral AutoSkill (Z+X+C) - equipa arma e usa todas as skills
-    task.spawn(function()
+    SafeSpawn(function()
         while task.wait(0.5) do
             if not config.AutoSkill then continue end
             pcall(function()
@@ -1251,7 +1250,7 @@ function Functions.StartAutoSkill(config)
     end)
 
     -- Loop individual AutoSkillZ
-    task.spawn(function()
+    SafeSpawn(function()
         while task.wait(0.5) do
             if not config.AutoSkillZ then continue end
             pcall(function()
@@ -1267,7 +1266,7 @@ function Functions.StartAutoSkill(config)
     end)
 
     -- Loop individual AutoSkillX
-    task.spawn(function()
+    SafeSpawn(function()
         while task.wait(0.5) do
             if not config.AutoSkillX then continue end
             pcall(function()
@@ -1283,7 +1282,7 @@ function Functions.StartAutoSkill(config)
     end)
 
     -- Loop individual AutoSkillC
-    task.spawn(function()
+    SafeSpawn(function()
         while task.wait(0.5) do
             if not config.AutoSkillC then continue end
             pcall(function()
@@ -1304,7 +1303,7 @@ end
 -- =====================================================
 
 function Functions.StartAutoRace(config)
-    task.spawn(function()
+    SafeSpawn(function()
         while task.wait(0.1) do
             if not config.AutoRaceV3 then continue end
             pcall(function()
@@ -1313,7 +1312,7 @@ function Functions.StartAutoRace(config)
         end
     end)
 
-    task.spawn(function()
+    SafeSpawn(function()
         while task.wait(0.1) do
             if not config.AutoRaceV4 then continue end
             pcall(function()
@@ -1326,7 +1325,7 @@ function Functions.StartAutoRace(config)
 end
 
 function Functions.StartAutoQuestRace(config)
-    task.spawn(function()
+    SafeSpawn(function()
         while task.wait(0.1) do
             if not config.AutoQuestRace then continue end
             pcall(function()
@@ -1389,7 +1388,7 @@ function Functions.StartAutoQuestRace(config)
 end
 
 function Functions.StartAutoDooHee(config)
-    task.spawn(function()
+    SafeSpawn(function()
         while task.wait(0.1) do
             if not config.AutoDooHee then continue end
             pcall(function()
@@ -1410,7 +1409,7 @@ end
 -- =====================================================
 
 function Functions.StartAutoBartilo(config)
-    task.spawn(function()
+    SafeSpawn(function()
         while task.wait(0.1) do
             if not config.AutoBartilo then continue end
             pcall(function()
@@ -1494,7 +1493,7 @@ end
 -- =====================================================
 
 function Functions.StartAutoEliteHunter(config)
-    task.spawn(function()
+    SafeSpawn(function()
         while task.wait(0.1) do
             if not config.AutoEliteHunter then continue end
             pcall(function()
@@ -1547,7 +1546,7 @@ end
 -- =====================================================
 
 function Functions.StartAutoYama(config)
-    task.spawn(function()
+    SafeSpawn(function()
         while task.wait(0.5) do
             if not config.AutoYama then continue end
             pcall(function()
@@ -1564,7 +1563,7 @@ function Functions.StartAutoYama(config)
 end
 
 function Functions.StartAutoHolyTorch(config)
-    task.spawn(function()
+    SafeSpawn(function()
         while task.wait(0.5) do
             if not config.AutoHolyTorch then continue end
             pcall(function()
@@ -1597,7 +1596,7 @@ function Functions.StartAutoHolyTorch(config)
 end
 
 function Functions.StartAutoGetTushita(config)
-    task.spawn(function()
+    SafeSpawn(function()
         while task.wait(0.1) do
             if not config.AutoGetTushita then continue end
             pcall(function()
@@ -1628,7 +1627,7 @@ function Functions.StartAutoGetTushita(config)
 end
 
 function Functions.StartAutoRengoku(config)
-    task.spawn(function()
+    SafeSpawn(function()
         while task.wait(0.1) do
             if not config.AutoRengoku then continue end
             pcall(function()
@@ -1672,7 +1671,7 @@ end
 
 -- Soul Reaper (Hallow Essence)
 function Functions.StartAutoSoulReaper(config)
-    task.spawn(function()
+    SafeSpawn(function()
         while task.wait() do
             if not config.AutoSoulReaper then continue end
             pcall(function()
@@ -1712,7 +1711,7 @@ end
 function Functions.StartAutoTyrantSpawn(config)
     local TyrantPos = CFrame.new(-16194.0048828125, 155.21844482421875, 1420.719970703125)
 
-    task.spawn(function()
+    SafeSpawn(function()
         while task.wait() do
             if not config.AutoTyrantSpawn then continue end
             pcall(function()
@@ -1745,7 +1744,7 @@ end
 function Functions.StartAutoCakePrince(config)
     local CakePos = CFrame.new(-2130.80712890625, 69.95634460449219, -12327.83984375)
 
-    task.spawn(function()
+    SafeSpawn(function()
         while task.wait() do
             if not config.AutoCakePrince then continue end
             pcall(function()
@@ -1810,7 +1809,7 @@ end
 
 -- Dough King
 function Functions.StartAutoDoughKing(config)
-    task.spawn(function()
+    SafeSpawn(function()
         while task.wait() do
             if not config.AutoDoughKing then continue end
             pcall(function()
@@ -1857,7 +1856,7 @@ end
 
 -- rip_indra (Big Mom equivalente)
 function Functions.StartAutoRipIndra(config)
-    task.spawn(function()
+    SafeSpawn(function()
         while task.wait() do
             if not config.AutoRipIndra then continue end
             pcall(function()
@@ -1892,7 +1891,7 @@ end
 
 -- Auto Big Mom (alias)
 function Functions.StartAutoBigMom(config)
-    task.spawn(function()
+    SafeSpawn(function()
         while task.wait() do
             if not config.AutoBigMom then continue end
             pcall(function()
@@ -1924,7 +1923,7 @@ end
 -- Mobs: Reborn Skeleton (Lv1975), Living Zombie (Lv2000),
 --       Demonic Soul (Lv2025), Posessed Mummy (Lv2050)
 function Functions.StartAutoFarmBone(config)
-    task.spawn(function()
+    SafeSpawn(function()
         local RunService   = game:GetService("RunService")
         local TweenService = game:GetService("TweenService")
         local CommF_       = GetCommF()
@@ -2130,7 +2129,7 @@ end
 
 -- Auto Pray / Try Luck (Bone Island rituals)
 function Functions.StartAutoPray(config)
-    task.spawn(function()
+    SafeSpawn(function()
         while task.wait(0.1) do
             if not config.AutoPray then continue end
             pcall(function()
@@ -2143,7 +2142,7 @@ function Functions.StartAutoPray(config)
 end
 
 function Functions.StartAutoTryLuck(config)
-    task.spawn(function()
+    SafeSpawn(function()
         while task.wait(1) do
             if not config.AutoTryLuck then continue end
             pcall(function()
@@ -2160,7 +2159,7 @@ end
 
 -- Auto Trade Bone
 function Functions.StartAutoTradeBone(config)
-    task.spawn(function()
+    SafeSpawn(function()
         while task.wait(0.1) do
             if not config.AutoTradeBone then continue end
             pcall(function()
@@ -2172,7 +2171,7 @@ end
 
 -- Auto Haki V2 (Desbloquear)
 function Functions.StartAutoHakiV2(config)
-    task.spawn(function()
+    SafeSpawn(function()
         while task.wait(0.1) do
             if not config.AutoHakiV2 then continue end
             pcall(function()
@@ -2188,7 +2187,7 @@ end
 
 -- Auto Unlock Temple of Time
 function Functions.StartAutoUnlockTemple(config)
-    task.spawn(function()
+    SafeSpawn(function()
         while task.wait(0.1) do
             if not config.AutoUnlockTemple then continue end
             pcall(function()
@@ -2204,7 +2203,7 @@ end
 
 -- Auto God Human (Sea 3)
 function Functions.StartAutoGodHuman(config)
-    task.spawn(function()
+    SafeSpawn(function()
         while task.wait(0.5) do
             if not config.AutoGodHuman then continue end
             pcall(function()
@@ -2216,7 +2215,7 @@ end
 
 -- Auto Dragon Taylor (Dragon Talon)
 function Functions.StartAutoDragonTaylor(config)
-    task.spawn(function()
+    SafeSpawn(function()
         while task.wait(0.5) do
             if not config.AutoDragonTaylor then continue end
             pcall(function()
@@ -2228,7 +2227,7 @@ end
 
 -- Auto Electric Claw
 function Functions.StartAutoElectricClaw(config)
-    task.spawn(function()
+    SafeSpawn(function()
         while task.wait(0.5) do
             if not config.AutoElectricClaw then continue end
             pcall(function()
@@ -2244,7 +2243,7 @@ end
 
 -- Auto Dark Beard
 function Functions.StartAutoDarkBeard(config)
-    task.spawn(function()
+    SafeSpawn(function()
         while task.wait() do
             if not config.AutoDarkBeard then continue end
             pcall(function()
@@ -2273,7 +2272,7 @@ end
 
 -- Auto Gray Beard (Greybeard)
 function Functions.StartAutoGrayBeard(config)
-    task.spawn(function()
+    SafeSpawn(function()
         while task.wait() do
             if not config.AutoGrayBeard then continue end
             pcall(function()
@@ -2305,7 +2304,7 @@ end
 
 -- Auto Sharkman V2
 function Functions.StartAutoSharkmanV2(config)
-    task.spawn(function()
+    SafeSpawn(function()
         while task.wait(0.5) do
             if not config.AutoSharkmanV2 then continue end
             pcall(function()
@@ -2318,7 +2317,7 @@ end
 
 -- Auto Death Step
 function Functions.StartAutoDeathStep(config)
-    task.spawn(function()
+    SafeSpawn(function()
         while task.wait(0.5) do
             if not config.AutoDeathStep then continue end
             pcall(function()
@@ -2330,7 +2329,7 @@ end
 
 -- Auto Factory (Sea 2)
 function Functions.StartAutoFactory(config)
-    task.spawn(function()
+    SafeSpawn(function()
         while task.wait() do
             if not config.AutoFactory then continue end
             pcall(function()
@@ -2362,7 +2361,7 @@ end
 -- RaidMap.RaidIslandN mantido como fallback secundario
 -- =====================================================
 function Functions.StartRaidPositionDetector(config, onRaidDetected)
-    task.spawn(function()
+    SafeSpawn(function()
         local _wasInRaid = false
 
         while task.wait(0.5) do
@@ -2546,7 +2545,7 @@ function Functions.StartAutoRaid(config)
 
 	-- ChildAdded em _WorldOrigin.Locations: detecta "Island N" em tempo real
 	-- (metodo primario, confirmado pelo Tiroreal)
-	task.spawn(function()
+	SafeSpawn(function()
 		local origin = workspace:FindFirstChild("_WorldOrigin") or workspace:WaitForChild("_WorldOrigin", 60)
 		if not origin then return end
 		local locs = origin:FindFirstChild("Locations") or origin:WaitForChild("Locations", 60)
@@ -2564,7 +2563,7 @@ function Functions.StartAutoRaid(config)
 
 	-- ChildAdded no RaidMap: detecta RaidIsland em tempo real (fallback)
 	-- (cobre o caso do hook falhar ou o script iniciar com a raid ja ativa)
-	task.spawn(function()
+	SafeSpawn(function()
 		local map = workspace:FindFirstChild("Map") or workspace:WaitForChild("Map", 60)
 		if not map then return end
 		local raidMap = map:FindFirstChild("RaidMap") or map:WaitForChild("RaidMap", 60)
@@ -2759,7 +2758,7 @@ function Functions.StartAutoRaid(config)
 	-- ==========================================
 	-- LOOP: COMPRAR CHIP COM BELI (AutoBuyChipRaid)
 	-- ==========================================
-	task.spawn(function()
+	SafeSpawn(function()
 		while task.wait(1) do
 			if not config.AutoBuyChipRaid then continue end
 			pcall(function()
@@ -2794,7 +2793,7 @@ function Functions.StartAutoRaid(config)
 	-- ==========================================
 	-- LOOP: COMPRAR CHIP COM FRUTA (AutoBuyChipDF)
 	-- ==========================================
-	task.spawn(function()
+	SafeSpawn(function()
 		while task.wait(1) do
 			if not _G.AutoBuyChipDF then continue end
 			pcall(function()
@@ -2829,7 +2828,7 @@ function Functions.StartAutoRaid(config)
 	-- ==========================================
 	-- LOOP: INICIAR RAID
 	-- ==========================================
-	task.spawn(function()
+	SafeSpawn(function()
 		while task.wait(0.5) do
 			if not config.AutoStartRaid then continue end
 			pcall(function()
@@ -2868,7 +2867,7 @@ function Functions.StartAutoRaid(config)
 	-- Agora o voo roda em task.spawn (nao bloqueia) e o
 	-- loop continua checando mobs em paralelo.
 	-- ==========================================
-	task.spawn(function()
+	SafeSpawn(function()
 		local currentIslandNum = 0
 		local atCenter         = false
 		local isFlying         = false  -- evita iniciar multiplos tweens simultaneos
@@ -2877,7 +2876,7 @@ function Functions.StartAutoRaid(config)
 		local function FlyAsync(targetCF)
 			if isFlying then return end
 			isFlying = true
-			task.spawn(function()
+			SafeSpawn(function()
 				Functions.FlyToRaid(targetCF, config)
 				isFlying = false
 			end)
@@ -2992,7 +2991,7 @@ function Functions.StartAutoRaid(config)
 					if boss and not _killing then
 						print("[AutoRaid] Boss ilha 5: " .. boss.Name)
 						_killing = true
-						task.spawn(function()
+						SafeSpawn(function()
 							KillBossInstant(boss, centerCF)
 							atCenter = true
 							_killing = false
@@ -3006,7 +3005,7 @@ function Functions.StartAutoRaid(config)
 				if mob and not _killing then
 					print("[AutoRaid] Mob ilha " .. currentIslandNum .. ": " .. mob.Name)
 					_killing = true
-					task.spawn(function()
+					SafeSpawn(function()
 						KillMob(mob, centerCF)
 						atCenter = true
 						_killing = false
@@ -3020,7 +3019,7 @@ end
 -- AWAKENER FRUIT (ativar frutas desperto no raid)
 -- =====================================================
 function Functions.StartAutoAwakenAbilities(config)
-    task.spawn(function()
+    SafeSpawn(function()
         while task.wait(0.1) do
             if not _G.AutoAwakening then continue end
             pcall(function()
@@ -3044,7 +3043,7 @@ function Functions.StartAutoLoadFruitCheap(config)
         "Ripple-Ripple","Door-Door","Pain-Pain"
     }
 
-    task.spawn(function()
+    SafeSpawn(function()
         while task.wait(0.1) do
             if not config.AutoFruit then continue end
             pcall(function()
@@ -3060,7 +3059,7 @@ end
 -- TWEEN FRUIT - CORRIGIDO
 -- =====================================================
 function Functions.StartTweenFruit(config)
-    task.spawn(function()
+    SafeSpawn(function()
         while task.wait(0.5) do
             if not config.TweenFlyFruit then continue end
             pcall(function()
@@ -3113,7 +3112,7 @@ end
 
 -- Grab Fruit: TP direto (sem tween, instantâneo)
 function Functions.StartGrabFruit(config)
-    task.spawn(function()
+    SafeSpawn(function()
         while task.wait(0.5) do
             if not config.GrabFruit then continue end
             pcall(function()
@@ -3132,7 +3131,7 @@ end
 
 -- Auto Saber (Sea 1 & 2)
 function Functions.StartAutoBuyTTK(config)
-    task.spawn(function()
+    SafeSpawn(function()
         while task.wait() do
             if not config.AutoBuyTTK then continue end
             pcall(function()
@@ -3177,7 +3176,7 @@ end
 
 -- Auto Dark Blade V2
 function Functions.StartAutoDarkBladeV2(config)
-    task.spawn(function()
+    SafeSpawn(function()
         while task.wait(0.5) do
             if not config.AutoDarkBladeV2 then continue end
             pcall(function()
@@ -3196,7 +3195,7 @@ end
 
 -- Auto Sea 2 (navegar de Sea 1 para Sea 2)
 function Functions.StartAutoSea2(config)
-    task.spawn(function()
+    SafeSpawn(function()
         while task.wait() do
             if not config.AutoSea2 then continue end
             pcall(function()
@@ -3216,7 +3215,7 @@ end
 
 -- Auto Sea 3 (navegar para Sea 3 via rip_indra)
 function Functions.StartAutoSea3(config)
-    task.spawn(function()
+    SafeSpawn(function()
         local SPAWN_CF   = CFrame.new(-26880.93359375, 22.848554611206, 473.18951416016)
         local travelCooldown = false
 
@@ -3413,7 +3412,7 @@ function Functions.StartAutoPirateRaid(config)
     -- =====================================================
     -- LOOP PRINCIPAL
     -- =====================================================
-    task.spawn(function()
+    SafeSpawn(function()
         local currentIsland = 1   -- ilha atual (1 a 5)
 
         while task.wait(0.1) do
@@ -3515,7 +3514,7 @@ function Functions.StartAutoPirateRaid(config)
 end
 -- Auto Farm Chocola Island
 function Functions.StartAutoFarmChocola(config)
-    task.spawn(function()
+    SafeSpawn(function()
         while task.wait() do
             if not config.FarmChocola then continue end
             pcall(function()
@@ -3550,7 +3549,7 @@ end
 -- =====================================================
 
 function Functions.StartKillAura(config)
-    task.spawn(function()
+    SafeSpawn(function()
         while task.wait(0.05) do
             if not config.KillAura then continue end
             pcall(function()
@@ -3578,7 +3577,7 @@ function Functions.StartKillAura(config)
 end
 
 function Functions.StartAutoPlayerHunter(config)
-    task.spawn(function()
+    SafeSpawn(function()
         while task.wait(0.5) do
             if not config.AutoPlayerHunter and not config.AutoKillPlayer then continue end
             pcall(function()
@@ -3613,7 +3612,7 @@ function Functions.StartSailBoat(config)
         CFrame.new(-42250.2227, -0.3221744, 9247.07715),
     }
 
-    task.spawn(function()
+    SafeSpawn(function()
         while task.wait(0.1) do
             if not config.SailBoat then continue end
             pcall(function()
@@ -3655,7 +3654,7 @@ function Functions.StartSailBoat(config)
 end
 
 function Functions.StartAutoTerrorshark(config)
-    task.spawn(function()
+    SafeSpawn(function()
         while task.wait(0.1) do
             if not config.AutoTerrorshark then continue end
             pcall(function()
@@ -3718,7 +3717,7 @@ end
 -- =====================================================
 
 function Functions.StartAutoMysticIsland(config)
-    task.spawn(function()
+    SafeSpawn(function()
         while task.wait(0.5) do
             if not config.AutoMysticIsland then continue end
             pcall(function()
@@ -3735,7 +3734,7 @@ function Functions.StartAutoMysticIsland(config)
 end
 
 function Functions.StartTweenToKitsune(config)
-    task.spawn(function()
+    SafeSpawn(function()
         while task.wait(0.1) do
             if not config.TweenToKitsune then continue end
             pcall(function()
@@ -3754,7 +3753,7 @@ function Functions.StartTweenToKitsune(config)
 end
 
 function Functions.StartTweenMGear(config)
-    task.spawn(function()
+    SafeSpawn(function()
         while task.wait(0.1) do
             if not config.TweenMGear then continue end
             pcall(function()
@@ -3771,7 +3770,7 @@ function Functions.StartTweenMGear(config)
 end
 
 function Functions.StartAutoEmber(config)
-    task.spawn(function()
+    SafeSpawn(function()
         while task.wait(0.5) do
             if not config.AutoAzuerEmber and not config.AutoBlazeEmber then continue end
             pcall(function()
@@ -3806,7 +3805,7 @@ function Functions.StartAutoHydraTree(config)
         CFrame.new(5650, 150, -450),
     }
 
-    task.spawn(function()
+    SafeSpawn(function()
         while task.wait(0.1) do
             if not config.AutoHydraTree then continue end
             pcall(function()
@@ -3835,7 +3834,7 @@ function Functions.StartAutoHydraTree(config)
 end
 
 function Functions.StartAutoMobDragon(config)
-    task.spawn(function()
+    SafeSpawn(function()
         while task.wait(0.1) do
             if not config.AutoMobDragon then continue end
             pcall(function()
@@ -3867,7 +3866,7 @@ end
 -- =====================================================
 
 function Functions.StartDefendVolcano(config)
-    task.spawn(function()
+    SafeSpawn(function()
         while task.wait(0.1) do
             if not config.DefendVolcano then continue end
             pcall(function()
@@ -3897,7 +3896,7 @@ function Functions.StartDefendVolcano(config)
 end
 
 function Functions.StartTweenVolcano(config)
-    task.spawn(function()
+    SafeSpawn(function()
         while task.wait(0.5) do
             if not config.TweenVolcano then continue end
             pcall(function()
@@ -3915,7 +3914,7 @@ function Functions.StartTweenVolcano(config)
 end
 
 function Functions.StartAutoFindPrehistoric(config)
-    task.spawn(function()
+    SafeSpawn(function()
         while task.wait(1) do
             if not config.AutoFindPrehistoric then continue end
             pcall(function()
@@ -3940,7 +3939,7 @@ end
 -- =====================================================
 
 function Functions.StartAutoCollectBone(config)
-    task.spawn(function()
+    SafeSpawn(function()
         while task.wait(0.5) do
             if not config.AutoCollectBone then continue end
             pcall(function()
@@ -3956,7 +3955,7 @@ function Functions.StartAutoCollectBone(config)
 end
 
 function Functions.StartAutoCollectEgg(config)
-    task.spawn(function()
+    SafeSpawn(function()
         while task.wait(0.5) do
             if not config.CollectEgg then continue end
             pcall(function()
@@ -3967,7 +3966,7 @@ function Functions.StartAutoCollectEgg(config)
 end
 
 function Functions.StartFarmChest(config, isTeleportingRef, notAutoEquipRef)
-    task.spawn(function()
+    SafeSpawn(function()
         while task.wait(0.2) do
             if not config.FarmChest then continue end
             pcall(function()
@@ -4004,7 +4003,7 @@ end
 -- =====================================================
 
 function Functions.StartAutoStoreFruit(config)
-    task.spawn(function()
+    SafeSpawn(function()
         while task.wait(0.5) do
             if not config.AutoStoreFruit then continue end
             pcall(function()
@@ -4024,7 +4023,7 @@ function Functions.StartAutoStoreFruit(config)
 end
 
 function Functions.StartTweenFlyFruit(config, isTeleportingRef, notAutoEquipRef)
-    task.spawn(function()
+    SafeSpawn(function()
         while task.wait(0.3) do
             if not config.TweenFlyFruit then continue end
             pcall(function()
@@ -4090,7 +4089,7 @@ end
 -- Notificador de fruta spawnada
 -- Chama Notify quando uma nova fruta aparece no Workspace.Fruit ou workspace direto
 function Functions.StartFruitSpawnNotifier(config, notifyFn)
-    task.spawn(function()
+    SafeSpawn(function()
         local knownFruits = {}
 
         -- Inicializa com as frutas ja existentes (nao notifica as atuais)
@@ -4160,7 +4159,7 @@ end
 
 
 function Functions.StartAutoFruit(config)
-    task.spawn(function()
+    SafeSpawn(function()
         while task.wait(1) do
             if not config.AutoFruit then continue end
             pcall(function()
@@ -4175,7 +4174,7 @@ end
 -- =====================================================
 
 function Functions.StartAutoBuyEnhancement(config)
-    task.spawn(function()
+    SafeSpawn(function()
         while task.wait(1) do
             if not config.AutoBuyEnhancementColour then continue end
             pcall(function()
@@ -4186,7 +4185,7 @@ function Functions.StartAutoBuyEnhancement(config)
 end
 
 function Functions.StartAutoBuyLegendarySword(config)
-    task.spawn(function()
+    SafeSpawn(function()
         while task.wait(0.5) do
             if not config.AutoBuyLegendarySword then continue end
             pcall(function()
@@ -4244,7 +4243,7 @@ function Functions.StartAutoBarista(config)
         ["Purple"] = 7, ["Pink"]   = 8,
     }
 
-    task.spawn(function()
+    SafeSpawn(function()
         while task.wait(1) do
             if not config.AutoBarista then continue end
             pcall(function()
@@ -4256,7 +4255,7 @@ function Functions.StartAutoBarista(config)
 end
 
 function Functions.StartAutoFarmObsHaki(config)
-    task.spawn(function()
+    SafeSpawn(function()
         while task.wait(0.1) do
             if not config.AutoFarmObsHaki then continue end
             pcall(function()
@@ -4281,7 +4280,7 @@ function Functions.StartAutoFarmObsHaki(config)
 end
 
 function Functions.CollectBerry(config, hopFunc)
-    task.spawn(function()
+    SafeSpawn(function()
         while task.wait() do
             if not config.AutoCollectBerry then continue end
             local char = Player.Character
@@ -4365,7 +4364,7 @@ function Functions.StartAutoDungeon(config)
         end
     end
 
-    task.spawn(function()
+    SafeSpawn(function()
         while task.wait(0.5) do
             if not config.AutoDungeon then continue end
             pcall(function()
@@ -4385,7 +4384,7 @@ end
 -- =====================================================
 
 function Functions.StartSafeMode(config)
-    task.spawn(function()
+    SafeSpawn(function()
         while task.wait(0.1) do
             if not config.SafeMode then continue end
             pcall(function()
@@ -4510,7 +4509,7 @@ function Functions.ServerHop()
         end
     end
 
-    task.spawn(function()
+    SafeSpawn(function()
         while true do
             task.wait(0.1)
             pcall(fetchServers)
@@ -4612,7 +4611,7 @@ function Functions.SetDisableGameNotify(enabled)
 end
 
 function Functions.StartDisableGameNotify(config)
-    task.spawn(function()
+    SafeSpawn(function()
         while task.wait(0.5) do
             pcall(function()
                 local notify = Player.PlayerGui:FindFirstChild("Notifications")
@@ -5215,7 +5214,7 @@ function Functions.StartFPSCounter()
         end
     end)
 
-    task.spawn(function()
+    SafeSpawn(function()
         local hue = 0
         while true do
             hue = hue + 0.01
@@ -5313,7 +5312,7 @@ end
 -- =====================================================
 
 function Functions.StartAutoGetPole(config)
-    task.spawn(function()
+    SafeSpawn(function()
         while task.wait(0.5) do
             if not config.AutoGetPole then continue end
             pcall(function()
@@ -5348,7 +5347,7 @@ end
 
 function Functions.StartAutoGetSaw(config)
     local SawPos = CFrame.new(-690.33, 15.09, 1582.24)
-    task.spawn(function()
+    SafeSpawn(function()
         while task.wait(0.5) do
             if not config.AutoGetSaw then continue end
             pcall(function()
@@ -5383,7 +5382,7 @@ end
 -- =====================================================
 
 function Functions.StartAutoKillGolem(config)
-    task.spawn(function()
+    SafeSpawn(function()
         while task.wait(0.5) do
             if not config.AutoKillGolem then continue end
             pcall(function()
@@ -5420,7 +5419,7 @@ end
 -- =====================================================
 
 function Functions.StartAutoKillSeaCreatures(config)
-    task.spawn(function()
+    SafeSpawn(function()
         while task.wait(0.3) do
             pcall(function()
                 local Enemies = workspace:FindFirstChild("Enemies")
@@ -5454,7 +5453,7 @@ end
 -- =====================================================
 
 function Functions.StartAutoFarmFruits(config)
-    task.spawn(function()
+    SafeSpawn(function()
         while task.wait(0.5) do
             if not config.AutoFarmFruits then continue end
             pcall(function()
@@ -5506,7 +5505,7 @@ end
 -- =====================================================
 
 function Functions.StartAimbotGun(config)
-    task.spawn(function()
+    SafeSpawn(function()
         while task.wait(0.05) do
             if not config.AimbotGun then continue end
             pcall(function()
@@ -5536,7 +5535,7 @@ end
 -- =====================================================
 
 function Functions.StartAimbotSkill(config)
-    task.spawn(function()
+    SafeSpawn(function()
         while task.wait(0.05) do
             if not config.AimbotSkill then continue end
             pcall(function()
@@ -5755,7 +5754,7 @@ end
 
 -- RedeemAllCodes - Resgatar todos os codigos conhecidos
 function Functions.StartAutoCollectBerry(config)
-    task.spawn(function()
+    SafeSpawn(function()
         while task.wait(0.5) do
             if not config.AutoCollectBerry then continue end
             
@@ -5778,7 +5777,7 @@ end
 
 -- StartAutoBarista - Farm cores de Haki com NPC Barista
 function Functions.StartAutoKillShark(config)
-    task.spawn(function()
+    SafeSpawn(function()
         while task.wait(0.5) do
             if not config.AutoKillShark then continue end
             
@@ -5794,7 +5793,7 @@ end
 
 -- StartAutoKillPiranha - Matar Piranhas
 function Functions.StartAutoKillPiranha(config)
-    task.spawn(function()
+    SafeSpawn(function()
         while task.wait(0.5) do
             if not config.AutoKillPiranha then continue end
             
@@ -5810,7 +5809,7 @@ end
 
 -- StartAutoKillFishCrew - Matar Fish Crew
 function Functions.StartAutoKillFishCrew(config)
-    task.spawn(function()
+    SafeSpawn(function()
         while task.wait(0.5) do
             if not config.AutoKillFishCrew then continue end
             
@@ -5830,7 +5829,7 @@ end
 
 -- StartAutoDungeon - Farm no Dungeon atacando inimigos
 function Functions.StartAutoEliteHunterHop(config)
-    task.spawn(function()
+    SafeSpawn(function()
         while task.wait(5) do
             if not config.AutoEliteHunterHop then continue end
             
@@ -5858,7 +5857,7 @@ end
 
 -- StartAutoFarmObsHaki - Farm Observation Haki mastery
 function Functions.StartAutoTweenToKitsune(config)
-    task.spawn(function()
+    SafeSpawn(function()
         while task.wait(1) do
             if not config.TweenToKitsune then continue end
             
@@ -5878,7 +5877,7 @@ end
 
 -- StartAutoAwakeningFruit - Auto despertar frutas
 function Functions.StartAutoAwakeningFruit(config)
-    task.spawn(function()
+    SafeSpawn(function()
         while task.wait(0.5) do
             if not _G.AutoAwakening then continue end
             
@@ -5891,7 +5890,7 @@ end
 
 -- StartAutoLoadFruit - Carregar frutas baratas automaticamente
 function Functions.StartAutoLoadFruit(config)
-    task.spawn(function()
+    SafeSpawn(function()
         while task.wait(0.5) do
             if not config.AutoFruit then continue end
             
@@ -6622,7 +6621,7 @@ end
 
 -- 7. HABILIDADES INFINITAS (Soru, Geppo, Dodge, InfAb)
 function Functions.InfiniteSoruLoop()
-    task.spawn(function()
+    SafeSpawn(function()
         while task.wait(0.5) do
             if _G.InfiniteSoru and Character and Character:FindFirstChild("Soru") then
                 pcall(function()
@@ -6642,7 +6641,7 @@ function Functions.InfiniteSoruLoop()
 end
 
 function Functions.InfiniteGeppoLoop()
-    task.spawn(function()
+    SafeSpawn(function()
         while task.wait(0.5) do
             if _G.InfiniteGeppo and Character and Character:FindFirstChild("Geppo") then
                 pcall(function()
@@ -6662,7 +6661,7 @@ function Functions.InfiniteGeppoLoop()
 end
 
 function Functions.DodgeNoCDLoop()
-    task.spawn(function()
+    SafeSpawn(function()
         while task.wait(0.5) do
             if _G.DodgeNoCD and Character and Character:FindFirstChild("Dodge") then
                 pcall(function()
@@ -6763,7 +6762,7 @@ function Functions.WalkWater(enabled)
 end
 
 function Functions.SpinPositionLoop()
-    task.spawn(function()
+    SafeSpawn(function()
         local posY = _G.PosY or 35
         while _G.SpinPos do
             HumanoidRootPart.CFrame = CFrame.new(0, posY, -20)
@@ -6798,7 +6797,7 @@ end
 
 -- 10. AUTO KATAKURI V2 (versão simplificada baseada no Tiroreal)
 function Functions.AutoKatakuriV2Loop()
-    task.spawn(function()
+    SafeSpawn(function()
         while _G.AutoKatakuriV2 do
             pcall(function()
                 local char = Player.Character
@@ -7027,5 +7026,5 @@ _G.UMESP = Functions.UpdateMirageESP     -- UpdateMirageESP
 _G.USESP = Functions.UpdateSeaBeastESP   -- UpdateSeaBeastESP
 _G.TTSI  = Functions.TravelToSubmergedIsland -- TravelToSubmergedIsland
 
-print("[LotuxHub] Functions Updated Loaded v2.8.4")
+print("[LotuxHub] Functions Updated Loaded v2.7.9")
 return Functions
