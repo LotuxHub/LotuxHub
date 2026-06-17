@@ -1202,9 +1202,12 @@ task.spawn(function()
 
         if not Config.AutoFarmLevel and not Config.AutoFarmNearest then
             if currentTarget ~= nil then currentTarget = nil end
+            -- Para o voo e derruba o player ao desativar o farm
             if NoClip.value or farmRunning then
                 NoClip.value        = false
                 isTeleporting.value = false
+                Functions.StopTeleport()
+                -- Remove qualquer BodyVelocity/BodyPosition que esteja mantendo o player no ar
                 pcall(function()
                     local char = Player.Character
                     local hrp  = char and char:FindFirstChild("HumanoidRootPart")
@@ -1298,6 +1301,8 @@ task.spawn(function()
                             CFrame.new(mobOriginalPos) * CFrame.new(0, Config.FlyOffset, 0),
                             TweenService, Config, isTeleporting, NotAutoEquip)
                     else
+                        -- Chegou: para o voo completamente e ativa heartbeat de bring
+                        Functions.StopTeleport()
                         isTeleporting.value = false
                         -- bringPosition calculado UMA vez na posicao do mob no chao
                         if not bringActive then
@@ -1319,6 +1324,7 @@ task.spawn(function()
                    or (not Config.AutoFarmNearest and not Config.AutoFarmLevel)
 
                 bringConn:Disconnect()
+                Functions.StopTeleport()
                 NoClip.value = false
                 if mob.Humanoid and mob.Humanoid.Health <= 0 then
                     Config.KillCount = Config.KillCount + 1
@@ -1472,6 +1478,8 @@ task.spawn(function()
                                             CFrame.new(mobOriginalPos2) * CFrame.new(0, Config.FlyOffset, 0),
                                             TweenService, Config, isTeleporting, NotAutoEquip)
                                     else
+                                        -- Chegou: para o voo e ativa heartbeat de bring
+                                        Functions.StopTeleport()
                                         isTeleporting.value = false
                                         if not bringActive2 then
                                             local mhrpNow2 = mob:FindFirstChild("HumanoidRootPart")
@@ -1492,6 +1500,7 @@ task.spawn(function()
                                    or not Config.AutoFarmLevel
 
                                 bringConn2:Disconnect()
+                                Functions.StopTeleport()
                                 NoClip.value = false
                                 if mob.Humanoid and mob.Humanoid.Health <= 0 then
                                     Config.KillCount = Config.KillCount + 1
@@ -3939,10 +3948,80 @@ task.spawn(function()
     })
 end)
 
+task.spawn(function()
+    local StopBtn = MakeDraggableFloatBtn({
+        GuiName      = "LotuxStopFlyBtn",
+        SaveKey      = "lotux_stopbtn_pos.json",
+        DefaultX     = math.floor((workspace.CurrentCamera.ViewportSize.X or 800) - 105),
+        DefaultY     = 10,
+        DisplayOrder = 998,
+        BtnText      = "Stop Fly",
+        BtnColor     = Color3.fromRGB(170, 35, 35),
+        StrokeColor  = Color3.fromRGB(220, 60, 60),
+        OnClick = function(btn)
+            pcall(function()
+                -- Para o voo
+                isTeleporting.value = false
+                Functions.StopTeleport()
+                -- Desativa todos os loops de farm/teleporte para não reinicar o fly
+                Config.AutoFarmLevel    = false
+                Config.AutoFarmNearest  = false
+                Config.AutoFarmMastery  = false
+                Config.TweenFlyFruit    = false
+                Config.AutoRaid         = false
+                Config.AutoRaidLaw      = false
+                Config.AutoDungeon      = false
+                -- Atualiza os toggles da UI (se a library expõe Flags)
+                pcall(function()
+                    if Flags then
+                        if Flags["AutoFarmLevel"]   then Flags["AutoFarmLevel"]:Set(false)   end
+                        if Flags["AutoFarmNearest"] then Flags["AutoFarmNearest"]:Set(false) end
+                        if Flags["AutoFarmMastery"] then Flags["AutoFarmMastery"]:Set(false) end
+                        if Flags["TweenFlyFruit"]   then Flags["TweenFlyFruit"]:Set(false)   end
+                        if Flags["AutoRaid"]        then Flags["AutoRaid"]:Set(false)        end
+                        if Flags["AutoRaidLaw"]     then Flags["AutoRaidLaw"]:Set(false)     end
+                        if Flags["AutoDungeon"]     then Flags["AutoDungeon"]:Set(false)     end
+                    end
+                end)
+                -- Remove BodyMovers do HRP
+                local char = Player.Character
+                local hrp  = char and char:FindFirstChild("HumanoidRootPart")
+                if hrp then
+                    for _, obj in ipairs(hrp:GetChildren()) do
+                        if obj:IsA("BodyVelocity") or obj:IsA("BodyPosition") or obj:IsA("BodyGyro") then
+                            obj:Destroy()
+                        end
+                    end
+                    local hum = char:FindFirstChildOfClass("Humanoid")
+                    if hum then hum:ChangeState(Enum.HumanoidStateType.Freefall) end
+                end
+            end)
+            btn.BackgroundColor3 = Color3.fromRGB(40, 180, 40)
+            btn.Text = "Parado!"
+            task.delay(0.8, function()
+                if btn and btn.Parent then
+                    btn.BackgroundColor3 = Color3.fromRGB(170, 35, 35)
+                    btn.Text = "Stop Fly"
+                end
+            end)
+        end,
+    })
+
+    -- Keybind E para parar o fly rapidamente
+    UserInputService.InputBegan:Connect(function(inp, gameProcessed)
+        if gameProcessed then return end
+        if inp.KeyCode == Enum.KeyCode.E then
+            if Config.AutoRaid or Config.AutoFarmLevel or Config.AutoFarmNearest then return end
+            if StopBtn then StopBtn.MouseButton1Click:Fire() end
+        end
+    end)
+end)
+
 pcall(function() SaveSystem.Init(Config) end)
 
 uiReady = true
 
+-- Fecha o painel de loading com animacao suave
 task.spawn(function()
     task.wait(0.3)
     pcall(function()
