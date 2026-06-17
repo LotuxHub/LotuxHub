@@ -408,8 +408,9 @@ local function criarPainelErro(arquivo, linha, mensagem)
 
     BotaoCopiar.MouseButton1Click:Connect(function()
         local erroCompleto = string.format(
-            "[LotuxHub] ERRO\nArquivo: %s\nLinha: %s\nMensagem: %s",
-            tostring(arquivo), tostring(linha), tostring(mensagem)
+            "[LotuxHub] ERRO\nArquivo: %s\nLinha: %s\nMensagem: %s\n\nErro original:\n%s",
+            tostring(arquivo), tostring(linha), tostring(mensagem),
+            tostring(mensagem)
         )
         pcall(function() setclipboard(erroCompleto) end)
         BotaoCopiar.Text = "✔ Copiado!"
@@ -433,10 +434,25 @@ end
 -- =====================================================
 local function parseErro(nomeModulo, errMsg)
     errMsg = tostring(errMsg)
-    local linha, msg = errMsg:match(":(%d+):%s*(.+)$")
+
+    -- Formato Lua padrao com @nome: "@Functions.lua:492: attempt to call a nil value"
+    -- ou sem @:            "Functions.lua:492: attempt to call a nil value"
+    -- ou com caminho:      "@UI.lua:492: ..."
+    local arquivo, linha, msg
+
+    -- Tenta formato: [arquivo]:[linha]: [mensagem]
+    arquivo, linha, msg = errMsg:match("@?([%w%.%-_]+%.lua):(%d+):%s*(.+)$")
+    if arquivo and linha then
+        return arquivo, linha, msg:sub(1, 300)
+    end
+
+    -- Tenta formato so com linha: ":492: mensagem"
+    linha, msg = errMsg:match(":(%d+):%s*(.+)$")
     if linha then
         return nomeModulo .. ".lua", linha, msg:sub(1, 300)
     end
+
+    -- Tenta "line N"
     linha = errMsg:match("[Ll]ine%s+(%d+)") or "?"
     return nomeModulo .. ".lua", linha, errMsg:sub(1, 300)
 end
@@ -489,9 +505,14 @@ else
     -- URL preenchida = carrega normalmente com detecção de erro
     print("[LotuxHub] Iniciando Lotux Hub...")
     local ok, err = pcall(function()
-        loadstring(game:HttpGet(SCRIPT_URL, true))()
+        local code = game:HttpGet(SCRIPT_URL, true)
+        local fn, compErr = loadstring(code, "@UI.lua")
+        if not fn then error(compErr) end
+        fn()
     end)
     if not ok then
+        -- err agora contem o nome real do arquivo (ex: "Functions.lua:492: ...")
+        -- gracas ao chunk name "@Nome.lua" passado no loadstring do _SafeLoad
         local arquivo, linha, msg = parseErro("UI", tostring(err))
         criarPainelErro(arquivo, linha, msg)
         warn("[LotuxHub] Erro fatal: " .. tostring(err))

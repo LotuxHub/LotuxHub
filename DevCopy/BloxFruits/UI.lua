@@ -453,13 +453,17 @@ local function _SafeLoad(url, nome, retries)
             if not code or code == "" or #code < 10 then
                 error("HttpGet retornou vazio/invalido para: " .. nome)
             end
-            local fn, compErr = loadstring(code)
+            -- Usa "@Nome.lua" como chunk name para que erros de runtime
+            -- incluam o arquivo correto: "Functions.lua:492: ..."
+            local fn, compErr = loadstring(code, "@" .. nome .. ".lua")
             if not fn then
                 error("Erro de compilacao em " .. nome .. ": " .. tostring(compErr))
             end
             local runOk, runResult = pcall(fn)
             if not runOk then
-                error("Erro de execucao em " .. nome .. ": " .. tostring(runResult))
+                -- Propaga a mensagem RAW (inclui "Functions.lua:492: ...")
+                -- para o Main.lua conseguir extrair arquivo e linha corretamente
+                error(tostring(runResult), 0)
             end
             return runResult
         end)
@@ -3805,4 +3809,4 @@ Notify({
     Type        = "Success",
 })
 
-print("UI Loaded v4.8.5")
+print("UI Loaded v4.9")
