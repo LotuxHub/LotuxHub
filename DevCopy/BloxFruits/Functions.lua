@@ -2074,14 +2074,14 @@ function Functions.StartAutoFarmBone(config)
                 elseif STATE == "FARM" then
                     local mob = _activeMob
                     if not mob or not mob.Parent then
-                        DisconnectBring(); Functions.StopTeleport()
+                        DisconnectBring();
                         _activeMob = nil; STATE = "TRAVEL"
                         return
                     end
                     local mobHum = mob:FindFirstChild("Humanoid")
                     local mobHrp = mob:FindFirstChild("HumanoidRootPart")
                     if not mobHum or mobHum.Health <= 0 then
-                        DisconnectBring(); Functions.StopTeleport()
+                        DisconnectBring();
                         _activeMob = nil
                         config.KillCount = (config.KillCount or 0) + 1
                         _killsThis = _killsThis + 1
@@ -2108,7 +2108,6 @@ function Functions.StartAutoFarmBone(config)
                             CFrame.new(mobHrp.Position) * CFrame.new(0, config.FlyOffset or 15, 0),
                             TweenService, config, _isTp, {value=false})
                     else
-                        Functions.StopTeleport()
                         _isTp.value = false
                         if not _bringActive then
                             local yOff = config.BringYOffset or -10
