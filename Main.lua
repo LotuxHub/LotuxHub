@@ -496,25 +496,250 @@ local function safeLoad(modulo)
 end
 
 -- =====================================================
+-- STATUS DO SCRIPT (status.json no GitHub)
+-- =====================================================
+local STATUS_URL = "https://raw.githubusercontent.com/LotuxHub/LotuxHub/refs/heads/main/DevCopy/BloxFruits/status.json"
+
+local STATUS_INFO = {
+    Working  = { cor = Color3.fromRGB(30, 160, 80),  motivo = "✅  Working",   titulo = "Script Online" },
+    Down     = { cor = Color3.fromRGB(180, 30, 30),  motivo = "🔴  Down",      titulo = "Script Fora do Ar" },
+    Issue    = { cor = Color3.fromRGB(200, 130, 20), motivo = "⚠️  Issue",     titulo = "Script com Problemas" },
+    Updating = { cor = Color3.fromRGB(40, 100, 200), motivo = "🔄  Updating",  titulo = "Script Atualizando" },
+}
+
+local function criarPainelStatus(statusKey, mensagemExtra)
+    local info = STATUS_INFO[statusKey] or STATUS_INFO.Down
+    if PlayerGui:FindFirstChild("LotuxHubErro") then PlayerGui.LotuxHubErro:Destroy() end
+
+    local ScreenGui = Instance.new("ScreenGui")
+    ScreenGui.Name = "LotuxHubErro"
+    ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+    ScreenGui.ResetOnSpawn = false
+    ScreenGui.Parent = PlayerGui
+
+    local Overlay = Instance.new("Frame")
+    Overlay.Size = UDim2.new(1,0,1,0)
+    Overlay.BackgroundColor3 = Color3.fromRGB(0,0,0)
+    Overlay.BackgroundTransparency = 0.5
+    Overlay.BorderSizePixel = 0
+    Overlay.ZIndex = 1
+    Overlay.Parent = ScreenGui
+
+    local Painel = Instance.new("Frame")
+    Painel.Name = "Painel"
+    Painel.Size = UDim2.new(0, 420, 0, 270)
+    Painel.Position = UDim2.new(0.5, -210, 0.6, -135)
+    Painel.BackgroundColor3 = Color3.fromRGB(15, 15, 20)
+    Painel.BackgroundTransparency = 1
+    Painel.BorderSizePixel = 0
+    Painel.ZIndex = 2
+    Painel.Parent = ScreenGui
+    Instance.new("UICorner", Painel).CornerRadius = UDim.new(0, 12)
+
+    local PainelStroke = Instance.new("UIStroke")
+    PainelStroke.Color = info.cor
+    PainelStroke.Thickness = 1.5
+    PainelStroke.Transparency = 0.2
+    PainelStroke.Parent = Painel
+
+    local Header = Instance.new("Frame")
+    Header.Size = UDim2.new(1,0,0,52)
+    Header.BackgroundColor3 = Color3.fromRGB(22,22,30)
+    Header.BorderSizePixel = 0
+    Header.ZIndex = 3
+    Header.Parent = Painel
+    Instance.new("UICorner", Header).CornerRadius = UDim.new(0, 12)
+
+    local HeaderFix = Instance.new("Frame")
+    HeaderFix.Size = UDim2.new(1,0,0,12)
+    HeaderFix.Position = UDim2.new(0,0,1,-12)
+    HeaderFix.BackgroundColor3 = Color3.fromRGB(22,22,30)
+    HeaderFix.BorderSizePixel = 0
+    HeaderFix.ZIndex = 3
+    HeaderFix.Parent = Header
+
+    local Icone = Instance.new("ImageLabel")
+    Icone.Size = UDim2.new(0,30,0,30)
+    Icone.Position = UDim2.new(0,14,0.5,-15)
+    Icone.BackgroundColor3 = info.cor
+    Icone.Image = "rbxassetid://111672166073808"
+    Icone.ScaleType = Enum.ScaleType.Fit
+    Icone.ZIndex = 4
+    Icone.Parent = Header
+    Instance.new("UICorner", Icone).CornerRadius = UDim.new(0, 6)
+
+    local TituloHub = Instance.new("TextLabel")
+    TituloHub.Size = UDim2.new(1,-60,1,0)
+    TituloHub.Position = UDim2.new(0,54,0,0)
+    TituloHub.BackgroundTransparency = 1
+    TituloHub.Text = "Lotux Hub  —  " .. info.titulo
+    TituloHub.TextColor3 = Color3.fromRGB(210,210,220)
+    TituloHub.TextSize = 14
+    TituloHub.Font = Enum.Font.GothamBold
+    TituloHub.TextXAlignment = Enum.TextXAlignment.Left
+    TituloHub.ZIndex = 4
+    TituloHub.Parent = Header
+
+    local Linha = Instance.new("Frame")
+    Linha.Size = UDim2.new(1,-40,0,1)
+    Linha.Position = UDim2.new(0,20,0,52)
+    Linha.BackgroundColor3 = info.cor
+    Linha.BackgroundTransparency = 0.6
+    Linha.BorderSizePixel = 0
+    Linha.ZIndex = 3
+    Linha.Parent = Painel
+
+    local MsgPrincipal = Instance.new("TextLabel")
+    MsgPrincipal.Size = UDim2.new(1,-40,0,36)
+    MsgPrincipal.Position = UDim2.new(0,20,0,62)
+    MsgPrincipal.BackgroundTransparency = 1
+    MsgPrincipal.Text = "Não Foi Possível Executar o Lotux Hub"
+    MsgPrincipal.TextColor3 = Color3.fromRGB(240,240,245)
+    MsgPrincipal.TextSize = 17
+    MsgPrincipal.Font = Enum.Font.GothamBold
+    MsgPrincipal.TextWrapped = true
+    MsgPrincipal.TextXAlignment = Enum.TextXAlignment.Center
+    MsgPrincipal.ZIndex = 3
+    MsgPrincipal.Parent = Painel
+
+    -- Badge de status (cor dinamica)
+    local CaixaMotivo = Instance.new("Frame")
+    CaixaMotivo.Size = UDim2.new(1,-60,0,36)
+    CaixaMotivo.Position = UDim2.new(0,30,0,106)
+    CaixaMotivo.BackgroundColor3 = Color3.fromRGB(25,25,35)
+    CaixaMotivo.BorderSizePixel = 0
+    CaixaMotivo.ZIndex = 3
+    CaixaMotivo.Parent = Painel
+    Instance.new("UICorner", CaixaMotivo).CornerRadius = UDim.new(0, 8)
+    local CaixaStroke = Instance.new("UIStroke")
+    CaixaStroke.Color = info.cor
+    CaixaStroke.Thickness = 1
+    CaixaStroke.Transparency = 0.5
+    CaixaStroke.Parent = CaixaMotivo
+
+    local TextoMotivo = Instance.new("TextLabel")
+    TextoMotivo.Size = UDim2.new(1,0,1,0)
+    TextoMotivo.BackgroundTransparency = 1
+    TextoMotivo.Text = info.motivo
+    TextoMotivo.TextColor3 = info.cor
+    TextoMotivo.TextSize = 14
+    TextoMotivo.Font = Enum.Font.GothamSemibold
+    TextoMotivo.ZIndex = 4
+    TextoMotivo.Parent = CaixaMotivo
+
+    -- Linha de mensagem extra do StatusScript
+    if mensagemExtra and mensagemExtra ~= "" then
+        local LabelExtra = Instance.new("TextLabel")
+        LabelExtra.Size = UDim2.new(1,-40,0,32)
+        LabelExtra.Position = UDim2.new(0,20,0,150)
+        LabelExtra.BackgroundTransparency = 1
+        LabelExtra.Text = tostring(mensagemExtra)
+        LabelExtra.TextColor3 = Color3.fromRGB(190,190,210)
+        LabelExtra.TextSize = 12
+        LabelExtra.Font = Enum.Font.Gotham
+        LabelExtra.TextWrapped = true
+        LabelExtra.TextXAlignment = Enum.TextXAlignment.Center
+        LabelExtra.ZIndex = 3
+        LabelExtra.Parent = Painel
+    end
+
+    local BotoesFrame = Instance.new("Frame")
+    BotoesFrame.Size = UDim2.new(1,-40,0,42)
+    BotoesFrame.Position = UDim2.new(0,20,0,214)
+    BotoesFrame.BackgroundTransparency = 1
+    BotoesFrame.ZIndex = 3
+    BotoesFrame.Parent = Painel
+    local BL = Instance.new("UIListLayout")
+    BL.FillDirection = Enum.FillDirection.Horizontal
+    BL.HorizontalAlignment = Enum.HorizontalAlignment.Center
+    BL.VerticalAlignment = Enum.VerticalAlignment.Center
+    BL.Padding = UDim.new(0,12)
+    BL.Parent = BotoesFrame
+
+    local function criarBotaoS(texto, cor)
+        local btn = Instance.new("TextButton")
+        btn.Size = UDim2.new(0,170,0,38)
+        btn.BackgroundColor3 = cor
+        btn.Text = texto
+        btn.TextColor3 = Color3.fromRGB(255,255,255)
+        btn.TextSize = 13
+        btn.Font = Enum.Font.GothamSemibold
+        btn.BorderSizePixel = 0
+        btn.ZIndex = 4
+        btn.Parent = BotoesFrame
+        Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 8)
+        local h = Color3.new(math.min(cor.R*1.3,1),math.min(cor.G*1.3,1),math.min(cor.B*1.3,1))
+        btn.MouseEnter:Connect(function() btn.BackgroundColor3 = h end)
+        btn.MouseLeave:Connect(function() btn.BackgroundColor3 = cor end)
+        return btn
+    end
+
+    local BotaoFechar  = criarBotaoS("✕  Fechar Script",   Color3.fromRGB(160,25,25))
+    local BotaoDiscord = criarBotaoS("🔗  Link do Discord", Color3.fromRGB(30,80,180))
+    BotaoFechar.MouseButton1Click:Connect(function() ScreenGui:Destroy() end)
+    BotaoDiscord.MouseButton1Click:Connect(function()
+        pcall(function() setclipboard("https://discord.gg/HkB97N772p") end)
+        BotaoDiscord.Text = "✔ Link copiado!"
+        task.delay(2, function()
+            if BotaoDiscord and BotaoDiscord.Parent then BotaoDiscord.Text = "🔗  Link do Discord" end
+        end)
+    end)
+
+    TweenService:Create(Painel,
+        TweenInfo.new(0.35, Enum.EasingStyle.Back, Enum.EasingDirection.Out),
+        { Position = UDim2.new(0.5,-210,0.5,-135), BackgroundTransparency = 0 }
+    ):Play()
+end
+
+-- Busca e parseia o status.json do GitHub
+local function fetchStatus()
+    local ok, raw = pcall(function()
+        return game:HttpGet(STATUS_URL, true)
+    end)
+    if not ok or not raw or #raw < 2 then
+        warn("[LotuxHub] Nao foi possivel baixar status.json")
+        return nil
+    end
+    local status   = raw:match('"Status"%s*:%s*"([^"]+)"')
+    local mensagem = raw:match('"StatusScript"%s*:%s*"([^"]+)"') or ""
+    if not status then
+        warn("[LotuxHub] status.json invalido: " .. raw:sub(1,200))
+        return nil
+    end
+    print("[LotuxHub] Status: " .. status .. " | " .. mensagem)
+    return { status = status, mensagem = mensagem }
+end
+
+-- =====================================================
 -- EXECUÇÃO PRINCIPAL
 -- =====================================================
 if not SCRIPT_URL or SCRIPT_URL == "" then
-    -- URL vazia = script em desenvolvimento
     criarPainelDesenvolvimento()
 else
-    -- URL preenchida = carrega normalmente com detecção de erro
-    print("[LotuxHub] Iniciando Lotux Hub...")
-    local ok, err = pcall(function()
-        local code = game:HttpGet(SCRIPT_URL, true)
-        local fn, compErr = loadstring(code, "@UI.lua")
-        if not fn then error(compErr) end
-        fn()
-    end)
-    if not ok then
-        -- err agora contem o nome real do arquivo (ex: "Functions.lua:492: ...")
-        -- gracas ao chunk name "@Nome.lua" passado no loadstring do _SafeLoad
-        local arquivo, linha, msg = parseErro("UI", tostring(err))
-        criarPainelErro(arquivo, linha, msg)
-        warn("[LotuxHub] Erro fatal: " .. tostring(err))
+    -- 1. Verifica status.json antes de carregar qualquer coisa
+    print("[LotuxHub] Verificando status...")
+    local statusData = fetchStatus()
+
+    if statusData and statusData.status ~= "Working" then
+        -- Down / Issue / Updating: exibe painel e para aqui
+        criarPainelStatus(statusData.status, statusData.mensagem)
+        warn("[LotuxHub] Script bloqueado pelo status: " .. statusData.status)
+    else
+        -- Working ou status.json inacessivel: carrega normalmente
+        if not statusData then
+            warn("[LotuxHub] status.json inacessivel, continuando mesmo assim...")
+        end
+        print("[LotuxHub] Iniciando Lotux Hub...")
+        local ok, err = pcall(function()
+            local code = game:HttpGet(SCRIPT_URL, true)
+            local fn, compErr = loadstring(code, "@UI.lua")
+            if not fn then error(compErr) end
+            fn()
+        end)
+        if not ok then
+            local arquivo, linha, msg = parseErro("UI", tostring(err))
+            criarPainelErro(arquivo, linha, msg)
+            warn("[LotuxHub] Erro fatal: " .. tostring(err))
+        end
     end
 end
