@@ -2611,32 +2611,25 @@ function Functions.StartAutoRaid(config)
 		local char = Player.Character
 		local hrp  = char and char:FindFirstChild("HumanoidRootPart")
 
-		-- Fonte primaria: _WorldOrigin.Locations."Island N"
-		-- Quando ha multiplas raids, cada player tem seu proprio
-		-- _WorldOrigin apontando para a ILHA DELE especificamente.
-		-- O ObjectValue/IntValue dentro de Locations referencia
-		-- o modelo fisico correto sem ambiguidade.
-		local locs = GetWorldLocations()
-		if locs then
-			local island = locs:FindFirstChild("Island " .. n)
-			if island then
-				-- Se for um ObjectValue/IntValue que aponta pro modelo real
-				if island:IsA("ObjectValue") and island.Value then
-					return island.Value
-				end
-				-- Se for o proprio modelo (BasePart ou Model)
-				if island:IsA("Model") or island:IsA("BasePart") then
-					return island
-				end
-			end
-		end
-
-		-- Fallback: RaidMap pode ter multiplos RaidIsland1/2/3...
-		-- quando dois jogadores fazem raid ao mesmo tempo.
-		-- Filtra pelo mais proximo do player para pegar o correto.
+		-- FIX: RaidMap.RaidIslandN agora e a fonte PRIMARIA (metodo
+		-- ja confirmado funcionando). _WorldOrigin.Locations "Island N"
+		-- e novo/nao testado e pode retornar um objeto que GetIslandPivotPos
+		-- nao consegue resolver (centerPos = nil), travando o AutoRaid
+		-- sem nunca achar mobs ("ele nao vai atras dos npcs").
 		local map     = workspace:FindFirstChild("Map")
 		local raidMap = map and map:FindFirstChild("RaidMap")
-		if not raidMap then return nil end
+		if not raidMap then
+			-- Sem RaidMap: tenta _WorldOrigin.Locations como fallback
+			local locs = GetWorldLocations()
+			if locs then
+				local island = locs:FindFirstChild("Island " .. n)
+				if island then
+					if island:IsA("ObjectValue") and island.Value then return island.Value end
+					if island:IsA("Model") or island:IsA("BasePart") then return island end
+				end
+			end
+			return nil
+		end
 
 		if not hrp then
 			-- Sem HRP: retorna o primeiro que achar (comportamento legado)
@@ -2651,7 +2644,18 @@ function Functions.StartAutoRaid(config)
 			end
 		end
 
-		if #candidates == 0 then return nil end
+		if #candidates == 0 then
+			-- RaidMap existe mas sem RaidIslandN: tenta _WorldOrigin.Locations
+			local locs = GetWorldLocations()
+			if locs then
+				local island = locs:FindFirstChild("Island " .. n)
+				if island then
+					if island:IsA("ObjectValue") and island.Value then return island.Value end
+					if island:IsA("Model") or island:IsA("BasePart") then return island end
+				end
+			end
+			return nil
+		end
 		if #candidates == 1 then return candidates[1] end
 
 		-- Ha multiplos (duas raids simultaneas): pega o mais perto do player
@@ -2838,12 +2842,24 @@ function Functions.StartAutoRaid(config)
 							or (Player.Character and Player.Character:FindFirstChild("Special Microchip"))
 				if not hasChip then return end
 
-				-- Ja tem raid ativa: nao inicia outra
-				if IsInRaid() then return end
+				-- FIX: removido o gate IsInRaid() daqui.
+				-- IsInRaid() checa _WorldOrigin.Locations "Island N" e RaidMap,
+				-- que podem existir por OUTROS motivos (marcadores de
+				-- localizacao do mapa nao relacionados a raid), bloqueando
+				-- AutoStartRaid para sempre mesmo sem raid ativa.
+				-- Timer.Visible (acima) ja e a condicao correta (igual Tiroreal).
 
 				if World2 then
 					local summonCF = CFrame.new(-6523.4746, 305.4380, -4741.3809)
 					SafeFlyTo(summonCF)
+					-- FIX: FlyToRaid retorna sem fazer nada se distance < 2.
+					-- Garante a posicao final com TeleportTo instantaneo.
+					pcall(function()
+						local hrp2 = Player.Character and Player.Character:FindFirstChild("HumanoidRootPart")
+						if hrp2 and (hrp2.Position - summonCF.Position).Magnitude > 10 then
+							Functions.TeleportTo(summonCF)
+						end
+					end)
 					task.wait(0.5)
 					CF("SetSpawnPoint")
 					pcall(function() fireclickdetector(workspace.Map.CircleIsland.RaidSummon2.Button.Main.ClickDetector) end)
@@ -2852,6 +2868,15 @@ function Functions.StartAutoRaid(config)
 					task.wait(0.5)
 					local summonCF = CFrame.new(-5017.40869, 314.844055, -2823.0127)
 					SafeFlyTo(summonCF)
+					-- FIX: requestEntrance pode ja ter posicionado o player perto
+					-- de summonCF, fazendo FlyToRaid (distance < 2) nao fazer nada.
+					-- Garante a posicao final com TeleportTo instantaneo.
+					pcall(function()
+						local hrp3 = Player.Character and Player.Character:FindFirstChild("HumanoidRootPart")
+						if hrp3 and (hrp3.Position - summonCF.Position).Magnitude > 10 then
+							Functions.TeleportTo(summonCF)
+						end
+					end)
 					task.wait(0.5)
 					CF("SetSpawnPoint")
 					pcall(function() fireclickdetector(workspace.Map["Boat Castle"].RaidSummon2.Button.Main.ClickDetector) end)
@@ -2971,18 +2996,34 @@ function Functions.StartAutoRaid(config)
 				if not enemies then return end
 
 				-- Busca mobs na ilha atual
+				-- FIX: raio aumentado 2500->5000 + debug log (a cada 2s) para
+				-- diagnosticar caso centerPos esteja deslocado do spawn real dos mobs
+				local RAID_MOB_RADIUS = 5000
 				local function FindMobs(bossOnly)
+					local totalAlive, nearCount = 0, 0
+					local found = nil
 					for _, v in ipairs(enemies:GetChildren()) do
 						local vHrp = v:FindFirstChild("HumanoidRootPart")
 						local vHum = v:FindFirstChild("Humanoid")
 						if not vHrp or not vHum or vHum.Health <= 0 then continue end
+						totalAlive = totalAlive + 1
 						local isBoss = RAID_BOSS_SET[v.Name] or v.Name:find("%[Raid Boss%]")
-						local near   = (vHrp.Position - centerPos).Magnitude <= 2500
-						if not near then continue end
-						if bossOnly and isBoss then return v end
-						if not bossOnly and not isBoss then return v end
+						local dist   = (vHrp.Position - centerPos).Magnitude
+						local near   = dist <= RAID_MOB_RADIUS
+						if near then nearCount = nearCount + 1 end
+						if not found and near then
+							if bossOnly and isBoss then found = v end
+							if not bossOnly and not isBoss then found = v end
+						end
 					end
-					return nil
+					if not found and totalAlive > 0 then
+						_G._raidDebugCounter = (_G._raidDebugCounter or 0) + 1
+						if _G._raidDebugCounter % 20 == 0 then -- ~2s a 0.1s/tick
+							print(("[AutoRaid] Sem mob valido: %d vivos no Enemies, %d dentro de %d studs do centro (centerPos=%s)")
+								:format(totalAlive, nearCount, RAID_MOB_RADIUS, tostring(centerPos)))
+						end
+					end
+					return found
 				end
 
 				-- ILHA 5: boss primeiro, depois mobs normais
@@ -3970,6 +4011,20 @@ function Functions.StartFarmChest(config, isTeleportingRef, notAutoEquipRef)
         while task.wait(0.2) do
             if not config.FarmChest then continue end
             pcall(function()
+                -- FIX: FarmChest usa Functions.FlyToPosition, que compartilha
+                -- o estado global Functions._flyCancel/PartTele com
+                -- AutoFarmLevel/AutoFarmNearest/AutoRaid/AutoFarmBone.
+                -- Se os dois loops chamarem FlyToPosition ao mesmo tempo,
+                -- cada chamada CANCELA o voo da outra a cada 0.2s, fazendo
+                -- o player cair e voar repetidamente (efeito "Stop Fly" sozinho).
+                -- Por isso FarmChest so roda quando nenhum outro farm/raid
+                -- esta ativo.
+                if config.AutoFarmLevel or config.AutoFarmNearest
+                   or config.AutoFarmBone or config.AutoRaid
+                   or config.AutoRaidLaw or config.AutoFarmMastery then
+                    return
+                end
+
                 local char = Player.Character
                 local hrp  = char and char:FindFirstChild("HumanoidRootPart")
                 local hum  = char and char:FindFirstChildOfClass("Humanoid")
@@ -4027,6 +4082,14 @@ function Functions.StartTweenFlyFruit(config, isTeleportingRef, notAutoEquipRef)
         while task.wait(0.3) do
             if not config.TweenFlyFruit then continue end
             pcall(function()
+                -- Mesmo problema do FarmChest: FlyToPosition compartilha
+                -- estado global com AutoFarmLevel/Nearest/Raid/Bone
+                if config.AutoFarmLevel or config.AutoFarmNearest
+                   or config.AutoFarmBone or config.AutoRaid
+                   or config.AutoRaidLaw or config.AutoFarmMastery then
+                    return
+                end
+
                 local char = Player.Character
                 local hrp  = char and char:FindFirstChild("HumanoidRootPart")
                 if not hrp then return end
