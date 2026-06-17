@@ -731,7 +731,27 @@ else
         end
         print("[LotuxHub] Iniciando Lotux Hub...")
         local ok, err = pcall(function()
-            local code = game:HttpGet(SCRIPT_URL, true)
+            local code
+            
+            -- Tenta usar request() primeiro (sem limite de tamanho)
+            if request then
+                local ok_req, res = pcall(function()
+                    return request({ Url = SCRIPT_URL, Method = "GET" })
+                end)
+                if ok_req and res and res.Body then
+                    code = res.Body
+                end
+            end
+            
+            -- Se request falhou, tenta game:HttpGet SEM cache (true)
+            if not code then
+                code = game:HttpGet(SCRIPT_URL)
+            end
+            
+            if not code or code == "" then
+                error("HttpGet retornou vazio/invalido para UI.lua")
+            end
+            
             local fn, compErr = loadstring(code, "@UI.lua")
             if not fn then error(compErr) end
             fn()
