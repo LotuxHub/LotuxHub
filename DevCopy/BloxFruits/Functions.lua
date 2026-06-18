@@ -475,17 +475,23 @@ end
 local _isTeleporting = false
 
 function Functions.FlyToPosition(targetCF, tweenSvc, config, isTeleportingRef, notAutoEquipRef)
-    if Functions._flyCancel then
-        Functions._flyCancel()
-        Functions._flyCancel = nil
-    end
     local char = Player.Character
     local hrp  = char and char:FindFirstChild("HumanoidRootPart")
     local hum  = char and char:FindFirstChildOfClass("Humanoid")
     if not char or not hrp or not hum or hum.Health <= 0 then return end
 
     local distance = (targetCF.Position - hrp.Position).Magnitude
-    if distance < 2 then return end
+    if distance < 2 then
+        -- Ja estamos no destino: NAO cancela um voo em andamento por engano.
+        return
+    end
+
+    -- So cancela o voo anterior depois de confirmar que este novo voo
+    -- vai de fato acontecer (evita cortar um tween em andamento sem motivo).
+    if Functions._flyCancel then
+        Functions._flyCancel()
+        Functions._flyCancel = nil
+    end
 
     local pt        = Instance.new("Part")
     pt.Size         = Vector3.new(10, 1, 10)
@@ -498,6 +504,24 @@ function Functions.FlyToPosition(targetCF, tweenSvc, config, isTeleportingRef, n
 
     if isTeleportingRef then isTeleportingRef.value = true end
     _isTeleporting = true
+
+    -- Trava o estado do Humanoid para a fisica nativa (gravidade/colisao/queda)
+    -- parar de "brigar" com o CFrame forcado a cada Heartbeat. E essa disputa
+    -- entre os dois sistemas que causa o tremor/pulo durante o voo.
+    local prevAutoRotate = hum.AutoRotate
+    local prevStates = {}
+    for _, st in ipairs({
+        Enum.HumanoidStateType.Freefall,
+        Enum.HumanoidStateType.Jumping,
+        Enum.HumanoidStateType.Landed,
+        Enum.HumanoidStateType.GettingUp,
+        Enum.HumanoidStateType.Ragdoll,
+    }) do
+        prevStates[st] = hum:GetStateEnabled(st)
+        hum:SetStateEnabled(st, false)
+    end
+    hum.AutoRotate = false
+    hum:ChangeState(Enum.HumanoidStateType.Physics)
 
     local speed = tonumber(config and config.FlySpeed) or 300
     local dur   = math.clamp(distance / speed, 0.05, 60.0)
@@ -521,6 +545,18 @@ function Functions.FlyToPosition(targetCF, tweenSvc, config, isTeleportingRef, n
         end
     end)
 
+    local function restoreHumanoidState()
+        local c2   = Player.Character
+        local hum2 = c2 and c2:FindFirstChildOfClass("Humanoid")
+        if hum2 then
+            for st, wasEnabled in pairs(prevStates) do
+                hum2:SetStateEnabled(st, wasEnabled)
+            end
+            hum2.AutoRotate = prevAutoRotate
+            hum2:ChangeState(Enum.HumanoidStateType.Freefall)
+        end
+    end
+
     local cancelled = false
     Functions._flyCancel = function()
         cancelled = true
@@ -529,6 +565,7 @@ function Functions.FlyToPosition(targetCF, tweenSvc, config, isTeleportingRef, n
         if pt and pt.Parent then pt:Destroy() end
         if isTeleportingRef then isTeleportingRef.value = false end
         _isTeleporting = false
+        restoreHumanoidState()
     end
 
     tween:Play()
@@ -540,6 +577,7 @@ function Functions.FlyToPosition(targetCF, tweenSvc, config, isTeleportingRef, n
         if pt and pt.Parent then pt:Destroy() end
         if isTeleportingRef then isTeleportingRef.value = false end
         _isTeleporting = false
+        restoreHumanoidState()
     end
 end
 
@@ -550,9 +588,29 @@ end
 -- Chame DestroyRaidPart() explicitamente quando quiser
 -- destruir a part (ex: ao atacar um mob).
 -- =====================================================
-local _raidPart = nil  -- referencia unica ao PartTele da raid
+local _raidPart       = nil  -- referencia unica ao PartTele da raid
+local _raidHoldConn   = nil  -- Heartbeat que mantem o player suspenso apos o tween
+local _raidPrevStates = nil
+local _raidPrevAutoRotate = nil
 
 local function DestroyRaidPart()
+    if _raidHoldConn then
+        _raidHoldConn:Disconnect()
+        _raidHoldConn = nil
+    end
+    if _raidPrevStates then
+        local c   = Player.Character
+        local hum = c and c:FindFirstChildOfClass("Humanoid")
+        if hum then
+            for st, wasEnabled in pairs(_raidPrevStates) do
+                hum:SetStateEnabled(st, wasEnabled)
+            end
+            if _raidPrevAutoRotate ~= nil then hum.AutoRotate = _raidPrevAutoRotate end
+            hum:ChangeState(Enum.HumanoidStateType.Freefall)
+        end
+        _raidPrevStates     = nil
+        _raidPrevAutoRotate = nil
+    end
     if _raidPart and _raidPart.Parent then
         _raidPart:Destroy()
     end
@@ -596,6 +654,27 @@ function Functions.FlyToRaid(targetCF, config)
         { CFrame = targetCF }
     )
 
+    -- Trava o estado do Humanoid (gravidade/colisao) para a fisica nativa
+    -- parar de brigar com o CFrame forcado a cada frame. Isso so e desfeito
+    -- em DestroyRaidPart(), porque o player precisa continuar suspenso no
+    -- ar mesmo depois que o tween terminar (ate a raid limpar a Part).
+    if not _raidPrevStates then
+        _raidPrevStates     = {}
+        _raidPrevAutoRotate = hum.AutoRotate
+        for _, st in ipairs({
+            Enum.HumanoidStateType.Freefall,
+            Enum.HumanoidStateType.Jumping,
+            Enum.HumanoidStateType.Landed,
+            Enum.HumanoidStateType.GettingUp,
+            Enum.HumanoidStateType.Ragdoll,
+        }) do
+            _raidPrevStates[st] = hum:GetStateEnabled(st)
+            hum:SetStateEnabled(st, false)
+        end
+        hum.AutoRotate = false
+        hum:ChangeState(Enum.HumanoidStateType.Physics)
+    end
+
     local conn
     conn = RunService.Heartbeat:Connect(function()
         local c    = Player.Character
@@ -613,8 +692,23 @@ function Functions.FlyToRaid(targetCF, config)
     conn:Disconnect()
 
     -- NAO destroi o pt aqui: o player fica suspenso no ar no ponto de chegada.
-    -- O Heartbeat acima so roda durante o tween; apos isso o BodyVelocity
-    -- do AnchorPlayer cuida de manter o player no ar.
+    -- O Heartbeat de espera abaixo mantem o player travado na posicao da Part
+    -- (com a fisica nativa ja desabilitada acima) ate DestroyRaidPart() ser
+    -- chamado explicitamente.
+    if _raidHoldConn then _raidHoldConn:Disconnect() end
+    _raidHoldConn = RunService.Heartbeat:Connect(function()
+        local c2   = Player.Character
+        local cHrp2 = c2 and c2:FindFirstChild("HumanoidRootPart")
+        if cHrp2 and pt and pt.Parent then
+            local _, yaw2, _ = cHrp2.CFrame:ToOrientation()
+            cHrp2.CFrame = CFrame.new(pt.CFrame.Position) * CFrame.Angles(0, yaw2, 0)
+        else
+            if _raidHoldConn then
+                _raidHoldConn:Disconnect()
+                _raidHoldConn = nil
+            end
+        end
+    end)
 end
 
 
@@ -715,7 +809,9 @@ function Functions.StopTeleport()
         Functions._flyCancel = nil
     end
     _isTeleporting = false
-    -- Remove PartTele do workspace (FlyToPosition coloca la, nao no Character)
+    -- Limpa qualquer suspensao de raid (restaura estados do Humanoid e remove a Part)
+    DestroyRaidPart()
+    -- Remove qualquer PartTele residual (caso a raid nao tenha sido a origem)
     for _, obj in ipairs(workspace:GetChildren()) do
         if obj.Name == "PartTele" or obj.Name == "RaidPartTele" then
             pcall(function() obj:Destroy() end)
@@ -7089,5 +7185,5 @@ _G.UMESP = Functions.UpdateMirageESP     -- UpdateMirageESP
 _G.USESP = Functions.UpdateSeaBeastESP   -- UpdateSeaBeastESP
 _G.TTSI  = Functions.TravelToSubmergedIsland -- TravelToSubmergedIsland
 
-print("[LotuxHub] Functions Updated Loaded v2.10")
+print("[LotuxHub] Functions Updated Loaded v2.10.2")
 return Functions

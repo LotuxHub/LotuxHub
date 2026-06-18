@@ -1259,6 +1259,20 @@ task.spawn(function()
                     and mob.HumanoidRootPart.Position
                     or HumanoidRootPart.Position
 
+                -- Voa UMA UNICA VEZ (bloqueante) at chegar perto do mob, em vez de
+                -- ficar chamando FlyToPosition a cada frame dentro do loop de combate.
+                -- Chamar de novo a cada frame fazia o voo ser cancelado/recriado
+                -- constantemente, causando o efeito de "voa um pouco e para".
+                if (mobOriginalPos - HumanoidRootPart.Position).Magnitude > 15 then
+                    Functions.FlyToPosition(
+                        CFrame.new(mobOriginalPos) * CFrame.new(0, Config.FlyOffset, 0),
+                        TweenService, Config, isTeleporting, NotAutoEquip)
+                end
+                Functions.StopTeleport()
+                isTeleporting.value = false
+
+                if not mob.Parent then farmRunning = false; return end
+
                 -- Heartbeat: trava todos os mobs do tipo no lugar a 60fps
                 local bringActive   = false
                 local bringPosition = CFrame.new(0, 0, 0)
@@ -1287,33 +1301,33 @@ task.spawn(function()
                     end
                 end)
 
+                -- bringPosition calculado UMA vez na posicao do mob no chao
+                do
+                    local mhrpNow = mob:FindFirstChild("HumanoidRootPart")
+                    if mhrpNow then
+                        local yOff = Config.BringYOffset or -10
+                        local mp   = mhrpNow.Position
+                        bringPosition = CFrame.new(mp.X, mp.Y + yOff, mp.Z)
+                    end
+                    bringActive = true
+                end
+
                 repeat
                     task.wait()
                     if not mob.Parent then break end
                     local mhrp = mob:FindFirstChild("HumanoidRootPart")
                     if not mhrp then break end
 
-                    local distToMob = (mobOriginalPos - HumanoidRootPart.Position).Magnitude
-
-                    if distToMob > 15 then
-                        -- Ainda longe: voa até a posição original (pré-bring)
+                    -- Se o mob se afastou muito (ex: andou antes do bring travar),
+                    -- voa novamente uma vez at ele, mas so quando REALMENTE preciso
+                    -- (distancia atual ao mob, nao a posicao antiga fixa).
+                    local distNow = (mhrp.Position - HumanoidRootPart.Position).Magnitude
+                    if distNow > 30 and not bringActive then
                         Functions.FlyToPosition(
-                            CFrame.new(mobOriginalPos) * CFrame.new(0, Config.FlyOffset, 0),
+                            mhrp.CFrame * CFrame.new(0, Config.FlyOffset, 0),
                             TweenService, Config, isTeleporting, NotAutoEquip)
-                    else
-                        -- Chegou: para o voo completamente e ativa heartbeat de bring
                         Functions.StopTeleport()
                         isTeleporting.value = false
-                        -- bringPosition calculado UMA vez na posicao do mob no chao
-                        if not bringActive then
-                            local mhrpNow = mob:FindFirstChild("HumanoidRootPart")
-                            if mhrpNow then
-                                local yOff = Config.BringYOffset or -10
-                                local mp   = mhrpNow.Position
-                                bringPosition = CFrame.new(mp.X, mp.Y + yOff, mp.Z)
-                            end
-                            bringActive = true
-                        end
                     end
 
                     Functions.FastAttack(mob, Config, NotAutoEquip)
@@ -1437,75 +1451,90 @@ task.spawn(function()
                                 -- Posicao original do mob para o voo (antes de qualquer bring)
                                 local mobOriginalPos2 = hrp.Position
 
-                                -- Heartbeat: trava todos os mobs do tipo no lugar a 60fps
-                                local bringActive2   = false
-                                local bringPosition2 = CFrame.new(0, 0, 0)
-                                local bringMobName2  = quest.Mob
-                                local bringConn2 = RunService.Heartbeat:Connect(function()
-                                    if not bringActive2 or not Config.BringMob then return end
-                                    local enm = workspace:FindFirstChild("Enemies")
-                                    if not enm then return end
-                                    for _, otherMob in ipairs(enm:GetChildren()) do
-                                        if otherMob.Name == bringMobName2 then
-                                            local ohrp = otherMob:FindFirstChild("HumanoidRootPart")
-                                            local ohum = otherMob:FindFirstChild("Humanoid")
-                                            if ohrp and ohum and ohum.Health > 0 then
-                                                local d = (ohrp.Position - HumanoidRootPart.Position).Magnitude
-                                                if d <= (Config.BringDistance or 350) then
-                                                    pcall(function()
-                                                        ohum.WalkSpeed = 0
-                                                        ohum.JumpPower = 0
-                                                        ohum:ChangeState(11)
-                                                        sethiddenproperty(Player, "SimulationRadius", math.huge)
-                                                    end)
-                                                    ohrp.CFrame = bringPosition2
+                                -- Voa UMA UNICA VEZ (bloqueante) at chegar perto do mob, em vez
+                                -- de chamar FlyToPosition a cada frame dentro do loop de combate
+                                -- (isso causava o efeito de "voa um pouco e para").
+                                if (mobOriginalPos2 - HumanoidRootPart.Position).Magnitude > 15 then
+                                    Functions.FlyToPosition(
+                                        CFrame.new(mobOriginalPos2) * CFrame.new(0, Config.FlyOffset, 0),
+                                        TweenService, Config, isTeleporting, NotAutoEquip)
+                                end
+                                Functions.StopTeleport()
+                                isTeleporting.value = false
+
+                                if mob.Parent then
+                                    -- Heartbeat: trava todos os mobs do tipo no lugar a 60fps
+                                    local bringActive2   = false
+                                    local bringPosition2 = CFrame.new(0, 0, 0)
+                                    local bringMobName2  = quest.Mob
+                                    local bringConn2 = RunService.Heartbeat:Connect(function()
+                                        if not bringActive2 or not Config.BringMob then return end
+                                        local enm = workspace:FindFirstChild("Enemies")
+                                        if not enm then return end
+                                        for _, otherMob in ipairs(enm:GetChildren()) do
+                                            if otherMob.Name == bringMobName2 then
+                                                local ohrp = otherMob:FindFirstChild("HumanoidRootPart")
+                                                local ohum = otherMob:FindFirstChild("Humanoid")
+                                                if ohrp and ohum and ohum.Health > 0 then
+                                                    local d = (ohrp.Position - HumanoidRootPart.Position).Magnitude
+                                                    if d <= (Config.BringDistance or 350) then
+                                                        pcall(function()
+                                                            ohum.WalkSpeed = 0
+                                                            ohum.JumpPower = 0
+                                                            ohum:ChangeState(11)
+                                                            sethiddenproperty(Player, "SimulationRadius", math.huge)
+                                                        end)
+                                                        ohrp.CFrame = bringPosition2
+                                                    end
                                                 end
                                             end
                                         end
-                                    end
-                                end)
+                                    end)
 
-                                repeat
-                                    task.wait()
-                                    if not mob.Parent then break end
-                                    local mhrp = mob:FindFirstChild("HumanoidRootPart")
-                                    if not mhrp then break end
-
-                                    local distToMob = (mobOriginalPos2 - HumanoidRootPart.Position).Magnitude
-                                    if distToMob > 15 then
-                                        -- Ainda longe: voa até a posição original (pré-bring)
-                                        Functions.FlyToPosition(
-                                            CFrame.new(mobOriginalPos2) * CFrame.new(0, Config.FlyOffset, 0),
-                                            TweenService, Config, isTeleporting, NotAutoEquip)
-                                    else
-                                        -- Chegou: para o voo e ativa heartbeat de bring
-                                        Functions.StopTeleport()
-                                        isTeleporting.value = false
-                                        if not bringActive2 then
-                                            local mhrpNow2 = mob:FindFirstChild("HumanoidRootPart")
-                                            if mhrpNow2 then
-                                                local yOff2 = Config.BringYOffset or -10
-                                                local mp2   = mhrpNow2.Position
-                                                bringPosition2 = CFrame.new(mp2.X, mp2.Y + yOff2, mp2.Z)
-                                            end
-                                            bringActive2 = true
+                                    -- bringPosition2 calculado UMA vez na posicao do mob no chao
+                                    do
+                                        local mhrpNow2 = mob:FindFirstChild("HumanoidRootPart")
+                                        if mhrpNow2 then
+                                            local yOff2 = Config.BringYOffset or -10
+                                            local mp2   = mhrpNow2.Position
+                                            bringPosition2 = CFrame.new(mp2.X, mp2.Y + yOff2, mp2.Z)
                                         end
+                                        bringActive2 = true
                                     end
 
-                                    Functions.FastAttack(mob, Config, NotAutoEquip)
+                                    repeat
+                                        task.wait()
+                                        if not mob.Parent then break end
+                                        local mhrp = mob:FindFirstChild("HumanoidRootPart")
+                                        if not mhrp then break end
 
-                                until not mob.Parent
-                                   or not mob:FindFirstChild("Humanoid")
-                                   or mob.Humanoid.Health <= 0
-                                   or not Config.AutoFarmLevel
+                                        -- So voa de novo se o mob realmente se afastou muito
+                                        -- (ex: andou antes do bring travar), usando a posicao
+                                        -- ATUAL do mob, nao a posicao antiga fixa.
+                                        local distNow = (mhrp.Position - HumanoidRootPart.Position).Magnitude
+                                        if distNow > 30 and not bringActive2 then
+                                            Functions.FlyToPosition(
+                                                mhrp.CFrame * CFrame.new(0, Config.FlyOffset, 0),
+                                                TweenService, Config, isTeleporting, NotAutoEquip)
+                                            Functions.StopTeleport()
+                                            isTeleporting.value = false
+                                        end
 
-                                bringConn2:Disconnect()
-                                Functions.StopTeleport()
-                                NoClip.value = false
-                                if mob.Humanoid and mob.Humanoid.Health <= 0 then
-                                    Config.KillCount = Config.KillCount + 1
+                                        Functions.FastAttack(mob, Config, NotAutoEquip)
+
+                                    until not mob.Parent
+                                       or not mob:FindFirstChild("Humanoid")
+                                       or mob.Humanoid.Health <= 0
+                                       or not Config.AutoFarmLevel
+
+                                    bringConn2:Disconnect()
+                                    Functions.StopTeleport()
+                                    NoClip.value = false
+                                    if mob.Humanoid and mob.Humanoid.Health <= 0 then
+                                        Config.KillCount = Config.KillCount + 1
+                                    end
+                                    currentTarget = nil
                                 end
-                                currentTarget = nil
                             end
                         else
                             currentTarget = nil
@@ -4051,4 +4080,4 @@ Notify({
     Type        = "Success",
 })
 
-print("UI Loaded v4.10")
+print("UI Loaded v4.10.2")
