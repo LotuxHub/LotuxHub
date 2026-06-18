@@ -1343,7 +1343,7 @@ function Functions.StartAutoQuestRace(config)
                                 repeat task.wait(0.1)
                                     v.Humanoid.Health = 0
                                     v.HumanoidRootPart.CanCollide = false
-                                    pcall(function() sethiddenproperty(Player, "SimulationRadius", math.huge) end)
+-- [SimRadius removido: causava NoStun/queda no player]
                                 until not config.AutoQuestRace or not v.Parent or v.Humanoid.Health <= 0
                             end)
                         end
@@ -1430,7 +1430,7 @@ function Functions.StartAutoBartilo(config)
                                    and v:FindFirstChild("HumanoidRootPart") and v.Humanoid.Health > 0 then
                                     pcall(function()
                                         repeat task.wait()
-                                            pcall(function() sethiddenproperty(Player, "SimulationRadius", math.huge) end)
+-- [SimRadius removido: causava NoStun/queda no player]
                                             Functions.EquipWeapon(config.SelectedWeaponName)
                                             Functions.AutoHaki()
                                             v.HumanoidRootPart.Transparency = 1
@@ -1461,7 +1461,7 @@ function Functions.StartAutoBartilo(config)
                                and v:FindFirstChild("HumanoidRootPart") and v.Humanoid.Health > 0 then
                                 local oldCF = v.HumanoidRootPart.CFrame
                                 repeat task.wait()
-                                    pcall(function() sethiddenproperty(Player, "SimulationRadius", math.huge) end)
+-- [SimRadius removido: causava NoStun/queda no player]
                                     Functions.EquipWeapon(config.SelectedWeaponName)
                                     Functions.AutoHaki()
                                     v.HumanoidRootPart.Transparency = 1
@@ -1515,7 +1515,7 @@ function Functions.StartAutoEliteHunter(config)
                                             Functions.TeleportTo(v.HumanoidRootPart.CFrame * CFrame.new(0, 30, 0))
                                             VirtualUser:CaptureController()
                                             VirtualUser:Button1Down(Vector2.new(1280, 672))
-                                            pcall(function() sethiddenproperty(Player, "SimulationRadius", math.huge) end)
+-- [SimRadius removido: causava NoStun/queda no player]
                                         until not config.AutoEliteHunter or v.Humanoid.Health <= 0 or not v.Parent
                                     end
                                 end
@@ -1611,7 +1611,7 @@ function Functions.StartAutoGetTushita(config)
                                 v.Humanoid.WalkSpeed = 0
                                 v.HumanoidRootPart.Size = Vector3.new(80, 80, 80)
                                 Functions.TeleportTo(v.HumanoidRootPart.CFrame * CFrame.new(0, 30, 0))
-                                pcall(function() sethiddenproperty(Player, "SimulationRadius", math.huge) end)
+-- [SimRadius removido: causava NoStun/queda no player]
                             until not config.AutoGetTushita or not v.Parent or v.Humanoid.Health <= 0
                         end
                     end
@@ -1728,7 +1728,7 @@ function Functions.StartAutoTyrantSpawn(config)
                                 Functions.TeleportTo(v.HumanoidRootPart.CFrame * CFrame.new(0, 40, 0))
                                 VirtualUser:CaptureController()
                                 VirtualUser:Button1Down(Vector2.new(1280, 672))
-                                pcall(function() sethiddenproperty(Player, "SimulationRadius", math.huge) end)
+-- [SimRadius removido: causava NoStun/queda no player]
                             until not config.AutoTyrantSpawn or not v.Parent or v.Humanoid.Health <= 0
                         end
                     end
@@ -1761,7 +1761,7 @@ function Functions.StartAutoCakePrince(config)
                                 Functions.TeleportTo(v.HumanoidRootPart.CFrame * CFrame.new(4, 10, 10))
                                 VirtualUser:CaptureController()
                                 VirtualUser:Button1Down(Vector2.new(1280, 672))
-                                pcall(function() sethiddenproperty(Player, "SimulationRadius", math.huge) end)
+-- [SimRadius removido: causava NoStun/queda no player]
                             until not config.AutoCakePrince or not v.Parent or v.Humanoid.Health <= 0
                         end
                     end
@@ -1792,7 +1792,7 @@ function Functions.StartAutoCakePrince(config)
                                         Functions.TeleportTo(v.HumanoidRootPart.CFrame * CFrame.new(0, 30, 0))
                                         VirtualUser:CaptureController()
                                         VirtualUser:Button1Down(Vector2.new(1280, 672))
-                                        pcall(function() sethiddenproperty(Player, "SimulationRadius", math.huge) end)
+-- [SimRadius removido: causava NoStun/queda no player]
                                     until not config.AutoCakePrince or not v.Parent or v.Humanoid.Health <= 0
                                 end
                             end
@@ -1826,7 +1826,7 @@ function Functions.StartAutoDoughKing(config)
                                     Functions.TeleportTo(v.HumanoidRootPart.CFrame * CFrame.new(0, -40, 0))
                                     VirtualUser:CaptureController()
                                     VirtualUser:Button1Down(Vector2.new(1280, 672))
-                                    pcall(function() sethiddenproperty(Player, "SimulationRadius", math.huge) end)
+-- [SimRadius removido: causava NoStun/queda no player]
                                 until not config.AutoDoughKing or not v.Parent or v.Humanoid.Health <= 0
                             end
                         end
@@ -1874,7 +1874,7 @@ function Functions.StartAutoRipIndra(config)
                         Functions.TeleportTo(indra.HumanoidRootPart.CFrame * CFrame.new(0, 30, 0))
                         VirtualUser:CaptureController()
                         VirtualUser:Button1Down(Vector2.new(1280, 672))
-                        pcall(function() sethiddenproperty(Player, "SimulationRadius", math.huge) end)
+-- [SimRadius removido: causava NoStun/queda no player]
                     until not config.AutoRipIndra or indra.Humanoid.Health <= 0 or not indra.Parent
                 elseif ReplicatedStorage:FindFirstChild("rip_indra True Form") then
                     local rindra = ReplicatedStorage:FindFirstChild("rip_indra True Form")
@@ -1906,7 +1906,7 @@ function Functions.StartAutoBigMom(config)
                         Functions.TeleportTo(bigmom.HumanoidRootPart.CFrame * CFrame.new(0, 30, 0))
                         VirtualUser:CaptureController()
                         VirtualUser:Button1Down(Vector2.new(1280, 672))
-                        pcall(function() sethiddenproperty(Player, "SimulationRadius", math.huge) end)
+-- [SimRadius removido: causava NoStun/queda no player]
                     until not config.AutoBigMom or bigmom.Humanoid.Health <= 0 or not bigmom.Parent
                 elseif ReplicatedStorage:FindFirstChild("Big Mom") then
                     local bm = ReplicatedStorage:FindFirstChild("Big Mom")
@@ -2258,7 +2258,7 @@ function Functions.StartAutoDarkBeard(config)
                         Functions.TeleportTo(darkbeard.HumanoidRootPart.CFrame * CFrame.new(0, 30, 0))
                         VirtualUser:CaptureController()
                         VirtualUser:Button1Down(Vector2.new(1280, 672))
-                        pcall(function() sethiddenproperty(Player, "SimulationRadius", math.huge) end)
+-- [SimRadius removido: causava NoStun/queda no player]
                     until not config.AutoDarkBeard or darkbeard.Humanoid.Health <= 0 or not darkbeard.Parent
                 elseif ReplicatedStorage:FindFirstChild("Dark Beard") then
                     Functions.TeleportTo(ReplicatedStorage.DarkBeard.HumanoidRootPart.CFrame * CFrame.new(2, 20, 2))
@@ -2288,7 +2288,7 @@ function Functions.StartAutoGrayBeard(config)
                                 Functions.TeleportTo(v.HumanoidRootPart.CFrame * CFrame.new(0, 30, 0))
                                 VirtualUser:CaptureController()
                                 VirtualUser:Button1Down(Vector2.new(1280, 672))
-                                pcall(function() sethiddenproperty(Player, "SimulationRadius", math.huge) end)
+-- [SimRadius removido: causava NoStun/queda no player]
                             until not config.AutoGrayBeard or v.Humanoid.Health <= 0 or not v.Parent
                         end
                     end
@@ -2721,7 +2721,7 @@ function Functions.StartAutoRaid(config)
 				end
 				vHrp.CanCollide = false
 				vHrp.Size       = Vector3.new(50, 50, 50)
-				pcall(function() sethiddenproperty(Player, "SimulationRadius", math.huge) end)
+				-- [SimRadius removido: causava NoStun/queda no player]
 				VirtualUser:CaptureController()
 				VirtualUser:Button1Down(Vector2.new(1280, 672))
 			end)
@@ -2744,7 +2744,7 @@ function Functions.StartAutoRaid(config)
 		repeat
 			task.wait(0.01)
 			pcall(function()
-				pcall(function() sethiddenproperty(Player, "SimulationRadius", math.huge) end)
+				-- [SimRadius removido: causava NoStun/queda no player]
 				bossHum.Health     = 0
 				bossHrp.CanCollide = false
 				bossHrp.Size       = Vector3.new(150, 150, 150)
@@ -3195,7 +3195,7 @@ function Functions.StartAutoBuyTTK(config)
                                 Functions.TeleportTo(v.HumanoidRootPart.CFrame * CFrame.new(0, 30, 0))
                                 VirtualUser:CaptureController()
                                 VirtualUser:Button1Down(Vector2.new(1280, 672))
-                                pcall(function() sethiddenproperty(Player, "SimulationRadius", math.huge) end)
+-- [SimRadius removido: causava NoStun/queda no player]
                             until not config.AutoBuyTTK or v.Humanoid.Health <= 0 or not v.Parent
                         end
                     end
@@ -3292,7 +3292,7 @@ function Functions.StartAutoSea3(config)
                     pcall(function() indra.HumanoidRootPart.CanCollide = false end)
                     Functions.TeleportTo(indra.HumanoidRootPart.CFrame * CFrame.new(0, 30, 0))
                     CF("TravelZou")
-                    pcall(function() sethiddenproperty(Player, "SimulationRadius", math.huge) end)
+-- [SimRadius removido: causava NoStun/queda no player]
                 else
                     -- rip_indra nao esta no workspace: vai ate o spawn com cooldown
                     -- para nao teleportar repetidamente a cada tick
@@ -3519,7 +3519,7 @@ function Functions.StartAutoPirateRaid(config)
                             pcall(function()
                                 vHrp.CanCollide = false
                                 vHrp.Size       = Vector3.new(60, 60, 60)
-                                pcall(function() sethiddenproperty(Player, "SimulationRadius", math.huge) end)
+-- [SimRadius removido: causava NoStun/queda no player]
                                 VirtualUser:CaptureController()
                                 VirtualUser:Button1Down(Vector2.new(1280, 672))
                             end)
@@ -3574,7 +3574,7 @@ function Functions.StartAutoFarmChocola(config)
                                     Functions.TeleportTo(v.HumanoidRootPart.CFrame * CFrame.new(0, 30, 0))
                                     VirtualUser:CaptureController()
                                     VirtualUser:Button1Down(Vector2.new(1280, 672))
-                                    pcall(function() sethiddenproperty(Player, "SimulationRadius", math.huge) end)
+-- [SimRadius removido: causava NoStun/queda no player]
                                 until not config.FarmChocola or not v.Parent or v.Humanoid.Health <= 0
                             end
                         end
@@ -3604,7 +3604,7 @@ function Functions.StartKillAura(config)
                         if dist <= (config.KillAuraRadius or 1000) then
                             pcall(function()
                                 repeat task.wait()
-                                    pcall(function() sethiddenproperty(Player, "SimulationRadius", math.huge) end)
+-- [SimRadius removido: causava NoStun/queda no player]
                                     enemy.Humanoid.Health = 0
                                     enemy.HumanoidRootPart.CanCollide = false
                                 until not config.KillAura or not enemy.Parent or enemy.Humanoid.Health <= 0
@@ -3634,7 +3634,7 @@ function Functions.StartAutoPlayerHunter(config)
                 if config.AutoKillPlayer then
                     local targetHum = target.Character:FindFirstChildOfClass("Humanoid")
                     if targetHum then
-                        pcall(function() sethiddenproperty(Player, "SimulationRadius", math.huge) end)
+-- [SimRadius removido: causava NoStun/queda no player]
                         targetHum.Health = 0
                     end
                 end
@@ -3892,7 +3892,7 @@ function Functions.StartAutoMobDragon(config)
                                 Functions.TeleportTo(v.HumanoidRootPart.CFrame * CFrame.new(0, 30, 0))
                                 VirtualUser:CaptureController()
                                 VirtualUser:Button1Down(Vector2.new(1280, 672))
-                                pcall(function() sethiddenproperty(Player, "SimulationRadius", math.huge) end)
+-- [SimRadius removido: causava NoStun/queda no player]
                             until not config.AutoMobDragon or not v.Parent or v.Humanoid.Health <= 0
                         end
                     end
@@ -3927,7 +3927,7 @@ function Functions.StartDefendVolcano(config)
                         pcall(function()
                             v.Humanoid.Health = 0
                             v.HumanoidRootPart.CanCollide = false
-                            pcall(function() sethiddenproperty(Player, "SimulationRadius", math.huge) end)
+-- [SimRadius removido: causava NoStun/queda no player]
                         end)
                     end
                 end
@@ -4420,7 +4420,7 @@ function Functions.StartAutoDungeon(config)
                     pcall(function()
                         v.Humanoid.Health = 0
                         v.HumanoidRootPart.CanCollide = false
-                        pcall(function() sethiddenproperty(Player, "SimulationRadius", math.huge) end)
+-- [SimRadius removido: causava NoStun/queda no player]
                     end)
                 end
             end
@@ -5390,7 +5390,7 @@ function Functions.StartAutoGetPole(config)
                             v.Humanoid.WalkSpeed = 0
                             v.HumanoidRootPart.Size = Vector3.new(80, 80, 80)
                             Functions.ToPos(v.HumanoidRootPart.CFrame * CFrame.new(0, 30, 0), config)
-                            pcall(function() sethiddenproperty(Player, "SimulationRadius", math.huge) end)
+-- [SimRadius removido: causava NoStun/queda no player]
                         end
                     end
                 else
@@ -5462,7 +5462,7 @@ function Functions.StartAutoKillGolem(config)
                                 v.Humanoid.WalkSpeed = 0
                                 v.HumanoidRootPart.Size = Vector3.new(50, 50, 50)
                                 Functions.ToPos(v.HumanoidRootPart.CFrame * CFrame.new(0, 30, 0), config)
-                                pcall(function() sethiddenproperty(Player, "SimulationRadius", math.huge) end)
+-- [SimRadius removido: causava NoStun/queda no player]
                             until not config.AutoKillGolem or not v.Parent or v.Humanoid.Health <= 0
                         end
                     end
@@ -5503,7 +5503,7 @@ function Functions.StartAutoKillSeaCreatures(config)
                         v.HumanoidRootPart.CanCollide = false
                         v.Humanoid.WalkSpeed = 0
                         Functions.ToPos(v.HumanoidRootPart.CFrame * CFrame.new(0, 10, 0), config)
-                        pcall(function() sethiddenproperty(Player, "SimulationRadius", math.huge) end)
+-- [SimRadius removido: causava NoStun/queda no player]
                     end
                 end
             end)
@@ -5537,7 +5537,7 @@ function Functions.StartAutoFarmFruits(config)
                                 v.HumanoidRootPart.CanCollide = false
                                 v.Humanoid.WalkSpeed = 0
                                 Functions.ToPos(v.HumanoidRootPart.CFrame * CFrame.new(0, 5, 0), config)
-                                pcall(function() sethiddenproperty(Player, "SimulationRadius", math.huge) end)
+-- [SimRadius removido: causava NoStun/queda no player]
                             end)
                         until not config.AutoFarmFruits or not v.Parent or v.Humanoid.Health <= 0
                         break
