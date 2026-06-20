@@ -475,6 +475,76 @@ end
 local _isTeleporting = false
 
 function Functions.FlyToPosition(targetCF, tweenSvc, config, isTeleportingRef, notAutoEquipRef)
+	print('usando FlyToPosition','target:',targetCF)
+    local char = Player.Character
+    local hrp  = char and char:FindFirstChild("HumanoidRootPart")
+    local hum  = char and char:FindFirstChildOfClass("Humanoid")
+    if not char or not hrp or not hum or hum.Health <= 0 then return end
+
+    local distance = (targetCF.Position - hrp.Position).Magnitude
+    if distance < 2 then return end
+
+    if not char:FindFirstChild("PartTele") then
+        local pt        = Instance.new("Part", char)
+        pt.Size         = Vector3.new(10, 1, 10)
+        pt.Name         = "PartTele"
+        pt.Anchored     = true
+        pt.Transparency = 1
+        pt.CanCollide   = false
+        pt.CFrame       = hrp.CFrame
+
+        pt:GetPropertyChangedSignal("CFrame"):Connect(function()
+            local isTp = (isTeleportingRef and isTeleportingRef.value) or _isTeleporting
+            if not isTp then return end
+            task.wait()
+            local c = Player.Character
+            if c and c:FindFirstChild("HumanoidRootPart") and c:FindFirstChild("PartTele") then
+                local cHrp = c.HumanoidRootPart
+                local _, yaw, _ = cHrp.CFrame:ToOrientation()
+                cHrp.CFrame = CFrame.new(c.PartTele.CFrame.Position) * CFrame.Angles(0, yaw, 0)
+            end
+        end)
+    end
+
+    if isTeleportingRef then isTeleportingRef.value = true end
+    _isTeleporting = true
+
+    local speed = tonumber(config and config.FlySpeed) or 300
+    local dur   = math.clamp(distance / speed, 0.05, 60.0)
+
+    local ts    = tweenSvc or TweenService
+    local tween = ts:Create(
+        char.PartTele,
+        TweenInfo.new(dur, Enum.EasingStyle.Linear),
+        { CFrame = targetCF }
+    )
+    tween:Play()
+
+    local conn
+    conn = RunService.Heartbeat:Connect(function()
+        local c    = Player.Character
+        local cHrp = c and c:FindFirstChild("HumanoidRootPart")
+        local pt   = c and c:FindFirstChild("PartTele")
+        if cHrp and pt then
+            local _, currentYaw, _ = cHrp.CFrame:ToOrientation()
+            cHrp.CFrame = CFrame.new(pt.CFrame.Position) * CFrame.Angles(0, currentYaw, 0)
+        else
+            conn:Disconnect()
+        end
+    end)
+
+    tween.Completed:Wait()
+    conn:Disconnect()
+
+    if isTeleportingRef then isTeleportingRef.value = false end
+    _isTeleporting = false
+
+    if char:FindFirstChild("PartTele") then
+        char.PartTele:Destroy()
+    end
+end
+
+--[[function Functions.FlyToPosition(targetCF, tweenSvc, config, isTeleportingRef, notAutoEquipRef)
     local char = Player.Character
     local hrp  = char and char:FindFirstChild("HumanoidRootPart")
     local hum  = char and char:FindFirstChildOfClass("Humanoid")
@@ -579,7 +649,7 @@ function Functions.FlyToPosition(targetCF, tweenSvc, config, isTeleportingRef, n
         _isTeleporting = false
         restoreHumanoidState()
     end
-end
+end]]
 
 -- =====================================================
 -- FlyToRaid - Versao do FlyToPosition para uso exclusivo
