@@ -2076,7 +2076,7 @@ function Functions.StartAutoFarmBone(config)
         local function StartBringHeartbeat(mobName, hrp)
             DisconnectBring()
             _bringConn = RunService.Heartbeat:Connect(function()
-                if not _bringActive or not config.BringMob then return end
+                if not _bringActive or not config.BringMob or config.AutoRaid then return end
                 local enm = workspace:FindFirstChild("Enemies")
                 if not enm then return end
                 for _, om in ipairs(enm:GetChildren()) do
@@ -2983,16 +2983,57 @@ function Functions.StartAutoRaid(config)
 
 	-- ==========================================
 	-- LOOP PRINCIPAL: FARM RAID
-	-- FIX: SafeFlyTo era bloqueante (tween.Completed:Wait())
-	-- o que travava o loop inteiro enquanto voava.
-	-- Agora o voo roda em task.spawn (nao bloqueia) e o
-	-- loop continua checando mobs em paralelo.
+	-- Lógica:
+	--   1. Procura ilha próxima (RaidMap ou _WorldOrigin) dentro de MAX_DIST
+	--   2. Voa até o centro dela com FlyToRaid (fica no ar)
+	--   3. Mata mobs perto do centro um a um (puxa pra baixo do player)
+	--   4. Quando nova ilha aparecer perto: voa até ela
+	--   5. Sem dependência de _portalFired ou TimerGui
 	-- ==========================================
 	SafeSpawn(function()
-		local currentIslandNum = 0
-		local atCenter         = false
-		local isFlying         = false  -- evita iniciar multiplos tweens simultaneos
-		local _killing         = false  -- guard: evita multiplos task.spawn no mesmo mob
+		local MAX_DIST   = 4500  -- raio máximo para considerar uma ilha "minha"
+		local atCenter   = false
+		local lastIsland = nil   -- última ilha que fomos
+		local isFlying   = false
+		local _killing   = false
+
+		-- Busca a ilha com menor índice que exista perto do player
+		local function FindNearestIsland()
+			local char = Player.Character
+			local hrp  = char and char:FindFirstChild("HumanoidRootPart")
+			if not hrp then return nil end
+
+			for i = 1, 5 do
+				-- Fonte 1: workspace.Map.RaidMap.RaidIslandN
+				local map     = workspace:FindFirstChild("Map")
+				local raidMap = map and map:FindFirstChild("RaidMap")
+				if raidMap then
+					for _, child in ipairs(raidMap:GetChildren()) do
+						if child.Name == "RaidIsland" .. i then
+							local pos = GetIslandPivotPos(child)
+							if pos and (pos - hrp.Position).Magnitude <= MAX_DIST then
+								return child, pos, i
+							end
+						end
+					end
+				end
+
+				-- Fonte 2: workspace._WorldOrigin.Locations."Island N"
+				local locs = GetWorldLocations()
+				if locs then
+					local wIsl = locs:FindFirstChild("Island " .. i)
+					if wIsl then
+						local obj = (wIsl:IsA("ObjectValue") and wIsl.Value) or wIsl
+						local pos = GetIslandPivotPos(obj)
+						if pos and (pos - hrp.Position).Magnitude <= MAX_DIST then
+							return obj, pos, i
+						end
+					end
+				end
+			end
+
+			return nil
+		end
 
 		local function FlyAsync(targetCF)
 			if isFlying then return end
@@ -3005,25 +3046,12 @@ function Functions.StartAutoRaid(config)
 
 		while task.wait(0.1) do
 			if not config.AutoRaid then
-				_G._raidRunning  = false
 				DestroyRaidPart()
-				currentIslandNum = 0
-				atCenter         = false
-				isFlying         = false
-				_portalFired     = false
+				atCenter   = false
+				lastIsland = nil
+				isFlying   = false
+				_killing   = false
 				continue
-			end
-
-			_G._raidRunning = true
-
-			-- Raid encerrou: nenhuma RaidIsland = reseta
-			if _portalFired and not IsInRaid() then
-				_portalFired     = false
-				_G._raidRunning  = false
-				currentIslandNum = 0
-				atCenter         = false
-				isFlying         = false
-				print("[AutoRaid] Raid encerrada, aguardando proxima...")
 			end
 
 			pcall(function()
@@ -3032,58 +3060,50 @@ function Functions.StartAutoRaid(config)
 				local hum  = char and char:FindFirstChildOfClass("Humanoid")
 				if not hrp or not hum or hum.Health <= 0 then return end
 
-				if not PortalConfirmed() then
-					DestroyRaidPart()
-					currentIslandNum = 0
-					atCenter         = false
-					isFlying         = false
+				-- Busca ilha próxima
+				local island, centerPos, islandNum = FindNearestIsland()
+
+				-- Sem ilha próxima: fica no ar onde está e aguarda
+				if not island then
+					if not workspace:FindFirstChild("RaidPartTele") then
+						Functions.FlyToRaid(hrp.CFrame, config)
+					end
+					atCenter   = false
+					lastIsland = nil
 					return
 				end
 
-				-- Detecta a maior ilha disponivel (1..5)
-				local highestIsland = nil
-				local highestNum    = 0
-				for i = 1, 5 do
-					local isl = GetRaidIsland(i)
-					if isl then
-						highestIsland = isl
-						highestNum    = i
-					end
-				end
-				if not highestIsland then return end
+				local centerCF = CFrame.new(centerPos.X, centerPos.Y + 55, centerPos.Z)
 
-				-- Nova ilha apareceu
-				if highestNum ~= currentIslandNum then
-					currentIslandNum = highestNum
-					atCenter         = false
-					isFlying         = false
-					print("[AutoRaid] Nova ilha: RaidIsland" .. currentIslandNum)
+				-- Nova ilha detectada: voa até ela
+				if island ~= lastIsland then
+					print("[AutoRaid] Nova ilha " .. tostring(islandNum) .. " detectada perto! Voando...")
+					lastIsland = island
+					atCenter   = false
+					isFlying   = false
+					_killing   = false
 				end
 
-				local centerPos = GetIslandPivotPos(highestIsland)
-				if not centerPos then return end
-				local centerCF = CFrame.new(centerPos.X, centerPos.Y + 8, centerPos.Z)
-				local distToCenter = (hrp.Position - centerCF.Position).Magnitude
-
-				-- Precisa voar para o centro: usa FlyAsync (nao bloqueia)
+				-- Ainda não chegou ao centro: voa
 				if not atCenter then
-					if distToCenter < 40 then
+					local dist = (hrp.Position - centerCF.Position).Magnitude
+					if dist < 40 then
 						atCenter = true
 						isFlying = false
-						print("[AutoRaid] No centro de RaidIsland" .. currentIslandNum)
+						print("[AutoRaid] No centro da ilha " .. tostring(islandNum))
 					else
 						FlyAsync(centerCF)
 					end
 					return
 				end
 
-				-- Mantém no ar perto do centro se afastou
-				if distToCenter > 80 then
+				-- Se afastou do centro: volta
+				if (hrp.Position - centerCF.Position).Magnitude > 80 then
 					FlyAsync(centerCF)
 					return
 				end
 
-				-- Garante RaidPart ativo
+				-- Garante PartTele ativo (player no ar)
 				if not workspace:FindFirstChild("RaidPartTele") then
 					Functions.FlyToRaid(centerCF, config)
 				end
@@ -3091,40 +3111,25 @@ function Functions.StartAutoRaid(config)
 				local enemies = workspace:FindFirstChild("Enemies")
 				if not enemies then return end
 
-				-- Busca mobs na ilha atual
-				-- FIX: raio aumentado 2500->5000 + debug log (a cada 2s) para
-				-- diagnosticar caso centerPos esteja deslocado do spawn real dos mobs
-				local RAID_MOB_RADIUS = 5000
-				local function FindMobs(bossOnly)
-					local totalAlive, nearCount = 0, 0
-					local found = nil
+				-- Busca boss ou mob normal perto do centro
+				local function FindTarget(bossOnly)
 					for _, v in ipairs(enemies:GetChildren()) do
 						local vHrp = v:FindFirstChild("HumanoidRootPart")
 						local vHum = v:FindFirstChild("Humanoid")
 						if not vHrp or not vHum or vHum.Health <= 0 then continue end
-						totalAlive = totalAlive + 1
-						local isBoss = RAID_BOSS_SET[v.Name] or v.Name:find("%[Raid Boss%]")
-						local dist   = (vHrp.Position - centerPos).Magnitude
-						local near   = dist <= RAID_MOB_RADIUS
-						if near then nearCount = nearCount + 1 end
-						if not found and near then
-							if bossOnly and isBoss then found = v end
-							if not bossOnly and not isBoss then found = v end
+						local isBoss = RAID_BOSS_SET[v.Name] or v.Name:match("%[Raid Boss%]")
+						if bossOnly and not isBoss then continue end
+						if not bossOnly and isBoss then continue end
+						if (vHrp.Position - centerPos).Magnitude <= 5000 then
+							return v
 						end
 					end
-					if not found and totalAlive > 0 then
-						_G._raidDebugCounter = (_G._raidDebugCounter or 0) + 1
-						if _G._raidDebugCounter % 20 == 0 then -- ~2s a 0.1s/tick
-							print(("[AutoRaid] Sem mob valido: %d vivos no Enemies, %d dentro de %d studs do centro (centerPos=%s)")
-								:format(totalAlive, nearCount, RAID_MOB_RADIUS, tostring(centerPos)))
-						end
-					end
-					return found
+					return nil
 				end
 
-				-- ILHA 5: boss primeiro, depois mobs normais
-				if currentIslandNum == 5 then
-					local boss = FindMobs(true)
+				-- Ilha 5: prioridade pro boss
+				if islandNum == 5 then
+					local boss = FindTarget(true)
 					if boss and not _killing then
 						print("[AutoRaid] Boss ilha 5: " .. boss.Name)
 						_killing = true
@@ -3137,10 +3142,10 @@ function Functions.StartAutoRaid(config)
 					end
 				end
 
-				-- ILHAS 1-5: mobs normais
-				local mob = FindMobs(false)
+				-- Mobs normais (todas as ilhas)
+				local mob = FindTarget(false)
 				if mob and not _killing then
-					print("[AutoRaid] Mob ilha " .. currentIslandNum .. ": " .. mob.Name)
+					print("[AutoRaid] Mob ilha " .. tostring(islandNum) .. ": " .. mob.Name)
 					_killing = true
 					SafeSpawn(function()
 						KillMob(mob, centerCF)
@@ -3148,10 +3153,11 @@ function Functions.StartAutoRaid(config)
 						_killing = false
 					end)
 				end
-				-- Sem mobs: fica no centro aguardando spawn
-			end)
-		end
-	end)
+				-- Sem mobs/boss: fica no ar no centro aguardando spawn
+				end)
+			end
+		end)
+end
 end
 -- AWAKENER FRUIT (ativar frutas desperto no raid)
 -- =====================================================
@@ -7185,5 +7191,5 @@ _G.UMESP = Functions.UpdateMirageESP     -- UpdateMirageESP
 _G.USESP = Functions.UpdateSeaBeastESP   -- UpdateSeaBeastESP
 _G.TTSI  = Functions.TravelToSubmergedIsland -- TravelToSubmergedIsland
 
-print("[LotuxHub] Functions Updated Loaded v2.10.2")
+print("[LotuxHub] Functions Updated Loaded v2.12.1")
 return Functions
