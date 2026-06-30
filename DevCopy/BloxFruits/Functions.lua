@@ -5799,7 +5799,9 @@ function Functions.StartAllLoops(config)
     Functions.StartAutoDoughKing(config)
     Functions.StartAutoRipIndra(config)
     Functions.StartAutoBigMom(config)
-    Functions.StartAutoFarmBone(config)
+    -- DESATIVADO TEMPORARIAMENTE PARA TESTE: suspeita de causar o bug de
+    -- "stun"/troca de posicao (voo <-> chao) ao chegar nos mobs.
+    -- Functions.StartAutoFarmBone(config)
     Functions.StartAutoPirateRaid(config)
     Functions.StartAutoFarmChocola(config)
 
@@ -7243,5 +7245,5 @@ _G.UMESP = Functions.UpdateMirageESP     -- UpdateMirageESP
 _G.USESP = Functions.UpdateSeaBeastESP   -- UpdateSeaBeastESP
 _G.TTSI  = Functions.TravelToSubmergedIsland -- TravelToSubmergedIsland
 
-print("[LotuxHub] Functions Updated Loaded v2.16.2")
+print("[LotuxHub] Functions Updated Loaded v2.18.2")
 return Functions
