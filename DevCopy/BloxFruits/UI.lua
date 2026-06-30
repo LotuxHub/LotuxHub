@@ -1268,7 +1268,6 @@ task.spawn(function()
                         CFrame.new(mobOriginalPos) * CFrame.new(0, Config.FlyOffset, 0),
                         TweenService, Config, isTeleporting, NotAutoEquip)
                 end
-                Functions.StopTeleport()
                 isTeleporting.value = false
 
                 if not mob.Parent then farmRunning = false; return end
@@ -1326,7 +1325,6 @@ task.spawn(function()
                         Functions.FlyToPosition(
                             mhrp.CFrame * CFrame.new(0, Config.FlyOffset, 0),
                             TweenService, Config, isTeleporting, NotAutoEquip)
-                        Functions.StopTeleport()
                         isTeleporting.value = false
                     end
 
@@ -1459,7 +1457,6 @@ task.spawn(function()
                                         CFrame.new(mobOriginalPos2) * CFrame.new(0, Config.FlyOffset, 0),
                                         TweenService, Config, isTeleporting, NotAutoEquip)
                                 end
-                                Functions.StopTeleport()
                                 isTeleporting.value = false
 
                                 if mob.Parent then
@@ -1516,7 +1513,6 @@ task.spawn(function()
                                             Functions.FlyToPosition(
                                                 mhrp.CFrame * CFrame.new(0, Config.FlyOffset, 0),
                                                 TweenService, Config, isTeleporting, NotAutoEquip)
-                                            Functions.StopTeleport()
                                             isTeleporting.value = false
                                         end
 
@@ -1751,7 +1747,7 @@ task.spawn(function()
                 t.day, t.month, t.year, t.hour, t.min, t.sec))
         end)
         pcall(function() tscrPara:Set(T("lbl_time_script"), Functions.FormatTime(os.time() - Config.ScriptStartTime)) end)
-        pcall(function() tsrvPara:Set(T("lbl_time_server"), Functions.FormatTime(math.floor(workspace.DistributedGameTime))) end)
+        pcall(function() tsrvPara:Set(T("lbl_time_server"), Functions.FormatTime(math.floor(workspace:GetServerTimeNow()))) end)
         pcall(function() killPara:Set("Kill Count", tostring(Config.KillCount)) end)
         pcall(function()
             local char     = Player.Character
@@ -4080,4 +4076,4 @@ Notify({
     Type        = "Success",
 })
 
-print("UI Loaded v4.10.2")
+print("UI Loaded v4.12.2")

@@ -480,6 +480,9 @@ function Functions.FlyToPosition(targetCF, tweenSvc, config, isTeleportingRef, n
     local hum  = char and char:FindFirstChildOfClass("Humanoid")
     if not char or not hrp or not hum or hum.Health <= 0 then return end
 
+    print(("[FlyToPosition] Destino: %s | De: %s\n%s")
+        :format(tostring(targetCF.Position), tostring(hrp.Position), debug.traceback("", 2)))
+
     local distance = (targetCF.Position - hrp.Position).Magnitude
     if distance < 2 then
         -- Ja estamos no destino: NAO cancela um voo em andamento por engano.
@@ -589,11 +592,16 @@ end
 -- destruir a part (ex: ao atacar um mob).
 -- =====================================================
 local _raidPart       = nil  -- referencia unica ao PartTele da raid
+local _raidFlyConn    = nil  -- Heartbeat ativo DURANTE o tween de voo
 local _raidHoldConn   = nil  -- Heartbeat que mantem o player suspenso apos o tween
 local _raidPrevStates = nil
 local _raidPrevAutoRotate = nil
 
 local function DestroyRaidPart()
+    if _raidFlyConn then
+        _raidFlyConn:Disconnect()
+        _raidFlyConn = nil
+    end
     if _raidHoldConn then
         _raidHoldConn:Disconnect()
         _raidHoldConn = nil
@@ -624,8 +632,24 @@ function Functions.FlyToRaid(targetCF, config)
     local hum  = char and char:FindFirstChildOfClass("Humanoid")
     if not char or not hrp or not hum or hum.Health <= 0 then return end
 
+    print(("[FlyToRaid] Destino: %s | De: %s\n%s")
+        :format(tostring(targetCF.Position), tostring(hrp.Position), debug.traceback("", 2)))
+
     local distance = (targetCF.Position - hrp.Position).Magnitude
     if distance < 2 then return end
+
+    -- Cancela qualquer Heartbeat anterior (voo OU hold) antes de iniciar um novo voo.
+    -- Sem isso, chamar FlyToRaid de novo enquanto o anterior ainda esta ativo
+    -- cria DOIS Heartbeats escrevendo no mesmo HumanoidRootPart.CFrame ao mesmo
+    -- tempo, causando o "pulo"/tremor e a sensacao de cair durante o voo.
+    if _raidFlyConn then
+        _raidFlyConn:Disconnect()
+        _raidFlyConn = nil
+    end
+    if _raidHoldConn then
+        _raidHoldConn:Disconnect()
+        _raidHoldConn = nil
+    end
 
     -- Reutiliza ou cria o PartTele da raid
     if not (_raidPart and _raidPart.Parent) then
@@ -675,27 +699,32 @@ function Functions.FlyToRaid(targetCF, config)
         hum:ChangeState(Enum.HumanoidStateType.Physics)
     end
 
-    local conn
-    conn = RunService.Heartbeat:Connect(function()
+    _raidFlyConn = RunService.Heartbeat:Connect(function()
         local c    = Player.Character
         local cHrp = c and c:FindFirstChild("HumanoidRootPart")
         if cHrp and pt and pt.Parent then
             local _, yaw, _ = cHrp.CFrame:ToOrientation()
             cHrp.CFrame = CFrame.new(pt.CFrame.Position) * CFrame.Angles(0, yaw, 0)
         else
-            conn:Disconnect()
+            if _raidFlyConn then
+                _raidFlyConn:Disconnect()
+                _raidFlyConn = nil
+            end
         end
     end)
 
     tween:Play()
     tween.Completed:Wait()
-    conn:Disconnect()
+
+    if _raidFlyConn then
+        _raidFlyConn:Disconnect()
+        _raidFlyConn = nil
+    end
 
     -- NAO destroi o pt aqui: o player fica suspenso no ar no ponto de chegada.
     -- O Heartbeat de espera abaixo mantem o player travado na posicao da Part
     -- (com a fisica nativa ja desabilitada acima) ate DestroyRaidPart() ser
     -- chamado explicitamente.
-    if _raidHoldConn then _raidHoldConn:Disconnect() end
     _raidHoldConn = RunService.Heartbeat:Connect(function()
         local c2   = Player.Character
         local cHrp2 = c2 and c2:FindFirstChild("HumanoidRootPart")
@@ -784,6 +813,8 @@ end]]
 function Functions.TeleportTo(pos)
     local char = Player.Character
     local hrp  = char and char:FindFirstChild("HumanoidRootPart")
+    print(("[TeleportTo] Destino: %s | De: %s\n%s")
+        :format(tostring(pos.Position), tostring(hrp and hrp.Position), debug.traceback("", 2)))
     if hrp then hrp.CFrame = pos end
 end
 
@@ -793,6 +824,8 @@ function Functions.TPP(targetCF)
     local char = Player.Character
     local hrp  = char and char:FindFirstChild("HumanoidRootPart")
     if not hrp then return end
+    print(("[TPP] Destino: %s | De: %s\n%s")
+        :format(tostring(targetCF.Position), tostring(hrp.Position), debug.traceback("", 2)))
     local dist  = (targetCF.Position - hrp.Position).Magnitude
     local tween = TweenService:Create(
         hrp,
@@ -2204,7 +2237,6 @@ function Functions.StartAutoFarmBone(config)
                             CFrame.new(mobHrp.Position) * CFrame.new(0, config.FlyOffset or 15, 0),
                             TweenService, config, _isTp, {value=false})
                     else
-                        Functions.StopTeleport()
                         _isTp.value = false
                         if not _bringActive then
                             local yOff = config.BringYOffset or -10
@@ -7183,5 +7215,5 @@ _G.UMESP = Functions.UpdateMirageESP     -- UpdateMirageESP
 _G.USESP = Functions.UpdateSeaBeastESP   -- UpdateSeaBeastESP
 _G.TTSI  = Functions.TravelToSubmergedIsland -- TravelToSubmergedIsland
 
-print("[LotuxHub] Functions Updated Loaded v2.10.2")
+print("[LotuxHub] Functions Updated Loaded v2.13.3")
 return Functions
