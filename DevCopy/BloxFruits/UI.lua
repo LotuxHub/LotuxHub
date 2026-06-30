@@ -1536,10 +1536,17 @@ task.spawn(function()
                             currentTarget = nil
                             -- Voa ate a posicao dos mobs (CFrameMon) com NoClip ativo
                             -- Funciona tanto na superficie quanto na Submerged Island
-                            NoClip.value = true
-                            Functions.FlyToPosition(quest.CFrameMon * CFrame.new(0, Config.FlyOffset, 0),
-                                TweenService, Config, isTeleporting, NotAutoEquip)
-                            NoClip.value = false
+                            -- So chama FlyToPosition se ainda estiver longe do destino;
+                            -- sem essa checagem o loop (a cada 0.05s) chamava de novo
+                            -- toda iteracao mesmo ja estando no lugar, cancelando o
+                            -- voo anterior e causando o efeito "vai um pouco e para".
+                            local targetPos = quest.CFrameMon.Position
+                            if HumanoidRootPart and (targetPos - HumanoidRootPart.Position).Magnitude > 15 then
+                                NoClip.value = true
+                                Functions.FlyToPosition(quest.CFrameMon * CFrame.new(0, Config.FlyOffset, 0),
+                                    TweenService, Config, isTeleporting, NotAutoEquip)
+                                NoClip.value = false
+                            end
                             task.wait(1)
                         end
                     end
@@ -2414,7 +2421,9 @@ SeaEventTab:AddToggle({ Title = "Auto Tween M-Gear (Mystic Island)", Default = f
                     pcall(function()
                         for _, obj in pairs(workspace.Map.MysticIsland:GetChildren()) do
                             if obj.Name == "MeshPart" then
-                                Functions.FlyToPosition(obj.CFrame, TweenService, Config, isTeleporting, NotAutoEquip)
+                                if HumanoidRootPart and (obj.CFrame.Position - HumanoidRootPart.Position).Magnitude > 15 then
+                                    Functions.FlyToPosition(obj.CFrame, TweenService, Config, isTeleporting, NotAutoEquip)
+                                end
                                 task.wait(0.5)
                             end
                         end
@@ -4076,4 +4085,4 @@ Notify({
     Type        = "Success",
 })
 
-print("UI Loaded v4.12.2")
+print("UI Loaded v4.14.1")

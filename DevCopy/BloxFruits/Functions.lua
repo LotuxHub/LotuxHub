@@ -556,7 +556,23 @@ function Functions.FlyToPosition(targetCF, tweenSvc, config, isTeleportingRef, n
                 hum2:SetStateEnabled(st, wasEnabled)
             end
             hum2.AutoRotate = prevAutoRotate
-            hum2:ChangeState(Enum.HumanoidStateType.Freefall)
+            -- Sai do estado Physics sem forcar Freefall: forcar Freefall mesmo
+            -- quando o player ja esta sobre o chao (ex: chegou perto de um mob
+            -- terrestre) fazia o Humanoid "tropecar"/travar por um instante a
+            -- cada voo terminado, causando o efeito de stun/travamento visto
+            -- ao chegar nos mobs. GetState() le o estado real (no chao ou no
+            -- ar) e o motor assume o estado correto sozinho.
+            local c3   = Player.Character
+            local hrp3 = c3 and c3:FindFirstChild("HumanoidRootPart")
+            local onGround = false
+            if hrp3 then
+                local rayParams = RaycastParams.new()
+                rayParams.FilterType = Enum.RaycastFilterType.Exclude
+                rayParams.FilterDescendantsInstances = { c3 }
+                local result = workspace:Raycast(hrp3.Position, Vector3.new(0, -4, 0), rayParams)
+                onGround = result ~= nil
+            end
+            hum2:ChangeState(onGround and Enum.HumanoidStateType.Landed or Enum.HumanoidStateType.Freefall)
         end
     end
 
@@ -614,7 +630,19 @@ local function DestroyRaidPart()
                 hum:SetStateEnabled(st, wasEnabled)
             end
             if _raidPrevAutoRotate ~= nil then hum.AutoRotate = _raidPrevAutoRotate end
-            hum:ChangeState(Enum.HumanoidStateType.Freefall)
+            -- Mesmo fix do FlyToPosition: nao forcar Freefall se o player
+            -- ja estiver sobre o chao (evita o stun ao terminar a raid perto
+            -- de uma plataforma/ilha).
+            local hrp = c and c:FindFirstChild("HumanoidRootPart")
+            local onGround = false
+            if hrp then
+                local rayParams = RaycastParams.new()
+                rayParams.FilterType = Enum.RaycastFilterType.Exclude
+                rayParams.FilterDescendantsInstances = { c }
+                local result = workspace:Raycast(hrp.Position, Vector3.new(0, -4, 0), rayParams)
+                onGround = result ~= nil
+            end
+            hum:ChangeState(onGround and Enum.HumanoidStateType.Landed or Enum.HumanoidStateType.Freefall)
         end
         _raidPrevStates     = nil
         _raidPrevAutoRotate = nil
@@ -5771,7 +5799,9 @@ function Functions.StartAllLoops(config)
     Functions.StartAutoDoughKing(config)
     Functions.StartAutoRipIndra(config)
     Functions.StartAutoBigMom(config)
-    Functions.StartAutoFarmBone(config)
+    -- DESATIVADO TEMPORARIAMENTE PARA TESTE: suspeita de causar o bug de
+    -- "stun"/troca de posicao (voo <-> chao) ao chegar nos mobs.
+    -- Functions.StartAutoFarmBone(config)
     Functions.StartAutoPirateRaid(config)
     Functions.StartAutoFarmChocola(config)
 
@@ -7215,5 +7245,5 @@ _G.UMESP = Functions.UpdateMirageESP     -- UpdateMirageESP
 _G.USESP = Functions.UpdateSeaBeastESP   -- UpdateSeaBeastESP
 _G.TTSI  = Functions.TravelToSubmergedIsland -- TravelToSubmergedIsland
 
-print("[LotuxHub] Functions Updated Loaded v2.13.3")
+print("[LotuxHub] Functions Updated Loaded v2.18.2")
 return Functions
