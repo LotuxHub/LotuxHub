@@ -1153,7 +1153,7 @@ task.spawn(function()
             end
         end
 
-        if Config.KillAura or Config.EnabledPvP then
+        if Config.KillAura or Config.EnabledPvP or Config.AutoClick then
             for _, otherPlayer in ipairs(Players:GetPlayers()) do
                 if otherPlayer ~= Player then
                     local otherChar = otherPlayer.Character
@@ -4085,4 +4085,4 @@ Notify({
     Type        = "Success",
 })
 
-print("UI Loaded v4.14.1")
+print("UI Loaded v4.16.2")

@@ -22,6 +22,62 @@ local function SafeSpawn(fn, ...)
 end
 
 -- =====================================================
+-- PRIORITY TASK SYSTEM
+-- Pausa o que o player esta fazendo, executa uma tarefa
+-- rapida e restaura tudo ao terminar.
+--
+-- USO:
+--   Functions.RunPriorityTask(config, function()
+--       -- codigo da tarefa prioritaria aqui
+--       -- ex: ir ao castelo, matar mobs, voltar
+--   end)
+--
+-- O que e pausado/restaurado automaticamente:
+--   AutoFarmLevel, AutoFarmNearest, AutoFarmBone,
+--   AutoFarmMastery, AutoFarmMaterial, AutoFarmBoss
+--
+-- Enquanto a tarefa roda, todos esses ficam false.
+-- Ao terminar (ou se der erro), todos voltam ao valor
+-- que tinham antes.
+-- =====================================================
+local PRIORITY_KEYS = {
+    "AutoFarmLevel",
+    "AutoFarmNearest",
+    "AutoFarmBone",
+    "AutoFarmMastery",
+    "AutoFarmMaterial",
+    "AutoFarmBoss",
+    "AutoFarmAllBoss",
+}
+
+function Functions.RunPriorityTask(config, taskFn)
+    -- Salva estado atual
+    local saved = {}
+    for _, key in ipairs(PRIORITY_KEYS) do
+        saved[key] = config[key]
+        config[key] = false
+    end
+
+    -- Espera os loops perceberem que foram pausados
+    task.wait(0.5)
+
+    -- Executa a tarefa prioritaria com protecao de erro
+    local ok, err = xpcall(taskFn, function(e)
+        return tostring(e) .. "\n" .. debug.traceback("", 2)
+    end)
+    if not ok then
+        warn("[PriorityTask] Erro durante tarefa prioritaria:\n" .. tostring(err))
+    end
+
+    -- Restaura estado anterior
+    for _, key in ipairs(PRIORITY_KEYS) do
+        config[key] = saved[key]
+    end
+
+    print("[PriorityTask] Tarefa concluida. Estado restaurado.")
+end
+
+-- =====================================================
 -- SERVICES
 -- =====================================================
 local Players             = game:GetService("Players")
@@ -480,8 +536,6 @@ function Functions.FlyToPosition(targetCF, tweenSvc, config, isTeleportingRef, n
     local hum  = char and char:FindFirstChildOfClass("Humanoid")
     if not char or not hrp or not hum or hum.Health <= 0 then return end
 
-    print(("[FlyToPosition] Destino: %s | De: %s\n%s")
-        :format(tostring(targetCF.Position), tostring(hrp.Position), debug.traceback("", 2)))
 
     local distance = (targetCF.Position - hrp.Position).Magnitude
     if distance < 2 then
@@ -660,8 +714,6 @@ function Functions.FlyToRaid(targetCF, config)
     local hum  = char and char:FindFirstChildOfClass("Humanoid")
     if not char or not hrp or not hum or hum.Health <= 0 then return end
 
-    print(("[FlyToRaid] Destino: %s | De: %s\n%s")
-        :format(tostring(targetCF.Position), tostring(hrp.Position), debug.traceback("", 2)))
 
     local distance = (targetCF.Position - hrp.Position).Magnitude
     if distance < 2 then return end
@@ -841,8 +893,6 @@ end]]
 function Functions.TeleportTo(pos)
     local char = Player.Character
     local hrp  = char and char:FindFirstChild("HumanoidRootPart")
-    print(("[TeleportTo] Destino: %s | De: %s\n%s")
-        :format(tostring(pos.Position), tostring(hrp and hrp.Position), debug.traceback("", 2)))
     if hrp then hrp.CFrame = pos end
 end
 
@@ -852,8 +902,6 @@ function Functions.TPP(targetCF)
     local char = Player.Character
     local hrp  = char and char:FindFirstChild("HumanoidRootPart")
     if not hrp then return end
-    print(("[TPP] Destino: %s | De: %s\n%s")
-        :format(tostring(targetCF.Position), tostring(hrp.Position), debug.traceback("", 2)))
     local dist  = (targetCF.Position - hrp.Position).Magnitude
     local tween = TweenService:Create(
         hrp,
@@ -2079,9 +2127,24 @@ end
 -- Auto Farm Bone (Haunted Castle - Sea 3)
 -- Mobs: Reborn Skeleton (Lv1975), Living Zombie (Lv2000),
 --       Demonic Soul (Lv2025), Posessed Mummy (Lv2050)
+-- =====================================================
+-- AUTO FARM BONE (Haunted Castle - Sea 3)
+--
+-- Fluxo (igual descrito pelo usuario):
+--   1. Vai para a ilha Haunted Castle
+--   2. Pega a quest 1 (HauntedQuest1, nivel 1: Reborn Skeleton)
+--   3. Farma os NPCs dessa quest at completar (8 kills)
+--   4. Pega a quest 1 nivel 2 (Living Zombie) e farma
+--   5. Pega a quest 2 nivel 1 (Demonic Soul) e farma
+--   6. Pega a quest 2 nivel 2 (Posessed Mummy) e farma
+--   7. Volta pra quest 1 nivel 1 e repete o ciclo
+--   (ate o usuario desativar o AutoFarmBone)
+--
+-- Ao desativar: para de voar IMEDIATAMENTE (sem deixar o
+-- player suspenso no estado Physics do voo anterior).
+-- =====================================================
 function Functions.StartAutoFarmBone(config)
     SafeSpawn(function()
-        local RunService   = game:GetService("RunService")
         local TweenService = game:GetService("TweenService")
         local CommF_       = GetCommF()
 
@@ -2102,10 +2165,6 @@ function Functions.StartAutoFarmBone(config)
         local KILLS_PER_QUEST = 8  -- todas as quests do Haunted Castle pedem 8 kills
 
         -- Maquina de estado: IDLE -> GET_QUEST -> TRAVEL -> FARM
-        -- NAO depende do titulo da GUI (e traduzido, nunca bate com quest.Mob).
-        -- NAO chama StartQuest repetidamente (pode resetar progresso no servidor).
-        -- Conta kills localmente: ao atingir KILLS_PER_QUEST, avanca para o
-        -- proximo mob/quest da lista.
         local STATE        = "IDLE"
         local _boneIdx     = 1
         local _killsThis   = 0
@@ -2114,13 +2173,15 @@ function Functions.StartAutoFarmBone(config)
         local _bringActive = false
         local _bringPos    = CFrame.new(0,0,0)
         local _isTp        = {value = false}
+        local _wasActive   = false  -- detecta a transicao ON->OFF para limpar o voo
 
         local function CurrentQuest() return HAUNTED_MOBS[_boneIdx] end
 
         local function NextMob()
             _boneIdx   = (_boneIdx % #HAUNTED_MOBS) + 1
             _killsThis = 0
-            print("[FarmBone] Proximo mob: " .. HAUNTED_MOBS[_boneIdx].Mob)
+            print("[FarmBone] Proxima quest: " .. HAUNTED_MOBS[_boneIdx].NameQuest
+                .. " Lv" .. HAUNTED_MOBS[_boneIdx].QuestLv .. " (" .. HAUNTED_MOBS[_boneIdx].Mob .. ")")
         end
 
         local function HasQuest()
@@ -2160,13 +2221,26 @@ function Functions.StartAutoFarmBone(config)
             end)
         end
 
+        -- Limpa tudo e para de voar IMEDIATAMENTE (chamado ao desativar)
+        local function FullStop()
+            DisconnectBring()
+            Functions.StopTeleport()
+            STATE      = "IDLE"
+            _activeMob = nil
+            _isTp.value = false
+        end
+
         while task.wait(0.3) do
             if not config.AutoFarmBone then
-                DisconnectBring()
-                Functions.StopTeleport()
-                STATE = "IDLE"; _activeMob = nil
+                if _wasActive then
+                    -- Transicao ON->OFF: limpa voo e estado uma unica vez
+                    FullStop()
+                    print("[FarmBone] Desativado - voo interrompido.")
+                end
+                _wasActive = false
                 continue
             end
+            _wasActive = true
 
             local char = Player.Character
             local hrp  = char and char:FindFirstChild("HumanoidRootPart")
@@ -2181,7 +2255,6 @@ function Functions.StartAutoFarmBone(config)
                     if HasQuest() then
                         -- Ja tem uma quest ativa (de qualquer mob): assume
                         -- que serve e vai farmar o mob da lista atual.
-                        -- Nao chama StartQuest aqui (evita reset de progresso).
                         STATE = "TRAVEL"
                     else
                         STATE = "GET_QUEST"
@@ -2224,29 +2297,37 @@ function Functions.StartAutoFarmBone(config)
                         return
                     end
                     _activeMob = mob
-                    StartBringHeartbeat(quest.Mob, hrp)
                     STATE = "FARM"
 
                 -- ── FARM: ataca o mob atual ─────────────────────────────
+                -- IMPORTANTE: so chama FlyToPosition() quando realmente
+                -- precisa voar (mob longe). Quando perto, NUNCA mistura
+                -- FlyToPosition (estado Physics) com o BringMob no mesmo
+                -- frame: o codigo antigo alternava os dois a cada 0.3s,
+                -- e a troca de estado Physics<->Landed no meio do bring
+                -- causava o "snap" de posicao (voo <-> chao) reportado.
+                -- Agora: enquanto perto do mob, NAO chama FlyToPosition
+                -- nenhuma vez (so o BringMob move o mob, o player fica
+                -- parado naturalmente no chao).
                 elseif STATE == "FARM" then
                     local mob = _activeMob
                     if not mob or not mob.Parent then
-                        DisconnectBring(); Functions.StopTeleport()
+                        DisconnectBring()
                         _activeMob = nil; STATE = "TRAVEL"
                         return
                     end
                     local mobHum = mob:FindFirstChild("Humanoid")
                     local mobHrp = mob:FindFirstChild("HumanoidRootPart")
                     if not mobHum or mobHum.Health <= 0 then
-                        DisconnectBring(); Functions.StopTeleport()
+                        DisconnectBring()
                         _activeMob = nil
                         config.KillCount = (config.KillCount or 0) + 1
                         _killsThis = _killsThis + 1
                         print(("[FarmBone] %s morto! (%d/%d)"):format(quest.Mob, _killsThis, KILLS_PER_QUEST))
 
                         if _killsThis >= KILLS_PER_QUEST then
-                            -- Quest deveria estar completa: abandona (se ainda visivel)
-                            -- e avanca para o proximo mob/quest da lista
+                            -- Quest completa: abandona (se ainda visivel)
+                            -- e avanca para a proxima quest/mob da lista
                             pcall(function() CommF_:InvokeServer("AbandonQuest") end)
                             task.wait(0.3)
                             NextMob()
@@ -2259,20 +2340,29 @@ function Functions.StartAutoFarmBone(config)
                     end
                     if not mobHrp then return end
                     local dist = (mobHrp.Position - hrp.Position).Magnitude
+
                     if dist > 15 then
-                        _bringActive = false
+                        -- Mob esta longe: desativa o bring (evita puxar o
+                        -- mob enquanto ainda estamos voando até ele) e voa.
+                        DisconnectBring()
                         Functions.FlyToPosition(
                             CFrame.new(mobHrp.Position) * CFrame.new(0, config.FlyOffset or 15, 0),
                             TweenService, config, _isTp, {value=false})
-                    else
-                        _isTp.value = false
-                        if not _bringActive then
-                            local yOff = config.BringYOffset or -10
-                            local mp   = mobHrp.Position
-                            _bringPos  = CFrame.new(mp.X, mp.Y + yOff, mp.Z)
-                            _bringActive = true
-                        end
+                        -- Apos o voo terminar (FlyToPosition e bloqueante),
+                        -- o player ja esta pousado normalmente no chao.
+                        return
                     end
+
+                    -- Mob perto: liga o bring (se ainda nao ligado) e ataca
+                    -- SEM chamar FlyToPosition de novo neste ciclo.
+                    if not _bringActive then
+                        local yOff = config.BringYOffset or -10
+                        local mp   = mobHrp.Position
+                        _bringPos  = CFrame.new(mp.X, mp.Y + yOff, mp.Z)
+                        _bringActive = true
+                        StartBringHeartbeat(quest.Mob, hrp)
+                    end
+
                     Functions.AutoHaki()
                     Functions.EquipWeapon(config, {value=false})
                     VirtualUser:CaptureController()
@@ -3465,249 +3555,193 @@ end
 
 -- Auto Pirate Raid (Sea 3)
 function Functions.StartAutoPirateRaid(config)
-    -- =====================================================
-    -- AUTO PIRATE RAID - reescrito
-    -- Fluxo: voa ate ilha atual -> espera mobs -> mata ->
-    --        checa proxima ilha (RaidIsland1..5) -> voa ate ela -> repete
-    -- Usa PartTele para hover no ar (nao cai apos o voo)
-    -- =====================================================
+	-- =====================================================
+	-- AUTO PIRATE RAID
+	--
+	-- Fluxo:
+	--   1. Monitora notificacoes do jogo via SetCore hook
+	--   2. Quando detecta "Piratas estao invadindo" E
+	--      config.AutoPirateRaid == true:
+	--      a. Salva o que o player estava fazendo (pausa)
+	--      b. Voa pro centro do Boat Castle
+	--      c. Espera mobs spawnarem (max 30s)
+	--      d. Mata todos os mobs que aparecerem la
+	--      e. Se passar 10s sem nenhum mob novo: encerra
+	--      f. Restaura o estado anterior (retoma o que fazia)
+	-- =====================================================
+	local CASTLE_CF   = CFrame.new(-5036, 355, -3179)  -- centro do Boat Castle no ar
+	local MOB_RADIUS  = 800    -- raio de busca de mobs ao redor do castelo
+	local WAIT_SPAWN  = 30     -- segundos maximos esperando mobs spawnarem
+	local WAIT_NEXT   = 10     -- segundos sem mob novo antes de encerrar
+	local _isTp       = { value = false }
+	local _noEquip    = { value = false }
+	local _running    = false  -- evita execucoes paralelas
 
-    local ISLAND_COUNT   = 5
-    local MOB_SEARCH_R   = 2500   -- raio de busca de mobs ao redor da ilha atual
-    local HOVER_Y_OFFSET = 40     -- altura acima do centro da ilha para flutuar/esperar
+	-- ── Voa pro alvo e fica no ar ──
+	local function FlyTo(targetCF)
+		Functions.FlyToPosition(targetCF, TweenService, config, _isTp, _noEquip)
+	end
 
-    -- Refs de controle do FlyToPosition (mesmo padrao do resto do script)
-    local _raidIsTp    = { value = false }
-    local _raidNoEquip = { value = false }
+	-- ── Para no ar sem cair ──
+	local function HoverHere()
+		local char = Player.Character
+		local hrp  = char and char:FindFirstChild("HumanoidRootPart")
+		if not hrp then return end
+		local pt        = Instance.new("Part")
+		pt.Name         = "PirateRaidHover"
+		pt.Size         = Vector3.new(10,1,10)
+		pt.Anchored     = true
+		pt.Transparency = 1
+		pt.CanCollide   = false
+		pt.CFrame       = hrp.CFrame
+		pt.Parent       = workspace
+		local conn
+		conn = RunService.Heartbeat:Connect(function()
+			local c   = Player.Character
+			local cHrp = c and c:FindFirstChild("HumanoidRootPart")
+			if cHrp and pt and pt.Parent then
+				local _, yaw, _ = cHrp.CFrame:ToOrientation()
+				cHrp.CFrame = CFrame.new(pt.CFrame.Position) * CFrame.Angles(0, yaw, 0)
+			else
+				conn:Disconnect()
+			end
+		end)
+		return pt, conn
+	end
 
-    -- ── Cria/mantem o PartTele no ar para o char nao cair apos o voo ──
-    local function EnsurePartTele()
-        local char = Player.Character
-        local hrp  = char and char:FindFirstChild("HumanoidRootPart")
-        if not char or not hrp then return end
-        if not char:FindFirstChild("PartTele") then
-            local pt        = Instance.new("Part", char)
-            pt.Name         = "PartTele"
-            pt.Size         = Vector3.new(10, 1, 10)
-            pt.Anchored     = true
-            pt.Transparency = 1
-            pt.CanCollide   = false
-            pt.CFrame       = hrp.CFrame
-            -- Cola o HRP no PartTele enquanto _raidIsTp.value for true
-            pt:GetPropertyChangedSignal("CFrame"):Connect(function()
-                if not _raidIsTp.value then return end
-                task.wait()
-                local c = Player.Character
-                if c and c:FindFirstChild("HumanoidRootPart") and c:FindFirstChild("PartTele") then
-                    local cHrp = c.HumanoidRootPart
-                    local _, yaw, _ = cHrp.CFrame:ToOrientation()
-                    cHrp.CFrame = CFrame.new(c.PartTele.CFrame.Position) * CFrame.Angles(0, yaw, 0)
-                end
-            end)
-        end
-    end
+	-- ── Para o hover ──
+	local function StopHover(pt, conn)
+		if conn then conn:Disconnect() end
+		if pt and pt.Parent then pt:Destroy() end
+		Functions.StopTeleport()
+	end
 
-    -- ── Destrói o PartTele (libera o char para gravidade normal) ──
-    local function DestroyPartTele()
-        local char = Player.Character
-        if char and char:FindFirstChild("PartTele") then
-            char.PartTele:Destroy()
-        end
-    end
+	-- ── Busca mobs vivos no castelo ──
+	local function GetCastleMobs()
+		local result  = {}
+		local enemies = workspace:FindFirstChild("Enemies")
+		if not enemies then return result end
+		for _, v in ipairs(enemies:GetChildren()) do
+			local vHrp = v:FindFirstChild("HumanoidRootPart")
+			local vHum = v:FindFirstChild("Humanoid")
+			if vHrp and vHum and vHum.Health > 0
+			   and (vHrp.Position - CASTLE_CF.Position).Magnitude <= MOB_RADIUS then
+				table.insert(result, v)
+			end
+		end
+		return result
+	end
 
-    -- ── Hover: mantém o char flutuando em targetCF sem cair ──
-    -- Cria o PartTele, posiciona ele no alvo e deixa ancorado (nao destroi)
-    local function HoverAt(targetCF)
-        local char = Player.Character
-        local hrp  = char and char:FindFirstChild("HumanoidRootPart")
-        if not char or not hrp then return end
-        EnsurePartTele()
-        local pt = char:FindFirstChild("PartTele")
-        if not pt then return end
-        _raidIsTp.value = true
-        pt.CFrame = targetCF
-        -- Cola o HRP imediatamente no PartTele via Heartbeat enquanto hover ativo
-        local conn
-        conn = RunService.Heartbeat:Connect(function()
-            local c   = Player.Character
-            local cPt = c and c:FindFirstChild("PartTele")
-            local cHrp = c and c:FindFirstChild("HumanoidRootPart")
-            if cPt and cHrp and _raidIsTp.value then
-                local _, yaw, _ = cHrp.CFrame:ToOrientation()
-                cHrp.CFrame = CFrame.new(cPt.CFrame.Position) * CFrame.Angles(0, yaw, 0)
-            else
-                conn:Disconnect()
-            end
-        end)
-    end
+	-- ── Executa o farm do Pirate Raid ──
+	local function RunPirateRaid()
+		if _running then return end
+		_running = true
+		print("[PirateRaid] Notificacao detectada! Iniciando...")
 
-    -- ── StopHover: para de flutuar e remove o PartTele ──
-    local function StopHover()
-        _raidIsTp.value = false
-        DestroyPartTele()
-    end
+		Functions.RunPriorityTask(config, function()
+			-- Voa pro castelo
+			print("[PirateRaid] Voando para o Boat Castle...")
+			FlyTo(CASTLE_CF)
 
-    -- ── RaidFlyTo: usa FlyToPosition com o PartTele (igual ao resto do script) ──
-    -- Nao adiciona offset extra de Y - o caller ja passa o Y correto
-    local function RaidFlyTo(targetCF)
-        local char = Player.Character
-        local hrp  = char and char:FindFirstChild("HumanoidRootPart")
-        if not char or not hrp then return end
-        -- Garante que PartTele nao existe antes (FlyToPosition cria o proprio)
-        DestroyPartTele()
-        _raidIsTp.value = false
-        Functions.FlyToPosition(targetCF, TweenService, config, _raidIsTp, _raidNoEquip)
-        -- Apos o voo o FlyToPosition destroi o PartTele; recriar para hover
-    end
+			-- Hover no centro enquanto aguarda mobs
+			local hoverPt, hoverConn = HoverHere()
 
-    -- ── GetIsland: retorna o Part/Model da ilha de raid pelo numero (1-5) ──
-    local function GetIsland(n)
-        local raidMap = workspace:FindFirstChild("Map")
-                    and workspace.Map:FindFirstChild("RaidMap")
-        if not raidMap then return nil end
-        return raidMap:FindFirstChild("RaidIsland" .. n)
-    end
+			-- Espera mobs spawnarem (max WAIT_SPAWN segundos)
+			local waited = 0
+			while waited < WAIT_SPAWN do
+				if not config.AutoPirateRaid then break end
+				local mobs = GetCastleMobs()
+				if #mobs > 0 then break end
+				task.wait(1)
+				waited = waited + 1
+				print(("[PirateRaid] Aguardando mobs... %ds/%ds"):format(waited, WAIT_SPAWN))
+			end
 
-    -- ── GetIslandCenter: retorna CFrame do centro da ilha + HOVER_Y_OFFSET ──
-    local function GetIslandCenter(island)
-        if not island then return nil end
-        -- Se for Model, usa PrimaryPart ou HumanoidRootPart ou calcula AABB
-        if island:IsA("Model") then
-            if island.PrimaryPart then
-                return CFrame.new(island.PrimaryPart.Position + Vector3.new(0, HOVER_Y_OFFSET, 0))
-            end
-            -- Fallback: primeiro BasePart filho
-            for _, p in ipairs(island:GetDescendants()) do
-                if p:IsA("BasePart") then
-                    return CFrame.new(p.Position + Vector3.new(0, HOVER_Y_OFFSET, 0))
-                end
-            end
-        elseif island:IsA("BasePart") then
-            return CFrame.new(island.Position + Vector3.new(0, HOVER_Y_OFFSET, 0))
-        end
-        return nil
-    end
+			-- Mata os mobs, aguardando ate 10s sem novo mob
+			local lastKillTime = os.clock()
+			while config.AutoPirateRaid do
+				local mobs = GetCastleMobs()
 
-    -- ── GetMobsNearIsland: lista mobs vivos perto de uma ilha ──
-    local function GetMobsNearIsland(islandCenter)
-        local mobs = {}
-        local enemies = workspace:FindFirstChild("Enemies")
-        if not enemies or not islandCenter then return mobs end
-        for _, v in ipairs(enemies:GetChildren()) do
-            local vHrp = v:FindFirstChild("HumanoidRootPart")
-            local vHum = v:FindFirstChild("Humanoid")
-            if vHrp and vHum and vHum.Health > 0
-               and (vHrp.Position - islandCenter).Magnitude <= MOB_SEARCH_R then
-                table.insert(mobs, v)
-            end
-        end
-        return mobs
-    end
+				if #mobs == 0 then
+					if os.clock() - lastKillTime >= WAIT_NEXT then
+						print("[PirateRaid] Sem mobs por " .. WAIT_NEXT .. "s. Encerrando.")
+						break
+					end
+					task.wait(0.5)
+				else
+					lastKillTime = os.clock()
+					for _, v in ipairs(mobs) do
+						if not config.AutoPirateRaid then break end
+						local vHrp = v:FindFirstChild("HumanoidRootPart")
+						local vHum = v:FindFirstChild("Humanoid")
+						if not vHrp or not vHum or vHum.Health <= 0 then continue end
 
-    -- =====================================================
-    -- LOOP PRINCIPAL
-    -- =====================================================
-    SafeSpawn(function()
-        local currentIsland = 1   -- ilha atual (1 a 5)
+						StopHover(hoverPt, hoverConn)
+						FlyTo(vHrp.CFrame * CFrame.new(0, 25, 0))
+						hoverPt, hoverConn = HoverHere()
 
-        while task.wait(0.1) do
-            if not config.AutoPirateRaid then
-                StopHover()
-                currentIsland = 1
-                continue
-            end
+						repeat
+							task.wait(0.05)
+							if not config.AutoPirateRaid then break end
+							Functions.AutoHaki()
+							Functions.EquipWeapon(config, _noEquip)
+							pcall(function()
+								vHrp.CanCollide = false
+								vHrp.Size = Vector3.new(60, 60, 60)
+								VirtualUser:CaptureController()
+								VirtualUser:Button1Down(Vector2.new(1280, 672))
+							end)
+						until not v.Parent
+							or not v:FindFirstChild("Humanoid")
+							or v.Humanoid.Health <= 0
+							or not config.AutoPirateRaid
 
-            pcall(function()
-                local char = Player.Character
-                local hrp  = char and char:FindFirstChild("HumanoidRootPart")
-                local hum  = char and char:FindFirstChildOfClass("Humanoid")
-                if not char or not hrp or not hum or hum.Health <= 0 then return end
+						StopHover(hoverPt, hoverConn)
+						FlyTo(CASTLE_CF)
+						hoverPt, hoverConn = HoverHere()
+						lastKillTime = os.clock()
+					end
+				end
+			end
 
-                -- ── 1. Pega a ilha atual ──
-                local island = GetIsland(currentIsland)
+			-- Para o hover ao terminar
+			StopHover(hoverPt, hoverConn)
+		end)
 
-                -- Se a ilha nao existe ainda (ainda nao spawnou), aguarda no ar
-                if not island then
-                    -- Tenta a primeira ilha como fallback
-                    island = GetIsland(1)
-                    if not island then
-                        StopHover()
-                        task.wait(1)
-                        return
-                    end
-                    currentIsland = 1
-                end
+		_running = false
+	end
 
-                local islandCF     = GetIslandCenter(island)
-                if not islandCF then task.wait(1); return end
-                local islandCenter = islandCF.Position - Vector3.new(0, HOVER_Y_OFFSET, 0)
+	-- ── Hook de notificacao do jogo ──
+	-- Intercepta qualquer chamada a StarterGui:SetCore("SendNotification", ...)
+	-- e verifica se o texto contem a frase do Pirate Raid.
+	local StarterGui = game:GetService("StarterGui")
+	local oldSetCore = hookfunction(StarterGui.SetCore, function(self, coreType, data)
+		pcall(function()
+			if coreType == "SendNotification" and config.AutoPirateRaid then
+				local title = tostring(data and (data.Title or data.title) or ""):lower()
+				local text  = tostring(data and (data.Text  or data.text ) or ""):lower()
+				-- Detecta tanto em portugues quanto em ingles
+				local isPirateRaid = title:match("pirat") or text:match("pirat")
+				              or title:match("invad")  or text:match("invad")
+				              or title:match("castelo") or text:match("castelo")
+				              or title:match("castle")  or text:match("castle")
+				if isPirateRaid then
+					print("[PirateRaid] Notificacao capturada: " .. tostring(data.Title or data.title))
+					SafeSpawn(RunPirateRaid)
+				end
+			end
+		end)
+		return oldSetCore(self, coreType, data)
+	end)
 
-                -- ── 2. Se esta longe da ilha atual, voa ate ela ──
-                if (hrp.Position - islandCF.Position).Magnitude > 200 then
-                    RaidFlyTo(islandCF)
-                    task.wait(0.3)
-                    return
-                end
-
-                -- ── 3. Procura mobs na ilha atual ──
-                local mobs = GetMobsNearIsland(islandCenter)
-
-                if #mobs > 0 then
-                    -- Tem mobs: mata todos
-                    StopHover()
-                    for _, v in ipairs(mobs) do
-                        if not config.AutoPirateRaid then break end
-                        local vHrp = v:FindFirstChild("HumanoidRootPart")
-                        local vHum = v:FindFirstChild("Humanoid")
-                        if not vHrp or not vHum or vHum.Health <= 0 then continue end
-
-                        -- Voa ate o mob
-                        RaidFlyTo(vHrp.CFrame * CFrame.new(0, 30, 0))
-
-                        -- Ataca em loop ate morrer
-                        repeat
-                            task.wait(0.05)
-                            if not config.AutoPirateRaid then break end
-                            Functions.AutoHaki()
-                            Functions.EquipWeapon(config, _raidNoEquip)
-                            pcall(function()
-                                vHrp.CanCollide = false
-                                vHrp.Size       = Vector3.new(60, 60, 60)
--- [SimRadius removido: causava NoStun/queda no player]
-                                VirtualUser:CaptureController()
-                                VirtualUser:Button1Down(Vector2.new(1280, 672))
-                            end)
-                        until not v.Parent
-                            or not v:FindFirstChild("Humanoid")
-                            or v.Humanoid.Health <= 0
-                            or not config.AutoPirateRaid
-                    end
-
-                else
-                    -- Sem mobs na ilha atual: checa se a proxima ilha ja spawnou
-                    if currentIsland < ISLAND_COUNT then
-                        local nextIsland = GetIsland(currentIsland + 1)
-                        if nextIsland then
-                            -- Proxima ilha spawnou: avanca
-                            currentIsland = currentIsland + 1
-                            local nextCF = GetIslandCenter(nextIsland)
-                            if nextCF then
-                                RaidFlyTo(nextCF)
-                            end
-                            return
-                        end
-                    end
-
-                    -- Proxima ilha ainda nao spawnou (ou ja e a ultima):
-                    -- flutua no centro da ilha atual esperando mobs/proxima ilha
-                    HoverAt(islandCF)
-                    task.wait(0.5)
-                end
-            end)
-        end
-    end)
+	-- Limpa o hook quando o script e destruido/desativado
+	game:GetService("Players").LocalPlayer.CharacterRemoving:Connect(function()
+		if oldSetCore then
+			pcall(function() hookfunction(StarterGui.SetCore, oldSetCore) end)
+		end
+	end)
 end
--- Auto Farm Chocola Island
+
 function Functions.StartAutoFarmChocola(config)
     SafeSpawn(function()
         while task.wait() do
@@ -4162,8 +4196,16 @@ end
 
 function Functions.StartFarmChest(config, isTeleportingRef, notAutoEquipRef)
     SafeSpawn(function()
+        local _farmChestWasActive = false
         while task.wait(0.2) do
-            if not config.FarmChest then continue end
+            if not config.FarmChest then
+                if _farmChestWasActive then
+                    Functions.StopTeleport()
+                    _farmChestWasActive = false
+                end
+                continue
+            end
+            _farmChestWasActive = true
             pcall(function()
                 -- FIX: FarmChest usa Functions.FlyToPosition, que compartilha
                 -- o estado global Functions._flyCancel/PartTele com
@@ -5799,9 +5841,7 @@ function Functions.StartAllLoops(config)
     Functions.StartAutoDoughKing(config)
     Functions.StartAutoRipIndra(config)
     Functions.StartAutoBigMom(config)
-    -- DESATIVADO TEMPORARIAMENTE PARA TESTE: suspeita de causar o bug de
-    -- "stun"/troca de posicao (voo <-> chao) ao chegar nos mobs.
-    -- Functions.StartAutoFarmBone(config)
+    Functions.StartAutoFarmBone(config)
     Functions.StartAutoPirateRaid(config)
     Functions.StartAutoFarmChocola(config)
 
@@ -6077,8 +6117,16 @@ end
 -- StartAutoFarmObsHaki - Farm Observation Haki mastery
 function Functions.StartAutoTweenToKitsune(config)
     SafeSpawn(function()
+        local _kitsuneWasActive = false
         while task.wait(1) do
-            if not config.TweenToKitsune then continue end
+            if not config.TweenToKitsune then
+                if _kitsuneWasActive then
+                    Functions.StopTeleport()
+                    _kitsuneWasActive = false
+                end
+                continue
+            end
+            _kitsuneWasActive = true
             
             pcall(function()
                 local kitsune = workspace:FindFirstChild("Kitsune Island", true)
@@ -7245,5 +7293,5 @@ _G.UMESP = Functions.UpdateMirageESP     -- UpdateMirageESP
 _G.USESP = Functions.UpdateSeaBeastESP   -- UpdateSeaBeastESP
 _G.TTSI  = Functions.TravelToSubmergedIsland -- TravelToSubmergedIsland
 
-print("[LotuxHub] Functions Updated Loaded v2.18.2")
+print("[LotuxHub] Functions Updated Loaded v2.20.2")
 return Functions
