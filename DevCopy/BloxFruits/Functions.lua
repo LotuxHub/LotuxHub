@@ -2575,24 +2575,59 @@ end
 
 -- Auto Factory (Sea 2)
 function Functions.StartAutoFactory(config)
+    -- Posicoes da fabrica (Sea 2)
+    local FACTORY_ENTRANCE = Vector3.new(-286.9859619140625, 306.13739013671875, 616.8819580078125)
+    local FACTORY_INSIDE   = CFrame.new(448.46756, 199.356781, -441.389252)
+    local FACTORY_CORE_POS = CFrame.new(448.46756, 199.356781, -441.389252)
+    local _factWasActive   = false
+    local _isTp            = { value = false }
+
     SafeSpawn(function()
-        while task.wait() do
-            if not config.AutoFactory then continue end
+        while task.wait(0.5) do
+            if not config.AutoFactory then
+                if _factWasActive then
+                    Functions.StopTeleport()
+                    _factWasActive = false
+                end
+                continue
+            end
+            _factWasActive = true
+
             pcall(function()
-                if workspace.Enemies:FindFirstChild("Core") then
-                    for _, v in ipairs(workspace.Enemies:GetChildren()) do
-                        if v.Name == "Core" and v:FindFirstChild("Humanoid") and v.Humanoid.Health > 0 then
-                            repeat task.wait()
-                                Functions.AutoHaki()
-                                Functions.EquipWeapon(config.SelectedWeaponName)
-                                Functions.TeleportTo(CFrame.new(448.46756, 199.356781, -441.389252))
-                                VirtualUser:CaptureController()
-                                VirtualUser:Button1Down(Vector2.new(1280, 672))
-                            until v.Humanoid.Health <= 0 or not config.AutoFactory
-                        end
+                local char = Player.Character
+                local hrp  = char and char:FindFirstChild("HumanoidRootPart")
+                if not hrp then return end
+
+                local enemies = workspace:FindFirstChild("Enemies")
+                local core    = enemies and enemies:FindFirstChild("Core")
+
+                if core and core:FindFirstChild("Humanoid") and core.Humanoid.Health > 0 then
+                    -- Core spawnado: ataca
+                    local coreHrp = core:FindFirstChild("HumanoidRootPart")
+                    if coreHrp and (coreHrp.Position - hrp.Position).Magnitude > 20 then
+                        Functions.FlyToPosition(FACTORY_CORE_POS, TweenService, config, _isTp, {value=false})
                     end
+                    repeat
+                        task.wait(0.05)
+                        if not config.AutoFactory then break end
+                        Functions.AutoHaki()
+                        Functions.EquipWeapon(config)
+                        VirtualUser:CaptureController()
+                        VirtualUser:Button1Down(Vector2.new(1280, 672))
+                    until not core.Parent
+                        or not core:FindFirstChild("Humanoid")
+                        or core.Humanoid.Health <= 0
+                        or not config.AutoFactory
                 else
-                    Functions.TeleportTo(CFrame.new(448.46756, 199.356781, -441.389252))
+                    -- Sem core: usa requestEntrance pro Sea 2 e voa ate dentro
+                    local distToFactory = (hrp.Position - FACTORY_INSIDE.Position).Magnitude
+                    if distToFactory > 30 then
+                        -- requestEntrance leva ao andar de cima da fabrica
+                        CF("requestEntrance", FACTORY_ENTRANCE)
+                        task.wait(1)
+                        -- TweenFly ate o ponto do core dentro da fabrica
+                        Functions.FlyToPosition(FACTORY_INSIDE, TweenService, config, _isTp, {value=false})
+                    end
                 end
             end)
         end
@@ -3096,36 +3131,61 @@ function Functions.StartAutoRaid(config)
 				-- Timer.Visible (acima) ja e a condicao correta (igual Tiroreal).
 
 				if World2 then
+					-- Sea 2: voa ate o ponto do summon e clica no detector
 					local summonCF = CFrame.new(-6523.4746, 305.4380, -4741.3809)
-					SafeFlyTo(summonCF)
-					-- FIX: FlyToRaid retorna sem fazer nada se distance < 2.
-					-- Garante a posicao final com TeleportTo instantaneo.
-					pcall(function()
-						local hrp2 = Player.Character and Player.Character:FindFirstChild("HumanoidRootPart")
-						if hrp2 and (hrp2.Position - summonCF.Position).Magnitude > 10 then
+					-- Garante que esta perto do ponto antes de clicar
+					local hrp2 = Player.Character and Player.Character:FindFirstChild("HumanoidRootPart")
+					if hrp2 and (hrp2.Position - summonCF.Position).Magnitude > 15 then
+						SafeFlyTo(summonCF)
+						task.wait(0.3)
+						-- Fallback teleporte direto se ainda longe
+						hrp2 = Player.Character and Player.Character:FindFirstChild("HumanoidRootPart")
+						if hrp2 and (hrp2.Position - summonCF.Position).Magnitude > 15 then
 							Functions.TeleportTo(summonCF)
+							task.wait(0.3)
 						end
-					end)
-					task.wait(0.5)
+					end
 					CF("SetSpawnPoint")
-					pcall(function() fireclickdetector(workspace.Map.CircleIsland.RaidSummon2.Button.Main.ClickDetector) end)
+					task.wait(0.2)
+					-- Tenta clicar no detector; fallback com CF se falhar
+					local clicked = false
+					pcall(function()
+						local btn = workspace.Map.CircleIsland.RaidSummon2.Button.Main.ClickDetector
+						fireclickdetector(btn)
+						clicked = true
+					end)
+					if not clicked then
+						pcall(function() CF("requestEntrance", summonCF.Position) end)
+					end
+					task.wait(1)
+
 				elseif World3 then
+					-- Sea 3: requestEntrance pro castelo, voa ate o summon e clica
 					CF("requestEntrance", Vector3.new(-5075.50927734375, 314.5155029296875, -3150.0224609375))
-					task.wait(0.5)
+					task.wait(1.5)
 					local summonCF = CFrame.new(-5017.40869, 314.844055, -2823.0127)
-					SafeFlyTo(summonCF)
-					-- FIX: requestEntrance pode ja ter posicionado o player perto
-					-- de summonCF, fazendo FlyToRaid (distance < 2) nao fazer nada.
-					-- Garante a posicao final com TeleportTo instantaneo.
-					pcall(function()
-						local hrp3 = Player.Character and Player.Character:FindFirstChild("HumanoidRootPart")
-						if hrp3 and (hrp3.Position - summonCF.Position).Magnitude > 10 then
+					local hrp3 = Player.Character and Player.Character:FindFirstChild("HumanoidRootPart")
+					if hrp3 and (hrp3.Position - summonCF.Position).Magnitude > 15 then
+						SafeFlyTo(summonCF)
+						task.wait(0.3)
+						hrp3 = Player.Character and Player.Character:FindFirstChild("HumanoidRootPart")
+						if hrp3 and (hrp3.Position - summonCF.Position).Magnitude > 15 then
 							Functions.TeleportTo(summonCF)
+							task.wait(0.3)
 						end
-					end)
-					task.wait(0.5)
+					end
 					CF("SetSpawnPoint")
-					pcall(function() fireclickdetector(workspace.Map["Boat Castle"].RaidSummon2.Button.Main.ClickDetector) end)
+					task.wait(0.2)
+					local clicked3 = false
+					pcall(function()
+						local btn = workspace.Map["Boat Castle"].RaidSummon2.Button.Main.ClickDetector
+						fireclickdetector(btn)
+						clicked3 = true
+					end)
+					if not clicked3 then
+						pcall(function() CF("requestEntrance", summonCF.Position) end)
+					end
+					task.wait(1)
 				end
 			end)
 		end
@@ -4275,11 +4335,18 @@ end
 
 function Functions.StartTweenFlyFruit(config, isTeleportingRef, notAutoEquipRef)
     SafeSpawn(function()
+        local _tweenWasActive = false
         while task.wait(0.3) do
-            if not config.TweenFlyFruit then continue end
+            if not config.TweenFlyFruit then
+                if _tweenWasActive then
+                    Functions.StopTeleport()
+                    _tweenWasActive = false
+                end
+                continue
+            end
+            _tweenWasActive = true
+
             pcall(function()
-                -- Mesmo problema do FarmChest: FlyToPosition compartilha
-                -- estado global com AutoFarmLevel/Nearest/Raid/Bone
                 if config.AutoFarmLevel or config.AutoFarmNearest
                    or config.AutoFarmBone or config.AutoRaid
                    or config.AutoRaidLaw or config.AutoFarmMastery then
@@ -4290,11 +4357,11 @@ function Functions.StartTweenFlyFruit(config, isTeleportingRef, notAutoEquipRef)
                 local hrp  = char and char:FindFirstChild("HumanoidRootPart")
                 if not hrp then return end
 
-                local bestHandle = nil
+                local bestHandle   = nil
                 local bestFruitObj = nil
-                local bestDist   = math.huge
+                local bestDist     = math.huge
 
-                -- Lugar 1: Workspace.Fruit (spawn normal do jogo)
+                -- Lugar 1: workspace.Fruit (spawn normal)
                 local fruitFolder = workspace:FindFirstChild("Fruit")
                 if fruitFolder then
                     for _, v in ipairs(fruitFolder:GetChildren()) do
@@ -4308,9 +4375,9 @@ function Functions.StartTweenFlyFruit(config, isTeleportingRef, notAutoEquipRef)
                     end
                 end
 
-                -- Lugar 2: frutas dropadas no workspace (Tool com nome do BFWirelist)
+                -- Lugar 2: frutas dropadas no workspace (Tool)
                 for _, v in ipairs(workspace:GetChildren()) do
-                    if v:IsA("Tool") and WeaponSets.BloxFruits[v.Name] then
+                    if v:IsA("Tool") and WeaponSets and WeaponSets.BloxFruits and WeaponSets.BloxFruits[v.Name] then
                         local handle = v:FindFirstChild("Handle")
                         if handle then
                             local dist = (handle.Position - hrp.Position).Magnitude
@@ -4321,10 +4388,24 @@ function Functions.StartTweenFlyFruit(config, isTeleportingRef, notAutoEquipRef)
                     end
                 end
 
-                if not bestHandle or bestDist <= 5 then return end
+                if not bestHandle then return end
 
-                -- Voa ate a fruta, mas cancela imediatamente se ela desaparecer
-                -- (frutas que somem enquanto o player voa causam o bug de travamento)
+                -- Ja esta perto: tenta coletar direto
+                if bestDist <= 8 then
+                    pcall(function()
+                        -- Metodo 1: TouchInterest (coleta por contato)
+                        local touch = bestHandle:FindFirstChildOfClass("TouchTransmitter")
+                        if touch then
+                            firetouchinterest(hrp, bestHandle, 0)
+                            firetouchinterest(hrp, bestHandle, 1)
+                        end
+                        -- Metodo 2: GetFruits via remote
+                        CF("GetFruits", false)
+                    end)
+                    return
+                end
+
+                -- Longe: voa ate a fruta e coleta ao chegar
                 local cancelled = false
                 local watchConn = bestFruitObj.AncestryChanged:Connect(function()
                     cancelled = true
@@ -4337,6 +4418,17 @@ function Functions.StartTweenFlyFruit(config, isTeleportingRef, notAutoEquipRef)
                         TweenService, config,
                         isTeleportingRef, notAutoEquipRef
                     )
+                    -- Tenta coletar apos chegar
+                    if not cancelled and bestFruitObj and bestFruitObj.Parent then
+                        pcall(function()
+                            local touch = bestHandle:FindFirstChildOfClass("TouchTransmitter")
+                            if touch then
+                                firetouchinterest(hrp, bestHandle, 0)
+                                firetouchinterest(hrp, bestHandle, 1)
+                            end
+                            CF("GetFruits", false)
+                        end)
+                    end
                 end
 
                 watchConn:Disconnect()
@@ -5820,7 +5912,62 @@ end
 -- INICIALIZAR TODOS OS LOOPS
 -- =====================================================
 
+-- =====================================================
+-- BLOQUEADOR DE MOVIMENTO DO PLAYER
+-- Quando qualquer funcao ativa estiver rodando,
+-- bloqueia WalkSpeed e JumpPower do player para
+-- evitar que ele se mova acidentalmente.
+-- Restaura automaticamente ao desativar tudo.
+-- =====================================================
+local BLOCK_KEYS = {
+    "AutoFarmLevel", "AutoFarmNearest", "AutoFarmBone",
+    "AutoFarmMastery", "AutoFarmMaterial", "AutoRaid",
+    "AutoRaidLaw", "AutoFactory", "AutoFarmBoss",
+    "AutoFarmAllBoss", "AutoPirateRaid", "AutoFarmChocola",
+    "AutoFarmObsHaki", "FarmChest", "AutoDungeon",
+}
+
+function Functions.StartMovementBlocker(config)
+    SafeSpawn(function()
+        local _blocked      = false
+        local _prevWalkSpeed = nil
+        local _prevJumpPower = nil
+
+        while task.wait(0.1) do
+            local char = Player.Character
+            local hum  = char and char:FindFirstChildOfClass("Humanoid")
+            if not hum then continue end
+
+            -- Verifica se alguma funcao bloqueante esta ativa
+            local shouldBlock = false
+            for _, key in ipairs(BLOCK_KEYS) do
+                if config[key] then shouldBlock = true; break end
+            end
+
+            if shouldBlock and not _blocked then
+                -- Salva velocidades atuais e bloqueia
+                _prevWalkSpeed = hum.WalkSpeed
+                _prevJumpPower = hum.JumpPower
+                hum.WalkSpeed  = 0
+                hum.JumpPower  = 0
+                _blocked = true
+                print("[MovementBlocker] Movimento bloqueado.")
+
+            elseif not shouldBlock and _blocked then
+                -- Restaura velocidades anteriores
+                hum.WalkSpeed  = _prevWalkSpeed or config.WalkSpeed or 16
+                hum.JumpPower  = _prevJumpPower or config.JumpPower or 50
+                _blocked = false
+                print("[MovementBlocker] Movimento restaurado.")
+            end
+        end
+    end)
+end
+
 function Functions.StartAllLoops(config)
+    -- Bloqueador de movimento (roda desde o inicio)
+    Functions.StartMovementBlocker(config)
+
     -- Race
     Functions.StartAutoRace(config)
     Functions.StartAutoDooHee(config)
