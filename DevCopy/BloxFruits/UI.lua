@@ -5,6 +5,35 @@
 -- =====================================================
 
 -- =====================================================
+-- FIX: TRAVA ANTI-EXECUCAO-DUPLICADA
+-- =====================================================
+-- Sem isso, se o script for executado 2x (clique duplo em
+-- "Execute", ou "Inject" + "Auto Execute" disparando junto),
+-- todo o hub roda em PARALELO duas vezes: 2 UIs sobrepostas,
+-- 2 loops de MovementBlocker, 2 loops de NoClip brigando pelo
+-- CanCollide, 2 Heartbeats de Bring escrevendo CFrame no mesmo
+-- mob/player ao mesmo tempo, 2x FastAttack clicando, etc.
+-- Isso desperdiça performance e pode causar bugs bizarros
+-- (incluindo instabilidade de fisica) por dois sistemas
+-- disputando o mesmo Humanoid a cada frame.
+--
+-- Se ja existe uma instancia rodando (a flag so eh limpa
+-- quando o personagem morre/o jogador sai, pois threads soltas
+-- nao tem como ser "canceladas" de fora com seguranca), essa
+-- nova execucao simplesmente para aqui e avisa o usuario -
+-- para recarregar de verdade, precisa reingressar no jogo.
+if _G.LotuxHub_Running then
+    warn("[LotuxHub] O script ja esta rodando! Nao execute duas vezes - se quiser recarregar, reingresse no jogo primeiro.")
+    pcall(function()
+        local pgui = game:GetService("Players").LocalPlayer:FindFirstChild("PlayerGui")
+        local old  = pgui and pgui:FindFirstChild("LotuxLoading")
+        if old then old:Destroy() end
+    end)
+    return
+end
+_G.LotuxHub_Running = true
+
+-- =====================================================
 -- LOADING SCREEN - PAINEL VISUAL (v3.1 Redesign)
 -- =====================================================
 local _Players   = game:GetService("Players")
@@ -4091,5 +4120,5 @@ Notify({
     Type        = "Success",
 })
 
-print("UI Loaded v4.31.2")
+print("UI Loaded v4.37.2")
 print("Pre-Load: v31.3.2")
