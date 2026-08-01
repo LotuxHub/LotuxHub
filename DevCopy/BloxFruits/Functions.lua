@@ -2207,12 +2207,13 @@ function Functions.StartAutoFarmBone(config)
                         local ohum = om:FindFirstChild("Humanoid")
                         if ohrp and ohum and ohum.Health > 0 then
                             if (ohrp.Position - hrp.Position).Magnitude <= (config.BringDistance or 350) then
-                                -- FIX: recalcula _bringPos a cada frame usando a posicao
-                                -- ATUAL do mob + yOffset. Sem isso o mob usava a posicao
-                                -- registrada no spawn e "caía" quando o servidor o reposicionava.
+                                -- FIX: ancora no player (hrp), nao na posicao atual do mob
+                                -- (ohrp). Usar ohrp.Position aqui somava o offset Y de novo
+                                -- sobre a posicao ja deslocada do frame anterior, fazendo o
+                                -- mob afundar continuamente a cada Heartbeat.
                                 local yOff = config.BringYOffset or -10
-                                local mp   = ohrp.Position
-                                _bringPos  = CFrame.new(mp.X, mp.Y + yOff, mp.Z)
+                                local pp   = hrp.Position
+                                _bringPos  = CFrame.new(pp.X, pp.Y + yOff, pp.Z)
                                 pcall(function()
                                     ohum.WalkSpeed = 0
                                     ohum.JumpPower = 0
@@ -2351,8 +2352,14 @@ function Functions.StartAutoFarmBone(config)
                         -- Mob esta longe: desativa o bring (evita puxar o
                         -- mob enquanto ainda estamos voando até ele) e voa.
                         DisconnectBring()
+                        -- FIX: usa um offset baixo (2 studs) em vez de config.FlyOffset
+                        -- (15 studs). O destino do tween era 15 studs ACIMA do mob; ao
+                        -- terminar, o player ficava no ar, o raycast de restoreHumanoidState
+                        -- nao detectava chao, e o Humanoid entrava em Freefall (o player
+                        -- "caia" ao chegar perto do NPC). Pousando quase no nivel do mob
+                        -- o raycast acerta o chao e o estado vira Landed normalmente.
                         Functions.FlyToPosition(
-                            CFrame.new(mobHrp.Position) * CFrame.new(0, config.FlyOffset or 15, 0),
+                            CFrame.new(mobHrp.Position) * CFrame.new(0, 2, 0),
                             TweenService, config, _isTp, {value=false})
                         -- Apos o voo terminar (FlyToPosition e bloqueante),
                         -- o player ja esta pousado normalmente no chao.

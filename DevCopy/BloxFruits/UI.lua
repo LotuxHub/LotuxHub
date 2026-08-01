@@ -1287,11 +1287,13 @@ task.spawn(function()
                             if ohrp and ohum and ohum.Health > 0 then
                                 local d = (ohrp.Position - HumanoidRootPart.Position).Magnitude
                                 if d <= (Config.BringDistance or 350) then
-                                    -- FIX: recalcula bringPosition a cada frame para o
-                                    -- mob nao cair ao respawnar em Y diferente
+                                    -- FIX: ancora no player (nao mais na posicao atual do
+                                    -- mob) para nao acumular o offset Y a cada frame -
+                                    -- usar ohrp.Position aqui somava -10 sobre -10 sobre
+                                    -- -10... a cada Heartbeat, fazendo o mob afundar.
                                     local yOff = Config.BringYOffset or -10
-                                    local mp   = ohrp.Position
-                                    bringPosition = CFrame.new(mp.X, mp.Y + yOff, mp.Z)
+                                    local pp   = HumanoidRootPart.Position
+                                    bringPosition = CFrame.new(pp.X, pp.Y + yOff, pp.Z)
                                     pcall(function()
                                         ohum.WalkSpeed = 0
                                         ohum.JumpPower = 0
@@ -1449,11 +1451,14 @@ task.spawn(function()
                                                 if ohrp and ohum and ohum.Health > 0 then
                                                     local d = (ohrp.Position - HumanoidRootPart.Position).Magnitude
                                                     if d <= (Config.BringDistance or 350) then
-                                                        -- FIX: recalcula bringPosition2 a cada frame
-                                                        -- para o mob nao cair ao respawnar em Y diferente
+                                                        -- FIX: ancora no player (nao mais na posicao
+                                                        -- atual do mob) para nao acumular o offset Y a
+                                                        -- cada frame - usar ohrp.Position aqui somava
+                                                        -- -10 sobre -10 sobre -10... a cada Heartbeat,
+                                                        -- fazendo o mob afundar continuamente.
                                                         local yOff2 = Config.BringYOffset or -10
-                                                        local mp2   = ohrp.Position
-                                                        bringPosition2 = CFrame.new(mp2.X, mp2.Y + yOff2, mp2.Z)
+                                                        local pp2   = HumanoidRootPart.Position
+                                                        bringPosition2 = CFrame.new(pp2.X, pp2.Y + yOff2, pp2.Z)
                                                         pcall(function()
                                                             ohum.WalkSpeed = 0
                                                             ohum.JumpPower = 0
