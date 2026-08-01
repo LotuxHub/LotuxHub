@@ -2254,16 +2254,12 @@ function Functions.StartAutoFarmBone(config)
         }
         local KILLS_PER_QUEST = 8
 
-        local STATE        = "IDLE"
         local _boneIdx     = 1
         local _killsThis   = 0
-        local _activeMob   = nil
-        local _bringConn   = nil
-        local _bringActive = false
-        local _bringPos    = CFrame.new(0,0,0)
-        local _isTp        = {value = false}
         local _wasActive   = false
-        local _hoverObj    = nil  -- BodyPosition de hover
+        local _isTp        = { value = false }
+        local NotAutoEquip = { value = false }
+        local _NoClip      = { value = false }
 
         local function CurrentQuest() return HAUNTED_MOBS[_boneIdx] end
 
@@ -2274,88 +2270,17 @@ function Functions.StartAutoFarmBone(config)
                 .. " Lv" .. HAUNTED_MOBS[_boneIdx].QuestLv .. " (" .. HAUNTED_MOBS[_boneIdx].Mob .. ")")
         end
 
-        local function HasQuest()
-            local gui = Player.PlayerGui:FindFirstChild("Main")
-                and Player.PlayerGui.Main:FindFirstChild("Quest")
-            return gui and gui.Visible or false
+        local function SetNoClip(v)
+            _NoClip.value = v
+            Functions.ApplyNoClip(Player, v)
         end
 
-        local function DisconnectBring()
-            if _bringConn then _bringConn:Disconnect(); _bringConn = nil end
-            _bringActive = false
-        end
-
-        -- Cria o hover (BodyPosition) para manter o jogador no ar
-        local function CreateHover()
-            local char = Player.Character
-            local hrp = char and char:FindFirstChild("HumanoidRootPart")
-            if not hrp then return end
-            if _hoverObj then _hoverObj:Destroy(); _hoverObj = nil end
-            local bpos = Instance.new("BodyPosition")
-            bpos.Name     = "LotuxHover"
-            -- MaxForce enorme so no Y: segura o player no ar sem travar X/Z
-            bpos.MaxForce = Vector3.new(0, 1e6, 0)
-            bpos.P        = 50000
-            bpos.D        = 1000
-            -- FIXA a altura atual do player UMA unica vez.
-            -- Nao atualiza no heartbeat: atualizar com o Y do player
-            -- em queda criava loop (hover perseguia a queda).
-            bpos.Position = hrp.Position
-            bpos.Parent   = hrp
-            _hoverObj     = bpos
-        end
-
-        local function RemoveHover()
-            if _hoverObj then
-                _hoverObj:Destroy()
-                _hoverObj = nil
-            end
-        end
-
-        local function StartBringHeartbeat(mobName, hrp)
-            DisconnectBring()
-            -- Captura a altura alvo UMA vez: posicao atual do player quando
-            -- o bring e ativado. Esse Y nao muda mais — o NPC fica travado
-            -- nessa altura independente do que aconteca com o player depois.
-            local _lockedY = hrp.Position.Y + (config.BringYOffset or -10)
-            _bringConn = RunService.Heartbeat:Connect(function()
-                if not _bringActive or not config.BringMob or config.AutoRaid then return end
-                local char2 = Player.Character
-                local hrp2  = char2 and char2:FindFirstChild("HumanoidRootPart")
-                if not hrp2 then return end
-                local enm = workspace:FindFirstChild("Enemies")
-                if not enm then return end
-                for _, om in ipairs(enm:GetChildren()) do
-                    if om.Name == mobName then
-                        local ohrp = om:FindFirstChild("HumanoidRootPart")
-                        local ohum = om:FindFirstChild("Humanoid")
-                        if ohrp and ohum and ohum.Health > 0 then
-                            if (ohrp.Position - hrp2.Position).Magnitude <= (config.BringDistance or 350) then
-                                -- X/Z do player atual, Y fixo capturado na ativacao.
-                                -- Isso evita que o NPC caia junto quando o player desce.
-                                _bringPos = CFrame.new(hrp2.Position.X, _lockedY, hrp2.Position.Z)
-                                Functions.LockMobInPlace(om, _bringPos)
-                            end
-                        end
-                    end
-                end
-            end)
-        end
-
-        local function FullStop()
-            DisconnectBring()
-            RemoveHover()
-            Functions.StopTeleport()
-            STATE      = "IDLE"
-            _activeMob = nil
-            _isTp.value = false
-        end
-
-        while task.wait(0.3) do
+        while task.wait(0.1) do
             if not config.AutoFarmBone then
                 if _wasActive then
-                    FullStop()
-                    print("[FarmBone] Desativado - voo interrompido.")
+                    Functions.StopTeleport()
+                    SetNoClip(false)
+                    print("[FarmBone] Desativado.")
                 end
                 _wasActive = false
                 continue
@@ -2370,111 +2295,142 @@ function Functions.StartAutoFarmBone(config)
             pcall(function()
                 local quest = CurrentQuest()
 
-                if STATE == "IDLE" then
-                    if HasQuest() then
-                        STATE = "TRAVEL"
-                    else
-                        STATE = "GET_QUEST"
+                -- =========================================================
+                -- Mesma logica do AutoFarmLevel: se a quest nao esta
+                -- visivel na GUI, vai ate o NPC (CFrameQuest) e aceita.
+                -- Se ja esta ativa, NAO chama StartQuest de novo (isso
+                -- reiniciava o contador de kills no servidor).
+                -- =========================================================
+                local questGui = Player.PlayerGui:FindFirstChild("Main")
+                                 and Player.PlayerGui.Main:FindFirstChild("Quest")
+                local questVisible = questGui and questGui.Visible or false
+
+                if not questVisible then
+                    if (quest.CFrameQuest.Position - hrp.Position).Magnitude > 8 then
+                        SetNoClip(true)
+                        Functions.FlyToPosition(quest.CFrameQuest, TweenService, config, _isTp, NotAutoEquip)
+                        SetNoClip(false)
                     end
 
-                elseif STATE == "GET_QUEST" then
-                    if HasQuest() then
-                        STATE = "TRAVEL"
-                        return
-                    end
-                    if (quest.CFrameQuest.Position - hrp.Position).Magnitude > 10 then
-                        Functions.FlyToPosition(quest.CFrameQuest, TweenService, config, _isTp, {value=false})
-                        return
-                    end
+                    task.wait(0.3)
                     pcall(function() CommF_:InvokeServer("StartQuest", quest.NameQuest, quest.QuestLv) end)
                     task.wait(0.5)
-                    if HasQuest() then STATE = "TRAVEL" end
 
-                elseif STATE == "TRAVEL" then
-                    local enemies = workspace:FindFirstChild("Enemies")
-                    if not enemies then
-                        Functions.FlyToPosition(quest.CFrameMon * CFrame.new(0, config.FlyOffset or 15, 0),
-                            TweenService, config, _isTp, {value=false})
-                        return
-                    end
-                    local mob, minDist = nil, math.huge
-                    for _, v in ipairs(enemies:GetChildren()) do
-                        if v.Name == quest.Mob then
-                            local vhrp = v:FindFirstChild("HumanoidRootPart")
-                            local vhum = v:FindFirstChild("Humanoid")
-                            if vhrp and vhum and vhum.Health > 0 then
-                                local d = (vhrp.Position - hrp.Position).Magnitude
-                                if d < minDist then minDist = d; mob = v end
+                    Functions.EquipWeapon(config, NotAutoEquip)
+                else
+                    -- Quest ativa: busca o mob mais proximo do tipo da quest atual
+                    local mob = Functions.GetNearestEnemy(char, hrp, quest.Mob)
+
+                    if mob then
+                        local mhrp = mob:FindFirstChild("HumanoidRootPart")
+                        local mhum = mob:FindFirstChild("Humanoid")
+                        if mhrp and mhum and mhum.Health > 0 then
+                            if config.AutoBusoHaki then Functions.AutoHaki() end
+                            Functions.EquipWeapon(config, NotAutoEquip)
+
+                            -- Posicao original do mob (antes de qualquer bring)
+                            local mobOriginalPos = mhrp.Position
+
+                            -- Voa UMA UNICA VEZ (bloqueante) ate perto do mob -
+                            -- exatamente igual ao AutoFarmLevel, evita o efeito
+                            -- de "voa um pouco e cai" causado por re-tweens
+                            -- constantes dentro do loop de combate.
+                            if (mobOriginalPos - hrp.Position).Magnitude > 15 then
+                                SetNoClip(true)
+                                Functions.FlyToPosition(
+                                    CFrame.new(mobOriginalPos) * CFrame.new(0, config.FlyOffset or 15, 0),
+                                    TweenService, config, _isTp, NotAutoEquip)
+                                SetNoClip(false)
+                            end
+
+                            if mob.Parent then
+                                -- Heartbeat: trava o mob no lugar (mesmo padrao do
+                                -- AutoFarmLevel) usando Y fixo capturado na ativacao.
+                                local bringActive = false
+                                local bringPos    = CFrame.new(0, 0, 0)
+                                local bringMobName = quest.Mob
+                                local _lockedY = hrp.Position.Y + (config.BringYOffset or -10)
+
+                                local bringConn = RunService.Heartbeat:Connect(function()
+                                    if not bringActive or not config.BringMob then return end
+                                    local c2   = Player.Character
+                                    local hrp2 = c2 and c2:FindFirstChild("HumanoidRootPart")
+                                    if not hrp2 then return end
+                                    local enm = workspace:FindFirstChild("Enemies")
+                                    if not enm then return end
+                                    for _, om in ipairs(enm:GetChildren()) do
+                                        if om.Name == bringMobName then
+                                            local ohrp = om:FindFirstChild("HumanoidRootPart")
+                                            local ohum = om:FindFirstChild("Humanoid")
+                                            if ohrp and ohum and ohum.Health > 0 then
+                                                local d = (ohrp.Position - hrp2.Position).Magnitude
+                                                if d <= (config.BringDistance or 350) then
+                                                    bringPos = CFrame.new(hrp2.Position.X, _lockedY, hrp2.Position.Z)
+                                                    Functions.LockMobInPlace(om, bringPos)
+                                                end
+                                            end
+                                        end
+                                    end
+                                end)
+
+                                bringActive = true
+
+                                repeat
+                                    task.wait()
+                                    if not mob.Parent then break end
+                                    local liveHrp = mob:FindFirstChild("HumanoidRootPart")
+                                    if not liveHrp then break end
+
+                                    -- So voa de novo se o mob realmente se afastou muito
+                                    local char3 = Player.Character
+                                    local hrp3  = char3 and char3:FindFirstChild("HumanoidRootPart")
+                                    if hrp3 then
+                                        local distNow = (liveHrp.Position - hrp3.Position).Magnitude
+                                        if distNow > 30 and not bringActive then
+                                            SetNoClip(true)
+                                            Functions.FlyToPosition(
+                                                liveHrp.CFrame * CFrame.new(0, config.FlyOffset or 15, 0),
+                                                TweenService, config, _isTp, NotAutoEquip)
+                                            SetNoClip(false)
+                                        end
+                                    end
+
+                                    Functions.FastAttack(mob, config, NotAutoEquip)
+
+                                until not mob.Parent
+                                   or not mob:FindFirstChild("Humanoid")
+                                   or mob.Humanoid.Health <= 0
+                                   or not config.AutoFarmBone
+
+                                bringConn:Disconnect()
+                                Functions.StopTeleport()
+                                SetNoClip(false)
+
+                                if (not mob.Parent) or (mob:FindFirstChild("Humanoid") and mob.Humanoid.Health <= 0) then
+                                    config.KillCount = (config.KillCount or 0) + 1
+                                    _killsThis = _killsThis + 1
+                                    print(("[FarmBone] %s morto! (%d/%d)"):format(quest.Mob, _killsThis, KILLS_PER_QUEST))
+
+                                    if _killsThis >= KILLS_PER_QUEST then
+                                        pcall(function() CommF_:InvokeServer("AbandonQuest") end)
+                                        task.wait(0.3)
+                                        NextMob()
+                                    end
+                                end
                             end
                         end
-                    end
-                    if not mob then
-                        Functions.FlyToPosition(quest.CFrameMon * CFrame.new(0, config.FlyOffset or 15, 0),
-                            TweenService, config, _isTp, {value=false})
-                        return
-                    end
-                    _activeMob = mob
-                    STATE = "FARM"
-
-                elseif STATE == "FARM" then
-                    local mob = _activeMob
-                    if not mob or not mob.Parent then
-                        DisconnectBring()
-                        RemoveHover()
-                        _activeMob = nil; STATE = "TRAVEL"
-                        return
-                    end
-                    local mobHum = mob:FindFirstChild("Humanoid")
-                    local mobHrp = mob:FindFirstChild("HumanoidRootPart")
-                    if not mobHum or mobHum.Health <= 0 then
-                        DisconnectBring()
-                        RemoveHover()
-                        _activeMob = nil
-                        config.KillCount = (config.KillCount or 0) + 1
-                        _killsThis = _killsThis + 1
-                        print(("[FarmBone] %s morto! (%d/%d)"):format(quest.Mob, _killsThis, KILLS_PER_QUEST))
-
-                        if _killsThis >= KILLS_PER_QUEST then
-                            pcall(function() CommF_:InvokeServer("AbandonQuest") end)
-                            task.wait(0.3)
-                            NextMob()
-                            STATE = "IDLE"
-                        else
-                            STATE = "TRAVEL"
+                    else
+                        -- Sem mob visivel: voa ate a posicao dos mobs (CFrameMon)
+                        local targetPos = quest.CFrameMon.Position
+                        if (targetPos - hrp.Position).Magnitude > 15 then
+                            SetNoClip(true)
+                            Functions.FlyToPosition(
+                                quest.CFrameMon * CFrame.new(0, config.FlyOffset or 15, 0),
+                                TweenService, config, _isTp, NotAutoEquip)
+                            SetNoClip(false)
                         end
-                        return
+                        task.wait(1)
                     end
-                    if not mobHrp then return end
-                    local dist = (mobHrp.Position - hrp.Position).Magnitude
-
-                    if dist > 15 then
-                        DisconnectBring()
-                        RemoveHover()
-                        local flyOffset = config.FlyOffset or 15
-                        Functions.FlyToPosition(
-                            CFrame.new(mobHrp.Position) * CFrame.new(0, flyOffset, 0),
-                            TweenService, config, _isTp, {value=false})
-                        return
-                    end
-
-                    -- Distância <= 15: aqui mantemos o hover
-                    if not _hoverObj or not _hoverObj.Parent then
-                        CreateHover()
-                    end
-
-                    -- Liga o bring se não estiver ativo
-                    if not _bringActive then
-                        local yOff = config.BringYOffset or -10
-                        local mp   = mobHrp.Position
-                        _bringPos  = CFrame.new(mp.X, mp.Y + yOff, mp.Z)
-                        _bringActive = true
-                        StartBringHeartbeat(quest.Mob, hrp)
-                    end
-
-                    Functions.AutoHaki()
-                    Functions.EquipWeapon(config, {value=false})
-                    VirtualUser:CaptureController()
-                    VirtualUser:Button1Down(Vector2.new(1280, 672))
                 end
             end)
         end
@@ -7661,6 +7617,6 @@ _G.UMESP = Functions.UpdateMirageESP     -- UpdateMirageESP
 _G.USESP = Functions.UpdateSeaBeastESP   -- UpdateSeaBeastESP
 _G.TTSI  = Functions.TravelToSubmergedIsland -- TravelToSubmergedIsland
 
-print("[LotuxHub] Functions Updated Loaded v2.35.1")
+print("[LotuxHub] Functions Updated Loaded v2.37    .1")
 print("[LotuxHub] Pre-Load: v31.3.2")
 return Functions
