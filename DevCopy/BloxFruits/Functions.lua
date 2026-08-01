@@ -610,12 +610,18 @@ function Functions.FlyToPosition(targetCF, tweenSvc, config, isTeleportingRef, n
                 hum2:SetStateEnabled(st, wasEnabled)
             end
             hum2.AutoRotate = prevAutoRotate
-            -- Sai do estado Physics sem forcar Freefall: forcar Freefall mesmo
-            -- quando o player ja esta sobre o chao (ex: chegou perto de um mob
-            -- terrestre) fazia o Humanoid "tropecar"/travar por um instante a
-            -- cada voo terminado, causando o efeito de stun/travamento visto
-            -- ao chegar nos mobs. GetState() le o estado real (no chao ou no
-            -- ar) e o motor assume o estado correto sozinho.
+            -- FIX CRITICO: o raycast antigo so alcancava 4 studs abaixo do
+            -- HRP. Varias funcoes (FarmBone, FarmLevel, FarmNearest, etc)
+            -- pousam o player usando CFrame.new(0, config.FlyOffset or 15, 0)
+            -- ACIMA da posicao do mob - ou seja, o voo termina com o player
+            -- flutuando ~15 studs no ar. O raycast de 4 studs nunca alcancava
+            -- o chao nesse caso, o Humanoid entrava em Freefall, e o player
+            -- caia os ~15 studs restantes TODA VEZ que chegava perto de um
+            -- mob (o bug reportado). Agora o raycast alcanca bem mais longe
+            -- e, se achar chao, o player e reposicionado DIRETO em cima dele
+            -- (via CFrame, instantaneo, sem fisica) antes de soltar o
+            -- controle - isso elimina a queda por completo, independente de
+            -- qual FlyOffset foi usado para o pouso.
             local c3   = Player.Character
             local hrp3 = c3 and c3:FindFirstChild("HumanoidRootPart")
             local onGround = false
@@ -623,8 +629,15 @@ function Functions.FlyToPosition(targetCF, tweenSvc, config, isTeleportingRef, n
                 local rayParams = RaycastParams.new()
                 rayParams.FilterType = Enum.RaycastFilterType.Exclude
                 rayParams.FilterDescendantsInstances = { c3 }
-                local result = workspace:Raycast(hrp3.Position, Vector3.new(0, -4, 0), rayParams)
-                onGround = result ~= nil
+                local result = workspace:Raycast(hrp3.Position, Vector3.new(0, -200, 0), rayParams)
+                if result then
+                    onGround = true
+                    local groundY = result.Position.Y + 3 -- HRP de R15 fica ~3 studs acima do chao
+                    if hrp3.Position.Y > groundY + 0.5 then
+                        local newPos = Vector3.new(hrp3.Position.X, groundY, hrp3.Position.Z)
+                        hrp3.CFrame = CFrame.new(newPos) * (hrp3.CFrame - hrp3.CFrame.Position)
+                    end
+                end
             end
             hum2:ChangeState(onGround and Enum.HumanoidStateType.Landed or Enum.HumanoidStateType.Freefall)
         end
@@ -684,17 +697,25 @@ local function DestroyRaidPart()
                 hum:SetStateEnabled(st, wasEnabled)
             end
             if _raidPrevAutoRotate ~= nil then hum.AutoRotate = _raidPrevAutoRotate end
-            -- Mesmo fix do FlyToPosition: nao forcar Freefall se o player
-            -- ja estiver sobre o chao (evita o stun ao terminar a raid perto
-            -- de uma plataforma/ilha).
+            -- Mesmo fix do FlyToPosition: raycast mais longo + reposiciona o
+            -- player direto sobre o chao antes de soltar o controle, em vez
+            -- de so checar 4 studs (insuficiente quando o pouso termina
+            -- varios studs acima do chao/plataforma).
             local hrp = c and c:FindFirstChild("HumanoidRootPart")
             local onGround = false
             if hrp then
                 local rayParams = RaycastParams.new()
                 rayParams.FilterType = Enum.RaycastFilterType.Exclude
                 rayParams.FilterDescendantsInstances = { c }
-                local result = workspace:Raycast(hrp.Position, Vector3.new(0, -4, 0), rayParams)
-                onGround = result ~= nil
+                local result = workspace:Raycast(hrp.Position, Vector3.new(0, -200, 0), rayParams)
+                if result then
+                    onGround = true
+                    local groundY = result.Position.Y + 3
+                    if hrp.Position.Y > groundY + 0.5 then
+                        local newPos = Vector3.new(hrp.Position.X, groundY, hrp.Position.Z)
+                        hrp.CFrame = CFrame.new(newPos) * (hrp.CFrame - hrp.CFrame.Position)
+                    end
+                end
             end
             hum:ChangeState(onGround and Enum.HumanoidStateType.Landed or Enum.HumanoidStateType.Freefall)
         end
@@ -7617,6 +7638,6 @@ _G.UMESP = Functions.UpdateMirageESP     -- UpdateMirageESP
 _G.USESP = Functions.UpdateSeaBeastESP   -- UpdateSeaBeastESP
 _G.TTSI  = Functions.TravelToSubmergedIsland -- TravelToSubmergedIsland
 
-print("[LotuxHub] Functions Updated Loaded v2.37    .1")
+print("[LotuxHub] Functions Updated Loaded v2.39.1")
 print("[LotuxHub] Pre-Load: v31.3.2")
 return Functions
