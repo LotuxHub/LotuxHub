@@ -1287,6 +1287,11 @@ task.spawn(function()
                             if ohrp and ohum and ohum.Health > 0 then
                                 local d = (ohrp.Position - HumanoidRootPart.Position).Magnitude
                                 if d <= (Config.BringDistance or 350) then
+                                    -- FIX: recalcula bringPosition a cada frame para o
+                                    -- mob nao cair ao respawnar em Y diferente
+                                    local yOff = Config.BringYOffset or -10
+                                    local mp   = ohrp.Position
+                                    bringPosition = CFrame.new(mp.X, mp.Y + yOff, mp.Z)
                                     pcall(function()
                                         ohum.WalkSpeed = 0
                                         ohum.JumpPower = 0
@@ -1300,16 +1305,7 @@ task.spawn(function()
                     end
                 end)
 
-                -- bringPosition calculado UMA vez na posicao do mob no chao
-                do
-                    local mhrpNow = mob:FindFirstChild("HumanoidRootPart")
-                    if mhrpNow then
-                        local yOff = Config.BringYOffset or -10
-                        local mp   = mhrpNow.Position
-                        bringPosition = CFrame.new(mp.X, mp.Y + yOff, mp.Z)
-                    end
-                    bringActive = true
-                end
+                bringActive = true
 
                 repeat
                     task.wait()
@@ -1407,34 +1403,12 @@ task.spawn(function()
                         warn("[AutoFarm] Nenhuma arma do tipo '" .. tostring(Config.FarmWeapon) .. "' encontrada no Backpack.")
                     end
                 else
-                    -- Quest ativa: verifica se e a certa pelo NameQuest
-                    -- O titulo da GUI e traduzido (ex: "Derrote 8 Esqueletos Renascidos")
-                    -- nao bate com quest.Mob diretamente.
-                    -- Estrategia: tenta aceitar a quest do mob atual.
-                    -- Se o servidor rejeitar (ja tem outra quest), a GUI nao muda.
-                    -- Se aceitar, a GUI atualiza. Em ambos os casos continuamos.
-                    -- Unico caso de abandono: quest de NameQuest COMPLETAMENTE diferente
-                    -- (ex: tinha SubmergedQuest e quer HauntedQuest).
-                    local questIsCorrect = true  -- assume correta por padrao
-                    if questTitle ~= "" then
-                        -- Tenta detectar quests claramente erradas pelo titulo
-                        -- Apenas abandona se tiver certeza absoluta que e outra quest
-                        -- (verificacao pelo NameQuest via tentativa de aceitar novamente)
-                        local ok, serverResp = pcall(function()
-                            return (CommF_ or {}):InvokeServer("StartQuest", quest.NameQuest, quest.QuestLv)
-                        end)
-                        -- Se o servidor retornou erro de "already have quest" com nome diferente
-                        -- a GUI ja estava com a quest certa ou mudou para a certa
-                        -- Nao abandona: deixa o farm continuar
-                        questIsCorrect = true
-                    end
-
-                    if not questIsCorrect then
-                        currentTarget = nil
-                        NoClip.value = false
-                        pcall(function() (CommF_ or {}):InvokeServer("AbandonQuest") end)
-                        task.wait(0.5)
-                    else
+                    -- Quest ativa: NÃO chama StartQuest de novo — isso reiniciava o
+                    -- contador de kills no servidor (o bug de "volta pra 0 toda hora").
+                    -- Simplesmente continua farmando o mob da quest atual.
+                    -- Só abandona se o NameQuest da quest alvo for completamente diferente
+                    -- do que está na GUI (detectado pela ausência do mob na GUI).
+                    do
                         local mob = Functions.GetNearestEnemy(Character, HumanoidRootPart, quest.Mob)
                         if mob then
                             local hrp = mob:FindFirstChild("HumanoidRootPart")
@@ -1475,6 +1449,11 @@ task.spawn(function()
                                                 if ohrp and ohum and ohum.Health > 0 then
                                                     local d = (ohrp.Position - HumanoidRootPart.Position).Magnitude
                                                     if d <= (Config.BringDistance or 350) then
+                                                        -- FIX: recalcula bringPosition2 a cada frame
+                                                        -- para o mob nao cair ao respawnar em Y diferente
+                                                        local yOff2 = Config.BringYOffset or -10
+                                                        local mp2   = ohrp.Position
+                                                        bringPosition2 = CFrame.new(mp2.X, mp2.Y + yOff2, mp2.Z)
                                                         pcall(function()
                                                             ohum.WalkSpeed = 0
                                                             ohum.JumpPower = 0
@@ -1488,16 +1467,7 @@ task.spawn(function()
                                         end
                                     end)
 
-                                    -- bringPosition2 calculado UMA vez na posicao do mob no chao
-                                    do
-                                        local mhrpNow2 = mob:FindFirstChild("HumanoidRootPart")
-                                        if mhrpNow2 then
-                                            local yOff2 = Config.BringYOffset or -10
-                                            local mp2   = mhrpNow2.Position
-                                            bringPosition2 = CFrame.new(mp2.X, mp2.Y + yOff2, mp2.Z)
-                                        end
-                                        bringActive2 = true
-                                    end
+                                    bringActive2 = true
 
                                     repeat
                                         task.wait()
@@ -2926,6 +2896,49 @@ LPTab:AddButton({ Title = T("ui_copy_pos"),
 -- TAB: TELEPORT
 -- =====================================================
 local Teleport = Window:MakeTab({ Title = T("tab_teleport"), Icon = "mouse" })
+
+-- =====================================================
+-- TELEPORT POR SEA (Sea 1 / Sea 2 / Sea 3)
+-- =====================================================
+Teleport:AddSection("Teleport for Sea")
+
+local SEA_SPAWN = {
+    [1] = CFrame.new(1059.37195, 15.4495068, 1550.4231),
+    [2] = CFrame.new(-429.543518, 71.7699966, 1836.18188),
+    [3] = CFrame.new(-450.104645, 107.681458, 5950.72607),
+}
+
+Teleport:AddButton({ Title = "Teleport to Sea 1",
+    Callback = function()
+        pcall(function()
+            local hrp = Player.Character and Player.Character:FindFirstChild("HumanoidRootPart")
+            if hrp then hrp.CFrame = SEA_SPAWN[1] end
+        end)
+        Notify({ Title = "Teleportado!", Description = "Sea 1 - Starter Island", Image = IMG, Type = "Success", Duration = 3 })
+    end })
+
+Teleport:AddButton({ Title = "Teleport to Sea 2",
+    Callback = function()
+        pcall(function()
+            local CommF_ = game:GetService("ReplicatedStorage").Remotes:FindFirstChild("CommF_")
+            if CommF_ then
+                CommF_:InvokeServer("requestEntrance", Vector3.new(-286.9859619140625, 306.13739013671875, 616.8819580078125))
+            end
+            task.wait(0.8)
+            local hrp = Player.Character and Player.Character:FindFirstChild("HumanoidRootPart")
+            if hrp then hrp.CFrame = SEA_SPAWN[2] end
+        end)
+        Notify({ Title = "Teleportado!", Description = "Sea 2 - Kingdom of Rose", Image = IMG, Type = "Success", Duration = 3 })
+    end })
+
+Teleport:AddButton({ Title = "Teleport to Sea 3",
+    Callback = function()
+        pcall(function()
+            local hrp = Player.Character and Player.Character:FindFirstChild("HumanoidRootPart")
+            if hrp then hrp.CFrame = SEA_SPAWN[3] end
+        end)
+        Notify({ Title = "Teleportado!", Description = "Sea 3 - Port Town", Image = IMG, Type = "Success", Duration = 3 })
+    end })
 
 Teleport:AddSection("Teleport For Island")
 Teleport:AddDropdown({ Title = "Select Island",

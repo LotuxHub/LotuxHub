@@ -2207,6 +2207,12 @@ function Functions.StartAutoFarmBone(config)
                         local ohum = om:FindFirstChild("Humanoid")
                         if ohrp and ohum and ohum.Health > 0 then
                             if (ohrp.Position - hrp.Position).Magnitude <= (config.BringDistance or 350) then
+                                -- FIX: recalcula _bringPos a cada frame usando a posicao
+                                -- ATUAL do mob + yOffset. Sem isso o mob usava a posicao
+                                -- registrada no spawn e "caía" quando o servidor o reposicionava.
+                                local yOff = config.BringYOffset or -10
+                                local mp   = ohrp.Position
+                                _bringPos  = CFrame.new(mp.X, mp.Y + yOff, mp.Z)
                                 pcall(function()
                                     ohum.WalkSpeed = 0
                                     ohum.JumpPower = 0
@@ -2393,9 +2399,9 @@ function Functions.StartAutoTryLuck(config)
             if not config.AutoTryLuck then continue end
             pcall(function()
                 local CommF_ = game:GetService("ReplicatedStorage"):WaitForChild("Remotes"):WaitForChild("CommF_")
-                local result = CommF_:InvokeServer("Cousin", "Buy", "DLCBoxData")
-                if result then
-                else
+                -- Remote atualizado: agora só 2 args ("Cousin", "DLCBoxData")
+                local result = CommF_:InvokeServer("Cousin", "DLCBoxData")
+                if not result then
                     warn("[AutoTryLuck] Sem Beli suficiente ou cooldown ativo.")
                 end
             end)
@@ -2575,8 +2581,9 @@ end
 
 -- Auto Factory (Sea 2)
 function Functions.StartAutoFactory(config)
-    -- Posicoes da fabrica (Sea 2)
+    -- requestEntrance Sea 2 (capturado via SimpleSpy)
     local FACTORY_ENTRANCE = Vector3.new(-286.9859619140625, 306.13739013671875, 616.8819580078125)
+    -- Posicao DENTRO da fabrica onde fica o Core (tween fly apos requestEntrance)
     local FACTORY_INSIDE   = CFrame.new(448.46756, 199.356781, -441.389252)
     local FACTORY_CORE_POS = CFrame.new(448.46756, 199.356781, -441.389252)
     local _factWasActive   = false
@@ -2587,6 +2594,7 @@ function Functions.StartAutoFactory(config)
             if not config.AutoFactory then
                 if _factWasActive then
                     Functions.StopTeleport()
+                    _isTp.value = false
                     _factWasActive = false
                 end
                 continue
@@ -2602,7 +2610,7 @@ function Functions.StartAutoFactory(config)
                 local core    = enemies and enemies:FindFirstChild("Core")
 
                 if core and core:FindFirstChild("Humanoid") and core.Humanoid.Health > 0 then
-                    -- Core spawnado: ataca
+                    -- Core spawnado: vai ate ele e ataca
                     local coreHrp = core:FindFirstChild("HumanoidRootPart")
                     if coreHrp and (coreHrp.Position - hrp.Position).Magnitude > 20 then
                         Functions.FlyToPosition(FACTORY_CORE_POS, TweenService, config, _isTp, {value=false})
@@ -2619,14 +2627,23 @@ function Functions.StartAutoFactory(config)
                         or core.Humanoid.Health <= 0
                         or not config.AutoFactory
                 else
-                    -- Sem core: usa requestEntrance pro Sea 2 e voa ate dentro
-                    local distToFactory = (hrp.Position - FACTORY_INSIDE.Position).Magnitude
-                    if distToFactory > 30 then
-                        -- requestEntrance leva ao andar de cima da fabrica
-                        CF("requestEntrance", FACTORY_ENTRANCE)
-                        task.wait(1)
-                        -- TweenFly ate o ponto do core dentro da fabrica
-                        Functions.FlyToPosition(FACTORY_INSIDE, TweenService, config, _isTp, {value=false})
+                    -- Sem core: checa se ja esta dentro da fabrica
+                    local distToInside = (hrp.Position - FACTORY_INSIDE.Position).Magnitude
+                    if distToInside > 80 then
+                        -- Passo 1: requestEntrance Sea 2 (teleporta para o andar de cima)
+                        pcall(function()
+                            local CommF_ = game:GetService("ReplicatedStorage").Remotes:FindFirstChild("CommF_")
+                            if CommF_ then
+                                CommF_:InvokeServer("requestEntrance", FACTORY_ENTRANCE)
+                            end
+                        end)
+                        task.wait(1.5)
+                        -- Passo 2: Tween Fly ate o ponto do Core dentro da fabrica
+                        local char2 = Player.Character
+                        local hrp2  = char2 and char2:FindFirstChild("HumanoidRootPart")
+                        if hrp2 then
+                            Functions.FlyToPosition(FACTORY_INSIDE, TweenService, config, _isTp, {value=false})
+                        end
                     end
                 end
             end)
@@ -3131,14 +3148,20 @@ function Functions.StartAutoRaid(config)
 				-- Timer.Visible (acima) ja e a condicao correta (igual Tiroreal).
 
 				if World2 then
-					-- Sea 2: voa ate o ponto do summon e clica no detector
+					-- Sea 2: requestEntrance Sea 2 -> tween fly ao summon -> clica
+					-- Passo 1: requestEntrance para entrar na area (Sea 2)
+					local SEA2_ENTRANCE = Vector3.new(-286.9859619140625, 306.13739013671875, 616.8819580078125)
+					pcall(function()
+						local CommF__ = game:GetService("ReplicatedStorage").Remotes:FindFirstChild("CommF_")
+						if CommF__ then CommF__:InvokeServer("requestEntrance", SEA2_ENTRANCE) end
+					end)
+					task.wait(1.5)
+					-- Passo 2: Tween fly ate o ponto do RaidSummon2
 					local summonCF = CFrame.new(-6523.4746, 305.4380, -4741.3809)
-					-- Garante que esta perto do ponto antes de clicar
 					local hrp2 = Player.Character and Player.Character:FindFirstChild("HumanoidRootPart")
 					if hrp2 and (hrp2.Position - summonCF.Position).Magnitude > 15 then
 						SafeFlyTo(summonCF)
 						task.wait(0.3)
-						-- Fallback teleporte direto se ainda longe
 						hrp2 = Player.Character and Player.Character:FindFirstChild("HumanoidRootPart")
 						if hrp2 and (hrp2.Position - summonCF.Position).Magnitude > 15 then
 							Functions.TeleportTo(summonCF)
@@ -3147,7 +3170,7 @@ function Functions.StartAutoRaid(config)
 					end
 					CF("SetSpawnPoint")
 					task.wait(0.2)
-					-- Tenta clicar no detector; fallback com CF se falhar
+					-- Passo 3: Clica no detector da raid
 					local clicked = false
 					pcall(function()
 						local btn = workspace.Map.CircleIsland.RaidSummon2.Button.Main.ClickDetector
@@ -3404,52 +3427,114 @@ end
 -- TWEEN FRUIT - CORRIGIDO
 -- =====================================================
 function Functions.StartTweenFruit(config)
+    local _isTpFruit = { value = false }
     SafeSpawn(function()
         while task.wait(0.5) do
             if not config.TweenFlyFruit then continue end
+            -- Nao interfere com outros farms
+            if config.AutoFarmLevel or config.AutoFarmNearest
+               or config.AutoFarmBone or config.AutoRaid
+               or config.AutoRaidLaw  or config.AutoFarmMastery then
+                continue
+            end
             pcall(function()
-                -- Frutas no workspace raiz (estilo Tiroreal)
-                for _, obj in pairs(workspace:GetChildren()) do
-                    if obj:IsA("Tool") and obj.Name:find("Fruit") then
+                local char = Player.Character
+                local hrp  = char and char:FindFirstChild("HumanoidRootPart")
+                if not hrp then return end
+
+                local bestHandle   = nil
+                local bestFruitObj = nil
+                local bestDist     = math.huge
+
+                -- Lugar 1: workspace.Fruit (pasta de spawn normal)
+                local fruitFolder = workspace:FindFirstChild("Fruit")
+                if fruitFolder then
+                    for _, obj in ipairs(fruitFolder:GetChildren()) do
                         local handle = obj:FindFirstChild("Handle")
                         if handle then
-                            local hrp = Player.Character and Player.Character:FindFirstChild("HumanoidRootPart")
-                            if hrp then
-                                local dist = (handle.Position - hrp.Position).Magnitude
-                                local tween = TweenService:Create(
-                                    hrp,
-                                    TweenInfo.new(dist / 300, Enum.EasingStyle.Linear),
-                                    { CFrame = CFrame.new(handle.Position) }
-                                )
-                                tween:Play()
-                                tween.Completed:Wait()
+                            local dist = (handle.Position - hrp.Position).Magnitude
+                            if dist < bestDist then
+                                bestDist = dist; bestHandle = handle; bestFruitObj = obj
                             end
                         end
                     end
                 end
 
-                -- Frutas no AppleSpawner
-                local spawner = workspace:FindFirstChild("AppleSpawner")
-                if spawner then
-                    for _, obj in pairs(spawner:GetChildren()) do
-                        if obj:IsA("Tool") then
-                            local handle = obj:FindFirstChild("Handle")
-                            if handle then
-                                local hrp = Player.Character and Player.Character:FindFirstChild("HumanoidRootPart")
-                                if hrp then
-                                    local dist = (handle.Position - hrp.Position).Magnitude
-                                    local tween = TweenService:Create(
-                                        hrp,
-                                        TweenInfo.new(dist / 300, Enum.EasingStyle.Linear),
-                                        { CFrame = CFrame.new(handle.Position) }
-                                    )
-                                    tween:Play()
-                                    tween.Completed:Wait()
-                                end
+                -- Lugar 2: frutas dropadas direto no workspace (Tool com "Fruit" no nome)
+                for _, obj in ipairs(workspace:GetChildren()) do
+                    if obj:IsA("Tool") and obj.Name:find("Fruit") then
+                        local handle = obj:FindFirstChild("Handle")
+                        if handle then
+                            local dist = (handle.Position - hrp.Position).Magnitude
+                            if dist < bestDist then
+                                bestDist = dist; bestHandle = handle; bestFruitObj = obj
                             end
                         end
                     end
                 end
+
+                -- Lugar 3: AppleSpawner
+                local spawner = workspace:FindFirstChild("AppleSpawner")
+                if spawner then
+                    for _, obj in ipairs(spawner:GetChildren()) do
+                        local handle = obj:FindFirstChild("Handle")
+                        if handle then
+                            local dist = (handle.Position - hrp.Position).Magnitude
+                            if dist < bestDist then
+                                bestDist = dist; bestHandle = handle; bestFruitObj = obj
+                            end
+                        end
+                    end
+                end
+
+                if not bestHandle or not bestFruitObj then return end
+
+                -- Ja esta perto: coleta direto
+                if bestDist <= 8 then
+                    pcall(function()
+                        local touch = bestHandle:FindFirstChildOfClass("TouchTransmitter")
+                        if touch then
+                            firetouchinterest(hrp, bestHandle, 0)
+                            firetouchinterest(hrp, bestHandle, 1)
+                        end
+                        local CommF_ = game:GetService("ReplicatedStorage").Remotes:FindFirstChild("CommF_")
+                        if CommF_ then CommF_:InvokeServer("GetFruits", false) end
+                    end)
+                    return
+                end
+
+                -- Longe: FlyToPosition (move o PLAYER ate a fruta)
+                -- Cancela o voo se a fruta sumir antes de chegar
+                local cancelled = false
+                local watchConn = bestFruitObj.AncestryChanged:Connect(function()
+                    cancelled = true
+                    Functions.StopTeleport()
+                    _isTpFruit.value = false
+                end)
+
+                if not cancelled then
+                    Functions.FlyToPosition(
+                        CFrame.new(bestHandle.Position),
+                        TweenService, config,
+                        _isTpFruit, { value = false }
+                    )
+                    -- Tenta coletar ao chegar
+                    if not cancelled and bestFruitObj and bestFruitObj.Parent then
+                        pcall(function()
+                            char = Player.Character
+                            hrp  = char and char:FindFirstChild("HumanoidRootPart")
+                            local touch = bestHandle:FindFirstChildOfClass("TouchTransmitter")
+                            if touch and hrp then
+                                firetouchinterest(hrp, bestHandle, 0)
+                                firetouchinterest(hrp, bestHandle, 1)
+                            end
+                            local CommF_ = game:GetService("ReplicatedStorage").Remotes:FindFirstChild("CommF_")
+                            if CommF_ then CommF_:InvokeServer("GetFruits", false) end
+                        end)
+                    end
+                end
+                watchConn:Disconnect()
+                _isTpFruit.value = false
             end)
         end
     end)
@@ -5920,11 +6005,24 @@ end
 -- Restaura automaticamente ao desativar tudo.
 -- =====================================================
 local BLOCK_KEYS = {
+    -- Farm
     "AutoFarmLevel", "AutoFarmNearest", "AutoFarmBone",
-    "AutoFarmMastery", "AutoFarmMaterial", "AutoRaid",
-    "AutoRaidLaw", "AutoFactory", "AutoFarmBoss",
-    "AutoFarmAllBoss", "AutoPirateRaid", "AutoFarmChocola",
-    "AutoFarmObsHaki", "FarmChest", "AutoDungeon",
+    "AutoFarmMastery", "AutoFarmMaterial", "AutoFarmChocola",
+    "AutoFarmObsHaki", "FarmChest", "AutoDungeon", "AutoFarmBoss",
+    "AutoFarmAllBoss",
+    -- Raid / Factory
+    "AutoRaid", "AutoRaidLaw", "AutoFactory", "AutoStartRaid",
+    "AutoStartRaidLaw", "AutoPirateRaid",
+    -- Sea 3 Quests
+    "AutoGodHuman", "AutoElectricClaw", "AutoDragonTaylor",
+    "AutoGetTushita", "AutoYama", "AutoRengoku", "AutoHolyTorch",
+    "AutoBartilo", "AutoEliteHunter", "AutoSoulReaper",
+    "AutoCakePrince", "AutoDoughKing", "AutoRipIndra", "AutoBigMom",
+    -- Sea 2
+    "AutoDarkBeard", "AutoGrayBeard", "AutoSharkmanV2",
+    "AutoDeathStep", "AutoHakiV2", "AutoGetPole", "AutoGetSaw",
+    -- Sea 1 / Geral
+    "AutoUnlockTemple", "AutoFarmRaidBoss", "TweenFlyFruit",
 }
 
 function Functions.StartMovementBlocker(config)
