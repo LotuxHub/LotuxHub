@@ -1,5 +1,5 @@
 local Config = {
-
+    print("[LotuxHub] Config loading...")
     FarmWeapon          = "Melee",
     SelectedWeaponName  = "",
     FarmAttack          = "Normal",

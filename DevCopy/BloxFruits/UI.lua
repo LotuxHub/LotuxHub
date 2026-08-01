@@ -4103,4 +4103,5 @@ Notify({
     Type        = "Success",
 })
 
-print("UI Loaded v4.16.2")
+print("[LotuxHub Config] Pre-Load v31.3.2")
+print("[LotuxHub] Ui Loaded 1.3.2")

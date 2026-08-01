@@ -3,6 +3,7 @@ local Players     = game:GetService("Players")
 local Player      = Players.LocalPlayer
 
 local SaveSystem = {}
+print("[LotuxHub] SaveSystem loading...")
 
 local ROOT_FOLDER    = "Lotux Hub"
 local ACCOUNT_NAME   = Player.Name

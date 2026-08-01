@@ -4,6 +4,7 @@
 
 local Functions = {}
 
+print("[LotuxHub] Functions loading...")
 -- =====================================================
 -- SAFE SPAWN (captura crashes SEH sem modificar task)
 -- =====================================================

@@ -1,4 +1,5 @@
 local QuestList = {
+    print("[LotuxHub] QuestList loading...")
     -- SEA 1
     {Level=1,   Sea=1, Mob="Bandit",               NameQuest="BanditQuest1",   QuestLv=1,
      CFrameQuest=CFrame.new(1059.37195,15.4495068,1550.4231,0.939700544,0,-0.341998369,0,1,0,0.341998369,0,0.939700544),
