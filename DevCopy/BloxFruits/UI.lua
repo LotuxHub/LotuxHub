@@ -1287,20 +1287,13 @@ task.spawn(function()
                             if ohrp and ohum and ohum.Health > 0 then
                                 local d = (ohrp.Position - HumanoidRootPart.Position).Magnitude
                                 if d <= (Config.BringDistance or 350) then
-                                    -- FIX: ancora no player (nao mais na posicao atual do
-                                    -- mob) para nao acumular o offset Y a cada frame -
-                                    -- usar ohrp.Position aqui somava -10 sobre -10 sobre
-                                    -- -10... a cada Heartbeat, fazendo o mob afundar.
                                     local yOff = Config.BringYOffset or -10
                                     local pp   = HumanoidRootPart.Position
                                     bringPosition = CFrame.new(pp.X, pp.Y + yOff, pp.Z)
-                                    pcall(function()
-                                        ohum.WalkSpeed = 0
-                                        ohum.JumpPower = 0
-                                        ohum:ChangeState(11)
-                                        sethiddenproperty(Player, "SimulationRadius", math.huge)
-                                    end)
-                                    ohrp.CFrame = bringPosition
+                                    -- Usa o helper central: evita spam de ChangeState (que
+                                    -- travava alguns NPCs pra nao tomar dano) e solta o mob
+                                    -- por 0.25s a cada 2.5s sem dano, pra destravar sozinho.
+                                    Functions.LockMobInPlace(otherMob, bringPosition)
                                 end
                             end
                         end
@@ -1451,21 +1444,13 @@ task.spawn(function()
                                                 if ohrp and ohum and ohum.Health > 0 then
                                                     local d = (ohrp.Position - HumanoidRootPart.Position).Magnitude
                                                     if d <= (Config.BringDistance or 350) then
-                                                        -- FIX: ancora no player (nao mais na posicao
-                                                        -- atual do mob) para nao acumular o offset Y a
-                                                        -- cada frame - usar ohrp.Position aqui somava
-                                                        -- -10 sobre -10 sobre -10... a cada Heartbeat,
-                                                        -- fazendo o mob afundar continuamente.
                                                         local yOff2 = Config.BringYOffset or -10
                                                         local pp2   = HumanoidRootPart.Position
                                                         bringPosition2 = CFrame.new(pp2.X, pp2.Y + yOff2, pp2.Z)
-                                                        pcall(function()
-                                                            ohum.WalkSpeed = 0
-                                                            ohum.JumpPower = 0
-                                                            ohum:ChangeState(11)
-                                                            sethiddenproperty(Player, "SimulationRadius", math.huge)
-                                                        end)
-                                                        ohrp.CFrame = bringPosition2
+                                                        -- Usa o helper central: evita spam de ChangeState
+                                                        -- (que travava alguns NPCs pra nao tomar dano) e
+                                                        -- solta o mob por 0.25s a cada 2.5s sem dano.
+                                                        Functions.LockMobInPlace(otherMob, bringPosition2)
                                                     end
                                                 end
                                             end
@@ -4103,5 +4088,5 @@ Notify({
     Type        = "Success",
 })
 
-print("[LotuxHub Config] Pre-Load v31.3.2")
-print("[LotuxHub] Ui Loaded 1.3.2")
+print("UI Loaded v4.16.2")
+print("Pre-Load: v31.3.2")

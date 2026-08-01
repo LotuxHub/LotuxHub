@@ -4,7 +4,6 @@
 
 local Functions = {}
 
-print("[LotuxHub] Functions loading...")
 -- =====================================================
 -- SAFE SPAWN (captura crashes SEH sem modificar task)
 -- =====================================================
@@ -1170,6 +1169,79 @@ end]]
 -- NOCLIP
 -- =====================================================
 
+-- FIX CRITICO: guarda o CanCollide ORIGINAL de cada parte antes de
+-- desativar, para poder restaurar exatamente ao sair do noclip.
+-- Tabela com weak keys: limpa sozinha quando a parte e destruida
+-- (troca de personagem, morte, etc).
+local _noclipOriginal = setmetatable({}, { __mode = "k" })
+
+-- =====================================================
+-- LOCK MOB IN PLACE (helper usado pelos loops de Bring do
+-- AutoFarmNearest, AutoFarmLevel e AutoFarmBone)
+-- =====================================================
+-- Corrige dois problemas do bring antigo (que ficava duplicado
+-- e inline em 3 lugares diferentes):
+--
+--   1) ohum:ChangeState(11) era chamado TODO Heartbeat (60x/s).
+--      Chamar ChangeState em loop e desnecessario (o estado ja
+--      fica travado depois da primeira chamada) e o spam constante
+--      pode dessincronizar a replicacao do Humanoid no servidor -
+--      isso e o que fazia alguns NPCs ficarem "travados" e impossiveis
+--      de bater (o servidor para de validar hits nesse mob).
+--
+--   2) Sem esse fix, se um mob ficasse preso nesse estado bugado,
+--      NADA destravava ele -- o AutoFarm simplesmente ficava preso
+--      batendo nele pra sempre. Agora ha um watchdog: se o mob fica
+--      2.5s sem tomar dano (mesmo levando ataques), o lock e solto
+--      por 0.25s pra forcar o servidor a resincronizar a posicao/estado,
+--      e so entao volta a travar. Isso "destrava" o NPC automaticamente
+--      sem precisar remover ele da lista.
+local _mobLockState = setmetatable({}, { __mode = "k" }) -- weak keys: limpa sozinho quando o mob morre/some
+
+function Functions.LockMobInPlace(mob, targetCFrame)
+    local ohrp = mob and mob:FindFirstChild("HumanoidRootPart")
+    local ohum = mob and mob:FindFirstChild("Humanoid")
+    if not ohrp or not ohum or ohum.Health <= 0 then return end
+
+    local st = _mobLockState[mob]
+    if not st then
+        st = { lastHealth = ohum.Health, lastHealthChange = os.clock(), unstickUntil = 0, statePinned = false }
+        _mobLockState[mob] = st
+    end
+
+    -- Detecta dano recente (reseta o timer do watchdog)
+    if ohum.Health ~= st.lastHealth then
+        st.lastHealth       = ohum.Health
+        st.lastHealthChange = os.clock()
+    end
+
+    -- Watchdog: mob preso sem tomar dano ha mais de 2.5s -> solta o
+    -- lock por 0.25s pra forcar resync com o servidor
+    if st.unstickUntil == 0 and (os.clock() - st.lastHealthChange) > 2.5 then
+        st.unstickUntil = os.clock() + 0.25
+        st.statePinned  = false -- ao re-travar, chama ChangeState de novo
+    end
+    if st.unstickUntil > 0 then
+        if os.clock() < st.unstickUntil then
+            return -- solto neste frame: nao mexe no mob, deixa resincronizar
+        else
+            st.unstickUntil     = 0
+            st.lastHealthChange = os.clock()
+        end
+    end
+
+    pcall(function()
+        ohum.WalkSpeed = 0
+        ohum.JumpPower = 0
+        if not st.statePinned then
+            ohum:ChangeState(11)
+            st.statePinned = true
+        end
+        sethiddenproperty(Player, "SimulationRadius", math.huge)
+    end)
+    ohrp.CFrame = targetCFrame
+end
+
 function Functions.ApplyNoClip(player, enabled)
     pcall(function()
         local char = player.Character
@@ -1184,11 +1256,28 @@ function Functions.ApplyNoClip(player, enabled)
                 bv.Velocity = Vector3.new(0, 0, 0)
             end
             for _, v in pairs(char:GetDescendants()) do
-                if v:IsA("BasePart") then v.CanCollide = false end
+                if v:IsA("BasePart") then
+                    if _noclipOriginal[v] == nil then
+                        _noclipOriginal[v] = v.CanCollide
+                    end
+                    v.CanCollide = false
+                end
             end
         else
             if head and head:FindFirstChild("NoClipLock") then
                 head.NoClipLock:Destroy()
+            end
+            -- FIX: antes disso NUNCA reativava a colisao das partes do
+            -- personagem. Depois do primeiro uso do NoClip (usado internamente
+            -- em quase toda funcao de voo), o CanCollide ficava false PARA
+            -- SEMPRE, e o player passava a cair direto pelo chao/terreno -
+            -- essa era a causa real de "ficar caindo toda hora" ao chegar
+            -- perto dos NPCs.
+            for _, v in pairs(char:GetDescendants()) do
+                if v:IsA("BasePart") and _noclipOriginal[v] ~= nil then
+                    v.CanCollide = _noclipOriginal[v]
+                    _noclipOriginal[v] = nil
+                end
             end
         end
     end)
@@ -2208,20 +2297,13 @@ function Functions.StartAutoFarmBone(config)
                         local ohum = om:FindFirstChild("Humanoid")
                         if ohrp and ohum and ohum.Health > 0 then
                             if (ohrp.Position - hrp.Position).Magnitude <= (config.BringDistance or 350) then
-                                -- FIX: ancora no player (hrp), nao na posicao atual do mob
-                                -- (ohrp). Usar ohrp.Position aqui somava o offset Y de novo
-                                -- sobre a posicao ja deslocada do frame anterior, fazendo o
-                                -- mob afundar continuamente a cada Heartbeat.
                                 local yOff = config.BringYOffset or -10
                                 local pp   = hrp.Position
                                 _bringPos  = CFrame.new(pp.X, pp.Y + yOff, pp.Z)
-                                pcall(function()
-                                    ohum.WalkSpeed = 0
-                                    ohum.JumpPower = 0
-                                    ohum:ChangeState(11)
-                                    sethiddenproperty(Player, "SimulationRadius", math.huge)
-                                end)
-                                ohrp.CFrame = _bringPos
+                                -- Usa o helper central: evita spam de ChangeState (que
+                                -- travava alguns NPCs pra nao tomar dano) e solta o mob
+                                -- por 0.25s a cada 2.5s sem dano, pra destravar sozinho.
+                                Functions.LockMobInPlace(om, _bringPos)
                             end
                         end
                     end
@@ -6012,25 +6094,35 @@ end
 -- evitar que ele se mova acidentalmente.
 -- Restaura automaticamente ao desativar tudo.
 -- =====================================================
-local BLOCK_KEYS = {
-    -- Farm
-    "AutoFarmLevel", "AutoFarmNearest", "AutoFarmBone",
-    "AutoFarmMastery", "AutoFarmMaterial", "AutoFarmChocola",
-    "AutoFarmObsHaki", "FarmChest", "AutoDungeon", "AutoFarmBoss",
-    "AutoFarmAllBoss",
-    -- Raid / Factory
-    "AutoRaid", "AutoRaidLaw", "AutoFactory", "AutoStartRaid",
-    "AutoStartRaidLaw", "AutoPirateRaid",
-    -- Sea 3 Quests
-    "AutoGodHuman", "AutoElectricClaw", "AutoDragonTaylor",
-    "AutoGetTushita", "AutoYama", "AutoRengoku", "AutoHolyTorch",
-    "AutoBartilo", "AutoEliteHunter", "AutoSoulReaper",
-    "AutoCakePrince", "AutoDoughKing", "AutoRipIndra", "AutoBigMom",
-    -- Sea 2
-    "AutoDarkBeard", "AutoGrayBeard", "AutoSharkmanV2",
-    "AutoDeathStep", "AutoHakiV2", "AutoGetPole", "AutoGetSaw",
-    -- Sea 1 / Geral
-    "AutoUnlockTemple", "AutoFarmRaidBoss", "TweenFlyFruit",
+-- FIX: a lista fixa BLOCK_KEYS exigia atualizacao manual toda vez que uma
+-- funcao nova era adicionada ao Config - e facil esquecer uma e o player
+-- conseguir se mover durante ela (quebrando o farm/voo, causando o efeito
+-- de "atropelar" a automacao). Agora e o oposto: QUALQUER flag booleana
+-- ativa no Config bloqueia o movimento, EXCETO as que estao na lista de
+-- excecao abaixo (funcoes que rodam em paralelo e o usuario PRECISA poder
+-- se mover, como as skills separadas, PvP, ESP e toggles cosmeticos).
+local MOVEMENT_EXCLUDE_KEYS = {
+    -- Skills paralelas (README: "rodam em loops independentes, podem ser
+    -- usadas junto com o farm manual" - travar o player aqui quebraria isso)
+    AutoSkill = true, AutoSkillZ = true, AutoSkillX = true, AutoSkillC = true,
+    -- PvP / combate manual
+    EnabledPvP = true, KillAura = true, AimbotGun = true, AimbotSkill = true,
+    AutoKillPlayer = true, AutoPlayerHunter = true, FastAttack = true,
+    -- Utilitarios que nao mexem na posicao do player
+    AutoClick = true, AutoSetSpawn = true, AutoBusoHaki = true,
+    AutoObservation = true, AutoSpeed = true, AutoSetJump = true,
+    InfiniteJump = true, AntiAFK = true, SafeMode = true,
+    DisableGameNotify = true, NoFog = true, NotifyErroScript = true,
+    NoClip = true, NotifyFruitSpawn = true,
+    -- ESP / cosmeticos
+    ESPEnabled = true, ESPTeammates = true, ESPIslands = true, ESPFruits = true,
+    ESPChests = true, ESPBerries = true, ESPMirage = true, ESPSeaBeasts = true,
+    ESPNpcs = true, AquaAura = true, RainbowSkills = true, FPSCounter = true,
+    RainbowBillboard = true, SelfHighlight = true, RenderOnFocus = true,
+    -- Estado interno / compras pontuais (nao sao loops de navegacao)
+    BringMob = true, StartBring = true, AutoBuyChipRaid = true,
+    AutoBuyChipRaidLaw = true, AutoBuyEnhancementColour = true,
+    AutoBuyLegendarySword = true,
 }
 
 function Functions.StartMovementBlocker(config)
@@ -6044,10 +6136,14 @@ function Functions.StartMovementBlocker(config)
             local hum  = char and char:FindFirstChildOfClass("Humanoid")
             if not hum then continue end
 
-            -- Verifica se alguma funcao bloqueante esta ativa
+            -- Verifica se alguma funcao bloqueante esta ativa (qualquer flag
+            -- booleana = true no Config, exceto as da lista de excecao acima)
             local shouldBlock = false
-            for _, key in ipairs(BLOCK_KEYS) do
-                if config[key] then shouldBlock = true; break end
+            for key, value in pairs(config) do
+                if value == true and not MOVEMENT_EXCLUDE_KEYS[key] then
+                    shouldBlock = true
+                    break
+                end
             end
 
             if shouldBlock and not _blocked then
@@ -6058,6 +6154,13 @@ function Functions.StartMovementBlocker(config)
                 hum.JumpPower  = 0
                 _blocked = true
                 print("[MovementBlocker] Movimento bloqueado.")
+
+            elseif shouldBlock and _blocked then
+                -- Ja bloqueado: garante que nada (outro loop, respawn, etc)
+                -- reative WalkSpeed/JumpPower por engano enquanto uma funcao
+                -- ainda estiver ativa.
+                if hum.WalkSpeed ~= 0 then hum.WalkSpeed = 0 end
+                if hum.JumpPower ~= 0 then hum.JumpPower = 0 end
 
             elseif not shouldBlock and _blocked then
                 -- Restaura velocidades anteriores
@@ -7546,5 +7649,6 @@ _G.UMESP = Functions.UpdateMirageESP     -- UpdateMirageESP
 _G.USESP = Functions.UpdateSeaBeastESP   -- UpdateSeaBeastESP
 _G.TTSI  = Functions.TravelToSubmergedIsland -- TravelToSubmergedIsland
 
-print("[LotuxHub] Functions Updated Loaded v2.21.2")
+print("[LotuxHub] Functions Updated Loaded v2.26.6")
+print("[LotuxHub] Pre-Load: v31.3.2")
 return Functions
