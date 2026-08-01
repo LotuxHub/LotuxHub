@@ -1276,6 +1276,9 @@ task.spawn(function()
                 local bringActive   = false
                 local bringPosition = CFrame.new(0, 0, 0)
                 local bringMobName  = mob.Name
+                -- Captura a altura alvo UMA vez ao ativar o bring:
+                -- Y do player neste momento + offset. Nao muda mais.
+                local _bringLockedY = HumanoidRootPart.Position.Y + (Config.BringYOffset or -10)
                 local bringConn = RunService.Heartbeat:Connect(function()
                     if not bringActive or not Config.BringMob then return end
                     local enm = workspace:FindFirstChild("Enemies")
@@ -1287,12 +1290,11 @@ task.spawn(function()
                             if ohrp and ohum and ohum.Health > 0 then
                                 local d = (ohrp.Position - HumanoidRootPart.Position).Magnitude
                                 if d <= (Config.BringDistance or 350) then
-                                    local yOff = Config.BringYOffset or -10
-                                    local pp   = HumanoidRootPart.Position
-                                    bringPosition = CFrame.new(pp.X, pp.Y + yOff, pp.Z)
-                                    -- Usa o helper central: evita spam de ChangeState (que
-                                    -- travava alguns NPCs pra nao tomar dano) e solta o mob
-                                    -- por 0.25s a cada 2.5s sem dano, pra destravar sozinho.
+                                    -- X/Z do player atual, Y fixo (nao segue o player pra baixo)
+                                    bringPosition = CFrame.new(
+                                        HumanoidRootPart.Position.X,
+                                        _bringLockedY,
+                                        HumanoidRootPart.Position.Z)
                                     Functions.LockMobInPlace(otherMob, bringPosition)
                                 end
                             end
@@ -1433,6 +1435,8 @@ task.spawn(function()
                                     local bringActive2   = false
                                     local bringPosition2 = CFrame.new(0, 0, 0)
                                     local bringMobName2  = quest.Mob
+                                    -- Captura Y alvo UMA vez ao ativar o bring.
+                                    local _bringLockedY2 = HumanoidRootPart.Position.Y + (Config.BringYOffset or -10)
                                     local bringConn2 = RunService.Heartbeat:Connect(function()
                                         if not bringActive2 or not Config.BringMob then return end
                                         local enm = workspace:FindFirstChild("Enemies")
@@ -1444,12 +1448,11 @@ task.spawn(function()
                                                 if ohrp and ohum and ohum.Health > 0 then
                                                     local d = (ohrp.Position - HumanoidRootPart.Position).Magnitude
                                                     if d <= (Config.BringDistance or 350) then
-                                                        local yOff2 = Config.BringYOffset or -10
-                                                        local pp2   = HumanoidRootPart.Position
-                                                        bringPosition2 = CFrame.new(pp2.X, pp2.Y + yOff2, pp2.Z)
-                                                        -- Usa o helper central: evita spam de ChangeState
-                                                        -- (que travava alguns NPCs pra nao tomar dano) e
-                                                        -- solta o mob por 0.25s a cada 2.5s sem dano.
+                                                        -- X/Z do player atual, Y fixo
+                                                        bringPosition2 = CFrame.new(
+                                                            HumanoidRootPart.Position.X,
+                                                            _bringLockedY2,
+                                                            HumanoidRootPart.Position.Z)
                                                         Functions.LockMobInPlace(otherMob, bringPosition2)
                                                     end
                                                 end
@@ -4088,5 +4091,5 @@ Notify({
     Type        = "Success",
 })
 
-print("UI Loaded v4.16.2")
+print("UI Loaded v4.3.2")
 print("Pre-Load: v31.3.2")

@@ -2290,26 +2290,19 @@ function Functions.StartAutoFarmBone(config)
             local char = Player.Character
             local hrp = char and char:FindFirstChild("HumanoidRootPart")
             if not hrp then return end
-            -- Remove hover antigo
             if _hoverObj then _hoverObj:Destroy(); _hoverObj = nil end
             local bpos = Instance.new("BodyPosition")
-            bpos.Name = "LotuxHover"
-            bpos.MaxForce = Vector3.new(4000, 4000, 4000)
-            bpos.P = 2000
-            bpos.D = 500
+            bpos.Name     = "LotuxHover"
+            -- MaxForce enorme so no Y: segura o player no ar sem travar X/Z
+            bpos.MaxForce = Vector3.new(0, 1e6, 0)
+            bpos.P        = 50000
+            bpos.D        = 1000
+            -- FIXA a altura atual do player UMA unica vez.
+            -- Nao atualiza no heartbeat: atualizar com o Y do player
+            -- em queda criava loop (hover perseguia a queda).
             bpos.Position = hrp.Position
-            bpos.Parent = hrp
-            _hoverObj = bpos
-            -- Mantém a posição atualizada a cada frame (opcional, mas ajuda)
-            RunService.Heartbeat:Connect(function()
-                if _hoverObj and _hoverObj.Parent then
-                    local c = Player.Character
-                    local r = c and c:FindFirstChild("HumanoidRootPart")
-                    if r then
-                        _hoverObj.Position = r.Position
-                    end
-                end
-            end)
+            bpos.Parent   = hrp
+            _hoverObj     = bpos
         end
 
         local function RemoveHover()
@@ -2321,8 +2314,15 @@ function Functions.StartAutoFarmBone(config)
 
         local function StartBringHeartbeat(mobName, hrp)
             DisconnectBring()
+            -- Captura a altura alvo UMA vez: posicao atual do player quando
+            -- o bring e ativado. Esse Y nao muda mais — o NPC fica travado
+            -- nessa altura independente do que aconteca com o player depois.
+            local _lockedY = hrp.Position.Y + (config.BringYOffset or -10)
             _bringConn = RunService.Heartbeat:Connect(function()
                 if not _bringActive or not config.BringMob or config.AutoRaid then return end
+                local char2 = Player.Character
+                local hrp2  = char2 and char2:FindFirstChild("HumanoidRootPart")
+                if not hrp2 then return end
                 local enm = workspace:FindFirstChild("Enemies")
                 if not enm then return end
                 for _, om in ipairs(enm:GetChildren()) do
@@ -2330,10 +2330,10 @@ function Functions.StartAutoFarmBone(config)
                         local ohrp = om:FindFirstChild("HumanoidRootPart")
                         local ohum = om:FindFirstChild("Humanoid")
                         if ohrp and ohum and ohum.Health > 0 then
-                            if (ohrp.Position - hrp.Position).Magnitude <= (config.BringDistance or 350) then
-                                local yOff = config.BringYOffset or -10
-                                local pp   = hrp.Position
-                                _bringPos  = CFrame.new(pp.X, pp.Y + yOff, pp.Z)
+                            if (ohrp.Position - hrp2.Position).Magnitude <= (config.BringDistance or 350) then
+                                -- X/Z do player atual, Y fixo capturado na ativacao.
+                                -- Isso evita que o NPC caia junto quando o player desce.
+                                _bringPos = CFrame.new(hrp2.Position.X, _lockedY, hrp2.Position.Z)
                                 Functions.LockMobInPlace(om, _bringPos)
                             end
                         end
@@ -7661,6 +7661,6 @@ _G.UMESP = Functions.UpdateMirageESP     -- UpdateMirageESP
 _G.USESP = Functions.UpdateSeaBeastESP   -- UpdateSeaBeastESP
 _G.TTSI  = Functions.TravelToSubmergedIsland -- TravelToSubmergedIsland
 
-print("[LotuxHub] Functions Updated Loaded v2.31.1")
+print("[LotuxHub] Functions Updated Loaded v2.35.1")
 print("[LotuxHub] Pre-Load: v31.3.2")
 return Functions
