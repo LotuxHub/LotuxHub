@@ -2432,20 +2432,10 @@ function Functions.StartAutoFarmBone(config)
                     local dist = (mobHrp.Position - hrp.Position).Magnitude
 
                     if dist > 15 then
-                        -- Mob esta longe: desativa o bring (evita puxar o
-                        -- mob enquanto ainda estamos voando até ele) e voa.
                         DisconnectBring()
-                        -- FIX: usa um offset baixo (2 studs) em vez de config.FlyOffset
-                        -- (15 studs). O destino do tween era 15 studs ACIMA do mob; ao
-                        -- terminar, o player ficava no ar, o raycast de restoreHumanoidState
-                        -- nao detectava chao, e o Humanoid entrava em Freefall (o player
-                        -- "caia" ao chegar perto do NPC). Pousando quase no nivel do mob
-                        -- o raycast acerta o chao e o estado vira Landed normalmente.
                         Functions.FlyToPosition(
-                            CFrame.new(mobHrp.Position) * CFrame.new(0, 2, 0),
+                            CFrame.new(mobHrp.Position) * CFrame.new(0, config.FlyOffset or 15, 0),
                             TweenService, config, _isTp, {value=false})
-                        -- Apos o voo terminar (FlyToPosition e bloqueante),
-                        -- o player ja esta pousado normalmente no chao.
                         return
                     end
 
@@ -7649,6 +7639,6 @@ _G.UMESP = Functions.UpdateMirageESP     -- UpdateMirageESP
 _G.USESP = Functions.UpdateSeaBeastESP   -- UpdateSeaBeastESP
 _G.TTSI  = Functions.TravelToSubmergedIsland -- TravelToSubmergedIsland
 
-print("[LotuxHub] Functions Updated Loaded v2.26.6")
+print("[LotuxHub] Functions Updated Loaded v2.30.1")
 print("[LotuxHub] Pre-Load: v31.3.2")
 return Functions
