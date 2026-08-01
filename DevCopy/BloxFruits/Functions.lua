@@ -2252,9 +2252,8 @@ function Functions.StartAutoFarmBone(config)
               CFrameQuest = CFrame.new(-9516.99316, 172.017181, 6078.46533, 0,0,-1,0,1,0,1,0,0),
               CFrameMon   = CFrame.new(-9582.022460, 6.251527, 6205.478515) },
         }
-        local KILLS_PER_QUEST = 8  -- todas as quests do Haunted Castle pedem 8 kills
+        local KILLS_PER_QUEST = 8
 
-        -- Maquina de estado: IDLE -> GET_QUEST -> TRAVEL -> FARM
         local STATE        = "IDLE"
         local _boneIdx     = 1
         local _killsThis   = 0
@@ -2263,7 +2262,8 @@ function Functions.StartAutoFarmBone(config)
         local _bringActive = false
         local _bringPos    = CFrame.new(0,0,0)
         local _isTp        = {value = false}
-        local _wasActive   = false  -- detecta a transicao ON->OFF para limpar o voo
+        local _wasActive   = false
+        local _hoverObj    = nil  -- BodyPosition de hover
 
         local function CurrentQuest() return HAUNTED_MOBS[_boneIdx] end
 
@@ -2285,6 +2285,40 @@ function Functions.StartAutoFarmBone(config)
             _bringActive = false
         end
 
+        -- Cria o hover (BodyPosition) para manter o jogador no ar
+        local function CreateHover()
+            local char = Player.Character
+            local hrp = char and char:FindFirstChild("HumanoidRootPart")
+            if not hrp then return end
+            -- Remove hover antigo
+            if _hoverObj then _hoverObj:Destroy(); _hoverObj = nil end
+            local bpos = Instance.new("BodyPosition")
+            bpos.Name = "LotuxHover"
+            bpos.MaxForce = Vector3.new(4000, 4000, 4000)
+            bpos.P = 2000
+            bpos.D = 500
+            bpos.Position = hrp.Position
+            bpos.Parent = hrp
+            _hoverObj = bpos
+            -- Mantém a posição atualizada a cada frame (opcional, mas ajuda)
+            RunService.Heartbeat:Connect(function()
+                if _hoverObj and _hoverObj.Parent then
+                    local c = Player.Character
+                    local r = c and c:FindFirstChild("HumanoidRootPart")
+                    if r then
+                        _hoverObj.Position = r.Position
+                    end
+                end
+            end)
+        end
+
+        local function RemoveHover()
+            if _hoverObj then
+                _hoverObj:Destroy()
+                _hoverObj = nil
+            end
+        end
+
         local function StartBringHeartbeat(mobName, hrp)
             DisconnectBring()
             _bringConn = RunService.Heartbeat:Connect(function()
@@ -2300,9 +2334,6 @@ function Functions.StartAutoFarmBone(config)
                                 local yOff = config.BringYOffset or -10
                                 local pp   = hrp.Position
                                 _bringPos  = CFrame.new(pp.X, pp.Y + yOff, pp.Z)
-                                -- Usa o helper central: evita spam de ChangeState (que
-                                -- travava alguns NPCs pra nao tomar dano) e solta o mob
-                                -- por 0.25s a cada 2.5s sem dano, pra destravar sozinho.
                                 Functions.LockMobInPlace(om, _bringPos)
                             end
                         end
@@ -2311,9 +2342,9 @@ function Functions.StartAutoFarmBone(config)
             end)
         end
 
-        -- Limpa tudo e para de voar IMEDIATAMENTE (chamado ao desativar)
         local function FullStop()
             DisconnectBring()
+            RemoveHover()
             Functions.StopTeleport()
             STATE      = "IDLE"
             _activeMob = nil
@@ -2323,7 +2354,6 @@ function Functions.StartAutoFarmBone(config)
         while task.wait(0.3) do
             if not config.AutoFarmBone then
                 if _wasActive then
-                    -- Transicao ON->OFF: limpa voo e estado uma unica vez
                     FullStop()
                     print("[FarmBone] Desativado - voo interrompido.")
                 end
@@ -2340,17 +2370,13 @@ function Functions.StartAutoFarmBone(config)
             pcall(function()
                 local quest = CurrentQuest()
 
-                -- ── IDLE: decide se precisa pegar quest nova ───────────
                 if STATE == "IDLE" then
                     if HasQuest() then
-                        -- Ja tem uma quest ativa (de qualquer mob): assume
-                        -- que serve e vai farmar o mob da lista atual.
                         STATE = "TRAVEL"
                     else
                         STATE = "GET_QUEST"
                     end
 
-                -- ── GET_QUEST: vai ate o NPC e aceita (UMA vez) ────────
                 elseif STATE == "GET_QUEST" then
                     if HasQuest() then
                         STATE = "TRAVEL"
@@ -2364,11 +2390,11 @@ function Functions.StartAutoFarmBone(config)
                     task.wait(0.5)
                     if HasQuest() then STATE = "TRAVEL" end
 
-                -- ── TRAVEL: vai ate a area do mob atual ────────────────
                 elseif STATE == "TRAVEL" then
                     local enemies = workspace:FindFirstChild("Enemies")
                     if not enemies then
-                        Functions.FlyToPosition(quest.CFrameMon, TweenService, config, _isTp, {value=false})
+                        Functions.FlyToPosition(quest.CFrameMon * CFrame.new(0, config.FlyOffset or 15, 0),
+                            TweenService, config, _isTp, {value=false})
                         return
                     end
                     local mob, minDist = nil, math.huge
@@ -2383,26 +2409,18 @@ function Functions.StartAutoFarmBone(config)
                         end
                     end
                     if not mob then
-                        Functions.FlyToPosition(quest.CFrameMon, TweenService, config, _isTp, {value=false})
+                        Functions.FlyToPosition(quest.CFrameMon * CFrame.new(0, config.FlyOffset or 15, 0),
+                            TweenService, config, _isTp, {value=false})
                         return
                     end
                     _activeMob = mob
                     STATE = "FARM"
 
-                -- ── FARM: ataca o mob atual ─────────────────────────────
-                -- IMPORTANTE: so chama FlyToPosition() quando realmente
-                -- precisa voar (mob longe). Quando perto, NUNCA mistura
-                -- FlyToPosition (estado Physics) com o BringMob no mesmo
-                -- frame: o codigo antigo alternava os dois a cada 0.3s,
-                -- e a troca de estado Physics<->Landed no meio do bring
-                -- causava o "snap" de posicao (voo <-> chao) reportado.
-                -- Agora: enquanto perto do mob, NAO chama FlyToPosition
-                -- nenhuma vez (so o BringMob move o mob, o player fica
-                -- parado naturalmente no chao).
                 elseif STATE == "FARM" then
                     local mob = _activeMob
                     if not mob or not mob.Parent then
                         DisconnectBring()
+                        RemoveHover()
                         _activeMob = nil; STATE = "TRAVEL"
                         return
                     end
@@ -2410,20 +2428,18 @@ function Functions.StartAutoFarmBone(config)
                     local mobHrp = mob:FindFirstChild("HumanoidRootPart")
                     if not mobHum or mobHum.Health <= 0 then
                         DisconnectBring()
+                        RemoveHover()
                         _activeMob = nil
                         config.KillCount = (config.KillCount or 0) + 1
                         _killsThis = _killsThis + 1
                         print(("[FarmBone] %s morto! (%d/%d)"):format(quest.Mob, _killsThis, KILLS_PER_QUEST))
 
                         if _killsThis >= KILLS_PER_QUEST then
-                            -- Quest completa: abandona (se ainda visivel)
-                            -- e avanca para a proxima quest/mob da lista
                             pcall(function() CommF_:InvokeServer("AbandonQuest") end)
                             task.wait(0.3)
                             NextMob()
                             STATE = "IDLE"
                         else
-                            -- Ainda nao completou: procura outro mob do mesmo tipo
                             STATE = "TRAVEL"
                         end
                         return
@@ -2433,14 +2449,20 @@ function Functions.StartAutoFarmBone(config)
 
                     if dist > 15 then
                         DisconnectBring()
+                        RemoveHover()
+                        local flyOffset = config.FlyOffset or 15
                         Functions.FlyToPosition(
-                            CFrame.new(mobHrp.Position) * CFrame.new(0, config.FlyOffset or 15, 0),
+                            CFrame.new(mobHrp.Position) * CFrame.new(0, flyOffset, 0),
                             TweenService, config, _isTp, {value=false})
                         return
                     end
 
-                    -- Mob perto: liga o bring (se ainda nao ligado) e ataca
-                    -- SEM chamar FlyToPosition de novo neste ciclo.
+                    -- Distância <= 15: aqui mantemos o hover
+                    if not _hoverObj or not _hoverObj.Parent then
+                        CreateHover()
+                    end
+
+                    -- Liga o bring se não estiver ativo
                     if not _bringActive then
                         local yOff = config.BringYOffset or -10
                         local mp   = mobHrp.Position
