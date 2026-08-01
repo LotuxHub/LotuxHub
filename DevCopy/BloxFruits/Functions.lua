@@ -2479,7 +2479,7 @@ function Functions.StartAutoFarmBone(config)
             end)
         end
     end)
-end
+end 
 
 -- Auto Pray / Try Luck (Bone Island rituals)
 function Functions.StartAutoPray(config)
@@ -7661,6 +7661,6 @@ _G.UMESP = Functions.UpdateMirageESP     -- UpdateMirageESP
 _G.USESP = Functions.UpdateSeaBeastESP   -- UpdateSeaBeastESP
 _G.TTSI  = Functions.TravelToSubmergedIsland -- TravelToSubmergedIsland
 
-print("[LotuxHub] Functions Updated Loaded v2.30.1")
+print("[LotuxHub] Functions Updated Loaded v2.31.1")
 print("[LotuxHub] Pre-Load: v31.3.2")
 return Functions
