@@ -8106,37 +8106,51 @@ function Functions.CastSkillAtMob(keyName, mob)
     local mhrp = mob and mob:FindFirstChild("HumanoidRootPart")
     if not hum or not hrp or not mhrp then return end
 
-    -- CFrame = onde a skill acerta (posição do NPC)
-    local aimCF = mhrp.CFrame
+    local VIM = game:GetService("VirtualInputManager")
+    local KEY_MAP = {
+        Z = Enum.KeyCode.Z, X = Enum.KeyCode.X, C = Enum.KeyCode.C,
+        V = Enum.KeyCode.V, F = Enum.KeyCode.F,
+    }
+    local kc = KEY_MAP[keyName]
+    if not kc then return end
 
-    -- 1) Remote do Humanoid (nome "" ou qualquer RemoteFunction)
+    -- =====================================================
+    -- MIRA REAL: move o mouse VIRTUAL para a posicao na TELA
+    -- onde o NPC esta (projecao 3D -> 2D via camera). E assim
+    -- que o jogo calcula Mouse.Hit para skills que miram no
+    -- cursor - sem isso, a skill saia sempre pra onde o mouse
+    -- real do usuario estava parado (quase nunca em cima do NPC).
+    -- =====================================================
     pcall(function()
-        local rf = hum:FindFirstChild("")
-        if rf and rf:IsA("RemoteFunction") then
-            rf:InvokeServer(keyName, aimCF)
-        else
-            for _, r in ipairs(hum:GetChildren()) do
-                if r:IsA("RemoteFunction") then
-                    r:InvokeServer(keyName, aimCF)
-                    break
-                end
+        local camera = workspace.CurrentCamera
+        if not camera then return end
+        local screenPos, onScreen = camera:WorldToViewportPoint(mhrp.Position)
+        if onScreen then
+            VIM:SendMouseMoveEvent(screenPos.X, screenPos.Y, game)
+        end
+    end)
+
+    -- Da um frame pro Mouse.Hit do jogo atualizar com a nova posicao
+    -- antes de disparar a skill.
+    task.wait()
+
+    -- Tambem gira o personagem de frente pro NPC (yaw), caso a skill
+    -- use a direcao que o personagem esta olhando em vez do mouse.
+    pcall(function()
+        local dir = (mhrp.Position - hrp.Position)
+        if dir.Magnitude > 0.1 then
+            local flatDir = Vector3.new(dir.X, 0, dir.Z)
+            if flatDir.Magnitude > 0.1 then
+                hrp.CFrame = CFrame.new(hrp.Position, hrp.Position + flatDir)
             end
         end
     end)
 
-    -- 2) Backup: tecla
+    -- Dispara a skill com a mira ja no NPC
     pcall(function()
-        local VIM = game:GetService("VirtualInputManager")
-        local KEY_MAP = {
-            Z = Enum.KeyCode.Z, X = Enum.KeyCode.X, C = Enum.KeyCode.C,
-            V = Enum.KeyCode.V, F = Enum.KeyCode.F,
-        }
-        local kc = KEY_MAP[keyName]
-        if kc then
-            VIM:SendKeyEvent(true, kc, false, game)
-            task.wait(0.05)
-            VIM:SendKeyEvent(false, kc, false, game)
-        end
+        VIM:SendKeyEvent(true,  kc, false, game)
+        task.wait(0.05)
+        VIM:SendKeyEvent(false, kc, false, game)
     end)
 end
 
