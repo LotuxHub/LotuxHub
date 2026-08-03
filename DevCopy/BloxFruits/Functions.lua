@@ -8096,17 +8096,59 @@ function Functions.AbandonQuest()
 end
 
 -- =====================================================
--- AUTO FARM MASTERY (Castelo Assombrado)
--- 1) Farm normal até HealthKillMob %
--- 2) Equipa MasteryWeapon
--- 3) Solta skills até matar
+-- HELPERS MASTERY / SKILL AIM
+-- =====================================================
+function Functions.CastSkillAtMob(keyName, mob)
+    local char = Player.Character
+    if not char then return end
+    local hum  = char:FindFirstChildOfClass("Humanoid")
+    local hrp  = char:FindFirstChild("HumanoidRootPart")
+    local mhrp = mob and mob:FindFirstChild("HumanoidRootPart")
+    if not hum or not hrp or not mhrp then return end
+
+    -- CFrame = onde a skill acerta (posição do NPC)
+    local aimCF = mhrp.CFrame
+
+    -- 1) Remote do Humanoid (nome "" ou qualquer RemoteFunction)
+    pcall(function()
+        local rf = hum:FindFirstChild("")
+        if rf and rf:IsA("RemoteFunction") then
+            rf:InvokeServer(keyName, aimCF)
+        else
+            for _, r in ipairs(hum:GetChildren()) do
+                if r:IsA("RemoteFunction") then
+                    r:InvokeServer(keyName, aimCF)
+                    break
+                end
+            end
+        end
+    end)
+
+    -- 2) Backup: tecla
+    pcall(function()
+        local VIM = game:GetService("VirtualInputManager")
+        local KEY_MAP = {
+            Z = Enum.KeyCode.Z, X = Enum.KeyCode.X, C = Enum.KeyCode.C,
+            V = Enum.KeyCode.V, F = Enum.KeyCode.F,
+        }
+        local kc = KEY_MAP[keyName]
+        if kc then
+            VIM:SendKeyEvent(true, kc, false, game)
+            task.wait(0.05)
+            VIM:SendKeyEvent(false, kc, false, game)
+        end
+    end)
+end
+
+-- =====================================================
+-- AUTO FARM MASTERY (completo + corrigido)
+-- Castelo Assombrado | % vida | skills mirando o NPC | no AR
 -- =====================================================
 function Functions.StartAutoFarmMastery(config)
     SafeSpawn(function()
         local TweenSvc = game:GetService("TweenService")
-        local VIM = game:GetService("VirtualInputManager")
+        local RunService = game:GetService("RunService")
 
-        -- Área Haunted (bone)
         local HAUNTED_AREA = CFrame.new(-8763.723632, 165.722991, 6159.861816)
         local HAUNTED_MOBS = {
             "Reborn Skeleton",
@@ -8120,14 +8162,6 @@ function Functions.StartAutoFarmMastery(config)
             Melee      = { "Z", "X", "C" },
             Sword      = { "Z", "X" },
             Gun        = { "Z", "X" },
-        }
-
-        local KEY_MAP = {
-            Z = Enum.KeyCode.Z,
-            X = Enum.KeyCode.X,
-            C = Enum.KeyCode.C,
-            V = Enum.KeyCode.V,
-            F = Enum.KeyCode.F,
         }
 
         local NotAutoEquip  = { value = false }
@@ -8146,14 +8180,13 @@ function Functions.StartAutoFarmMastery(config)
         end
 
         local function GetSkillList()
-            -- Se a UI mandou MasterySkills (multi), usa isso
             local custom = config.MasterySkills
             if type(custom) == "table" then
                 local list = {}
                 for k, v in pairs(custom) do
-                    if v == true and KEY_MAP[k] then
+                    if v == true and type(k) == "string" then
                         table.insert(list, k)
-                    elseif type(k) == "number" and type(v) == "string" and KEY_MAP[v] then
+                    elseif type(k) == "number" and type(v) == "string" then
                         table.insert(list, v)
                     end
                 end
@@ -8162,61 +8195,17 @@ function Functions.StartAutoFarmMastery(config)
             return SKILLS_BY_TYPE[GetMasteryType()] or { "Z", "X" }
         end
 
-        local function CastSkill(keyName)
-            local char = Player.Character
-            if not char then return end
-            local hrp = char:FindFirstChild("HumanoidRootPart")
-            local hum = char:FindFirstChildOfClass("Humanoid")
-            if not hrp or not hum then return end
-
-            -- 1) Tecla (principal)
-            local kc = KEY_MAP[keyName]
-            if kc then
-                pcall(function()
-                    VIM:SendKeyEvent(true, kc, false, game)
-                    task.wait(0.05)
-                    VIM:SendKeyEvent(false, kc, false, game)
-                end)
-            end
-
-            -- 2) Fallback: RemoteFunction no Humanoid / Tool (se existir)
-            pcall(function()
-                local tool = char:FindFirstChildOfClass("Tool")
-                local cf = hrp.CFrame
-                -- alguns tools têm RemoteEvent/Function de skill
-                if tool then
-                    for _, r in ipairs(tool:GetDescendants()) do
-                        if r:IsA("RemoteEvent") and (r.Name == keyName or r.Name:upper() == keyName) then
-                            r:FireServer(cf)
-                        elseif r:IsA("RemoteFunction") and (r.Name == keyName or r.Name:upper() == keyName) then
-                            r:InvokeServer(cf)
-                        end
-                    end
-                end
-                -- Humanoid children (formato que você mostrou)
-                for _, r in ipairs(hum:GetChildren()) do
-                    if r:IsA("RemoteFunction") then
-                        pcall(function() r:InvokeServer(keyName, cf) end)
-                    elseif r:IsA("RemoteEvent") then
-                        pcall(function() r:FireServer(keyName, cf) end)
-                    end
-                end
-            end)
-        end
-
         local function EquipMasteryWeapon()
-            -- Usa o mesmo resolver por tipo (wirelist)
             local prev = _G._FarmWeapon
             _G._FarmWeapon = GetMasteryType()
-            Functions.ResolveWeaponNow(config)
+            pcall(function() Functions.ResolveWeaponNow(config) end)
             local ok = Functions.EquipWeapon(config, NotAutoEquip)
             _G._FarmWeapon = prev or "Melee"
             return ok
         end
 
         local function EquipFarmWeapon()
-            -- Arma normal de farm (Config.FarmWeapon / _G._FarmWeapon)
-            Functions.ResolveWeaponNow(config)
+            pcall(function() Functions.ResolveWeaponNow(config) end)
             return Functions.EquipWeapon(config, NotAutoEquip)
         end
 
@@ -8238,7 +8227,7 @@ function Functions.StartAutoFarmMastery(config)
             farmRunning = true
 
             pcall(function()
-                -- Sai da submerged se estiver lá (mastery é no Haunted, superfície)
+                -- Sai da submerged se estiver (mastery é no Haunted)
                 if Functions.EnsureNotOnSubmerged then
                     Functions.EnsureNotOnSubmerged(config)
                 elseif Functions.IsOnSubmergedIsland and Functions.IsOnSubmergedIsland() then
@@ -8251,7 +8240,7 @@ function Functions.StartAutoFarmMastery(config)
                 if Functions.EnableFarmClip then Functions.EnableFarmClip() end
                 if config.AutoBusoHaki then Functions.AutoHaki() end
 
-                -- Vai pro Haunted se estiver longe
+                -- Vai pro Castelo Assombrado
                 if (HAUNTED_AREA.Position - hrp.Position).Magnitude > 200 then
                     print("[Mastery] Indo pro Castelo Assombrado...")
                     Functions.FlyToPosition(
@@ -8266,7 +8255,6 @@ function Functions.StartAutoFarmMastery(config)
 
                 local mob, mobName = FindHauntedMob(char, hrp)
                 if not mob then
-                    -- Sem mob → fica na área
                     if (HAUNTED_AREA.Position - hrp.Position).Magnitude > 30 then
                         Functions.FlyToPosition(
                             HAUNTED_AREA * CFrame.new(0, 15, 0),
@@ -8288,58 +8276,68 @@ function Functions.StartAutoFarmMastery(config)
                 local threshold = maxHp * (pct / 100)
 
                 local flyOffset = tonumber(config.FlyOffset) or 15
-                local phase = "farm" -- farm = baixa vida | mastery = skills
-
+                local phase = "farm"
                 EquipFarmWeapon()
 
-                repeat
-                    task.wait()
-                    if not config.AutoFarmMastery then break end
-                    if not mob.Parent then break end
-
-                    hrp, char = GetHRP()
-                    if not hrp then break end
-
-                    mhrp = mob:FindFirstChild("HumanoidRootPart")
-                    mhum = mob:FindFirstChildOfClass("Humanoid")
-                    if not mhrp or not mhum or mhum.Health <= 0 then break end
+                -- ========== TRAVA NO AR (farm + skills) ==========
+                local combatActive = true
+                local combatConn = RunService.Heartbeat:Connect(function()
+                    if not combatActive then return end
+                    if not mob or not mob.Parent then return end
+                    local mh = mob:FindFirstChild("HumanoidRootPart")
+                    if not mh then return end
 
                     if Functions.EnableFarmClip then Functions.EnableFarmClip() end
 
                     if Functions.StayAboveMob then
                         Functions.StayAboveMob(mob, flyOffset)
                     else
-                        local _, yaw = hrp.CFrame:ToOrientation()
-                        hrp.CFrame = CFrame.new(mhrp.Position + Vector3.new(0, flyOffset, 0))
-                            * CFrame.Angles(0, yaw, 0)
+                        local h = Player.Character and Player.Character:FindFirstChild("HumanoidRootPart")
+                        if h then
+                            local _, yaw = h.CFrame:ToOrientation()
+                            h.CFrame = CFrame.new(mh.Position + Vector3.new(0, flyOffset, 0))
+                                * CFrame.Angles(0, yaw, 0)
+                        end
                     end
 
                     if config.BringMob and Functions.BringMobToGround then
                         Functions.BringMobToGround(mobName, mob, config.BringDistance or 350)
                     end
+                end)
 
-                    -- Troca de fase
-                    if phase == "farm" and mhum.Health <= threshold then
+                -- ========== COMBATE ==========
+                repeat
+                    task.wait()
+                    if not config.AutoFarmMastery then break end
+                    if not mob.Parent then break end
+
+                    local mhum2 = mob:FindFirstChildOfClass("Humanoid")
+                    if not mhum2 or mhum2.Health <= 0 then break end
+
+                    -- Chegou no % → troca pra mastery + skills
+                    if phase == "farm" and mhum2.Health <= threshold then
                         phase = "mastery"
-                        print(("[Mastery] Mob em %.0f%% — equipando %s e skills"):format(
-                            (mhum.Health / maxHp) * 100, GetMasteryType()))
+                        print(("[Mastery] Mob em %.0f%% — equipando %s + skills"):format(
+                            (mhum2.Health / maxHp) * 100,
+                            GetMasteryType()
+                        ))
                         EquipMasteryWeapon()
-                        task.wait(0.15)
+                        task.wait(0.12)
                     end
 
                     if phase == "farm" then
-                        -- Dano normal até o %
                         EquipFarmWeapon()
                         Functions.FastAttack(mob, config, NotAutoEquip)
                     else
-                        -- Mastery: skills + hit
                         EquipMasteryWeapon()
                         local skills = GetSkillList()
                         for _, sk in ipairs(skills) do
                             if not config.AutoFarmMastery then break end
                             if not mob.Parent then break end
-                            CastSkill(sk)
-                            task.wait(0.2)
+                            -- Heartbeat te segura no ar
+                            -- Remote manda CFrame do NPC
+                            Functions.CastSkillAtMob(sk, mob)
+                            task.wait(0.18)
                         end
                         Functions.FastAttack(mob, config, NotAutoEquip)
                     end
@@ -8347,6 +8345,9 @@ function Functions.StartAutoFarmMastery(config)
                     or not mob:FindFirstChildOfClass("Humanoid")
                     or mob.Humanoid.Health <= 0
                     or not config.AutoFarmMastery
+
+                combatActive = false
+                pcall(function() combatConn:Disconnect() end)
 
                 if (not mob.Parent)
                     or (mob:FindFirstChildOfClass("Humanoid") and mob.Humanoid.Health <= 0)

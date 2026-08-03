@@ -174,9 +174,9 @@ local Config = {
     StartBring          = false,
     MonFarm             = "",
 
-    ScriptVersion             = "v2.5.0",
+    ScriptVersion             = "v2.5.1",
     PreLoadVersion       = "v31.3.2",
-    FunctionsVersion     = "v2.5.1",
+    FunctionsVersion     = "v2.5.2",
     UIVersion            = "v2.4.9",
     ConfigVersion         = "v2.4.5",
     SaveSettingsVersion    = "v2.4.5",
