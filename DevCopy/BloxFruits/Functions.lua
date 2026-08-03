@@ -2249,9 +2249,19 @@ end
 --   4. Encontra mob → desliza até perto → Bring + FastAttack
 --   5. 8 kills → próxima quest do ciclo
 -- =====================================================
+-- =====================================================
+-- AUTO FARM BONE (estilo Auto Farm Level)
+-- =====================================================
+-- Mesmo padrão do Farm Level:
+--   • FlyToPosition acima do mob (FlyOffset)
+--   • Bring com Y travado (não empurra pro chão)
+--   • FastAttack
+--   • Ciclo de quests Haunted Castle
+-- =====================================================
 function Functions.StartAutoFarmBone(config)
     SafeSpawn(function()
         local CommF_ = GetCommF()
+        local TweenSvc = game:GetService("TweenService")
 
         local HAUNTED_MOBS = {
             { Mob = "Reborn Skeleton", NameQuest = "HauntedQuest1", QuestLv = 1,
@@ -2269,11 +2279,11 @@ function Functions.StartAutoFarmBone(config)
         }
         local KILLS_PER_QUEST = 8
 
-        local _boneIdx     = 1
-        local _killsThis   = 0
+        local _boneIdx   = 1
+        local _killsThis = 0
         local NotAutoEquip = { value = false }
-        local _warnedNoHover = false
-        local _lastTravelPrint = 0
+        local isTeleporting = { value = false }
+        local farmRunning = false
 
         local function CurrentQuest()
             return HAUNTED_MOBS[_boneIdx]
@@ -2282,9 +2292,7 @@ function Functions.StartAutoFarmBone(config)
         local function NextMob()
             _boneIdx   = (_boneIdx % #HAUNTED_MOBS) + 1
             _killsThis = 0
-            print("[FarmBone] Próxima quest: " .. HAUNTED_MOBS[_boneIdx].NameQuest
-                .. " Lv" .. HAUNTED_MOBS[_boneIdx].QuestLv
-                .. " (" .. HAUNTED_MOBS[_boneIdx].Mob .. ")")
+            print("[FarmBone] Próxima: " .. HAUNTED_MOBS[_boneIdx].Mob)
         end
 
         local function HasActiveQuest()
@@ -2296,81 +2304,65 @@ function Functions.StartAutoFarmBone(config)
             return ok and visible
         end
 
-        local function SafeEquip()
-            pcall(function()
-                if config.AutoBusoHaki then Functions.AutoHaki() end
-                Functions.EquipWeapon(config, NotAutoEquip)
-            end)
+        local function GetHRP()
+            local char = Player.Character
+            return char and char:FindFirstChild("HumanoidRootPart"), char
         end
 
-        while task.wait(0.15) do
+        while task.wait(0.08) do
             if not config.AutoFarmBone then
-                _warnedNoHover = false
+                farmRunning = false
                 continue
             end
+            if farmRunning then continue end
+            farmRunning = true
 
             CommF_ = CommF_ or GetCommF()
 
-            -- Espera o HoverController ligar
-            if not Functions.IsHovering() then
-                if not _warnedNoHover then
-                    print("[FarmBone] Aguardando hover engatar...")
-                    _warnedNoHover = true
-                end
-                task.wait(0.25)
-                continue
-            end
-            _warnedNoHover = false
-
-            local char = Player.Character
-            local hrp  = char and char:FindFirstChild("HumanoidRootPart")
-            if not hrp then continue end
-
-            local quest = CurrentQuest()
-
             pcall(function()
-                -- =====================================================
-                -- SEM QUEST → vai até o NPC e aceita
-                -- =====================================================
+                local hrp, char = GetHRP()
+                if not hrp or not char then return end
+
+                local hum = char:FindFirstChildOfClass("Humanoid")
+                if not hum or hum.Health <= 0 then return end
+
+                local quest = CurrentQuest()
+                local flyOffset = tonumber(config.FlyOffset) or 15
+                -- Bring um pouco menos agressivo pra não enterrar o mob
+                local bringYOff = tonumber(config.BringYOffset)
+                if bringYOff == nil then bringYOff = -6 end
+                -- Se ainda estiver muito negativo e causando enterro, sobe um pouco
+                if bringYOff < -12 then bringYOff = -6 end
+
+                -- =================================================
+                -- SEM QUEST → vai no NPC e pega
+                -- =================================================
                 if not HasActiveQuest() then
-                    local qp = quest.CFrameQuest.Position
-                    local horizDist = (Vector3.new(qp.X, 0, qp.Z) - Vector3.new(hrp.Position.X, 0, hrp.Position.Z)).Magnitude
-
-                    if horizDist > 12 then
-                        if tick() - _lastTravelPrint > 3 then
-                            print(("[FarmBone] Indo até NPC da quest (%.0f studs)"):format(horizDist))
-                            _lastTravelPrint = tick()
-                        end
-                        -- waitFinish = true (padrão) → espera chegar de verdade
-                        Functions.MoveHoverTo(qp, config.FlySpeed or 300, true)
-
-                        -- Settle extra depois de viagem longa (ajuda o servidor)
-                        if horizDist > 600 then
-                            task.wait(0.6)
-                            -- Micro-nudge para forçar replicação
-                            if _hoverPart then
-                                local p = _hoverPart.Position
-                                _hoverPart.CFrame = CFrame.new(p.X + 0.5, p.Y, p.Z)
-                                task.wait(0.15)
-                                _hoverPart.CFrame = CFrame.new(p.X, p.Y, p.Z)
-                            end
-                            task.wait(0.4)
-                        end
+                    local qPos = quest.CFrameQuest.Position
+                    if (qPos - hrp.Position).Magnitude > 10 then
+                        print("[FarmBone] Indo no NPC da quest...")
+                        Functions.FlyToPosition(
+                            quest.CFrameQuest * CFrame.new(0, 5, 0),
+                            TweenSvc, config, isTeleporting, NotAutoEquip
+                        )
+                        isTeleporting.value = false
+                        task.wait(0.4)
                     end
 
-                    task.wait(0.35)
-                    print("[FarmBone] Aceitando quest: " .. quest.NameQuest .. " Lv" .. quest.QuestLv)
+                    print("[FarmBone] Aceitando: " .. quest.NameQuest .. " Lv" .. quest.QuestLv)
                     pcall(function()
                         CommF_:InvokeServer("StartQuest", quest.NameQuest, quest.QuestLv)
                     end)
-                    task.wait(0.7)
-                    SafeEquip()
+                    task.wait(0.6)
+
+                    if config.AutoBusoHaki then Functions.AutoHaki() end
+                    Functions.EquipWeapon(config, NotAutoEquip)
                     return
                 end
 
-                -- =====================================================
-                -- QUEST ATIVA → procura e farma o mob
-                -- =====================================================
+                -- =================================================
+                -- QUEST ATIVA → farm
+                -- =================================================
                 local mob = Functions.GetNearestEnemy(char, hrp, quest.Mob)
 
                 if mob then
@@ -2378,21 +2370,33 @@ function Functions.StartAutoFarmBone(config)
                     local mhum = mob:FindFirstChildOfClass("Humanoid")
                     if not (mhrp and mhum and mhum.Health > 0) then return end
 
-                    SafeEquip()
+                    if config.AutoBusoHaki then Functions.AutoHaki() end
+                    Functions.EquipWeapon(config, NotAutoEquip)
 
-                    -- Aproxima do mob (só X/Z, altura do hover mantida)
-                    local mDist = (Vector3.new(mhrp.Position.X, 0, mhrp.Position.Z)
-                                 - Vector3.new(hrp.Position.X, 0, hrp.Position.Z)).Magnitude
-                    if mDist > 25 then
-                        Functions.MoveHoverTo(mhrp.Position, config.FlySpeed or 300, true)
+                    -- Posição ORIGINAL do mob (antes do bring)
+                    local mobOriginalPos = mhrp.Position
+
+                    -- Voa UMA vez pra cima do mob (igual Farm Level)
+                    if (mobOriginalPos - hrp.Position).Magnitude > 12 then
+                        Functions.FlyToPosition(
+                            CFrame.new(mobOriginalPos) * CFrame.new(0, flyOffset, 0),
+                            TweenSvc, config, isTeleporting, NotAutoEquip
+                        )
+                        isTeleporting.value = false
                     end
 
-                    -- Bring loop + ataque
+                    -- Atualiza HRP depois do voo
+                    hrp = select(1, GetHRP())
+                    if not hrp then return end
+
+                    -- Bring: Y travado UMA vez (não segue o player pra baixo)
                     local bringActive  = true
                     local bringMobName = quest.Mob
+                    local _bringLockedY = hrp.Position.Y + bringYOff
+
                     local bringConn = RunService.Heartbeat:Connect(function()
                         if not bringActive or not config.BringMob then return end
-                        local c2   = Player.Character
+                        local c2 = Player.Character
                         local hrp2 = c2 and c2:FindFirstChild("HumanoidRootPart")
                         if not hrp2 then return end
                         local enm = workspace:FindFirstChild("Enemies")
@@ -2404,10 +2408,9 @@ function Functions.StartAutoFarmBone(config)
                                 if ohrp and ohum and ohum.Health > 0 then
                                     local d = (ohrp.Position - hrp2.Position).Magnitude
                                     if d <= (config.BringDistance or 350) then
-                                        local yOff = config.BringYOffset or -10
                                         local bringPos = CFrame.new(
                                             hrp2.Position.X,
-                                            hrp2.Position.Y + yOff,
+                                            _bringLockedY,
                                             hrp2.Position.Z
                                         )
                                         Functions.LockMobInPlace(om, bringPos)
@@ -2417,10 +2420,28 @@ function Functions.StartAutoFarmBone(config)
                         end
                     end)
 
-                    -- Ataca até o mob morrer
+                    -- Ataca até morrer
                     repeat
                         task.wait()
                         if not mob.Parent or not config.AutoFarmBone then break end
+                        local mhrp2 = mob:FindFirstChild("HumanoidRootPart")
+                        if not mhrp2 then break end
+
+                        -- Se o mob se afastou muito, voa de novo
+                        local distNow = (mhrp2.Position - (select(1, GetHRP()) or hrp).Position).Magnitude
+                        if distNow > 35 then
+                            Functions.FlyToPosition(
+                                mhrp2.CFrame * CFrame.new(0, flyOffset, 0),
+                                TweenSvc, config, isTeleporting, NotAutoEquip
+                            )
+                            isTeleporting.value = false
+                            -- Atualiza Y do bring se revoou
+                            local hrp3 = select(1, GetHRP())
+                            if hrp3 then
+                                _bringLockedY = hrp3.Position.Y + bringYOff
+                            end
+                        end
+
                         Functions.FastAttack(mob, config, NotAutoEquip)
                     until not mob.Parent
                        or not mob:FindFirstChildOfClass("Humanoid")
@@ -2429,39 +2450,39 @@ function Functions.StartAutoFarmBone(config)
 
                     bringActive = false
                     bringConn:Disconnect()
+                    Functions.StopTeleport()
 
-                    -- Contabiliza kill
                     if (not mob.Parent) or (mob:FindFirstChildOfClass("Humanoid") and mob.Humanoid.Health <= 0) then
                         config.KillCount = (config.KillCount or 0) + 1
                         _killsThis = _killsThis + 1
-                        print(("[FarmBone] %s morto! (%d/%d)"):format(quest.Mob, _killsThis, KILLS_PER_QUEST))
+                        print(("[FarmBone] %s morto (%d/%d)"):format(quest.Mob, _killsThis, KILLS_PER_QUEST))
 
                         if _killsThis >= KILLS_PER_QUEST then
                             pcall(function() CommF_:InvokeServer("AbandonQuest") end)
-                            task.wait(0.4)
+                            task.wait(0.35)
                             NextMob()
                         end
                     end
                 else
-                    -- =====================================================
-                    -- Sem mob → vai para a área da quest e espera
-                    -- =====================================================
-                    local mp = quest.CFrameMon.Position
-                    local horizDist = (Vector3.new(mp.X, 0, mp.Z) - Vector3.new(hrp.Position.X, 0, hrp.Position.Z)).Magnitude
-                    if horizDist > 20 then
-                        if tick() - _lastTravelPrint > 3 then
-                            print(("[FarmBone] Sem mob %s — indo para área (%.0f studs)"):format(quest.Mob, horizDist))
-                            _lastTravelPrint = tick()
-                        end
-                        Functions.MoveHoverTo(mp, config.FlySpeed or 300, true)
+                    -- Sem mob → voa pra área (CFrameMon) em cima
+                    local monPos = quest.CFrameMon.Position
+                    hrp = select(1, GetHRP())
+                    if hrp and (monPos - hrp.Position).Magnitude > 18 then
+                        print("[FarmBone] Indo pra área do mob...")
+                        Functions.FlyToPosition(
+                            quest.CFrameMon * CFrame.new(0, flyOffset, 0),
+                            TweenSvc, config, isTeleporting, NotAutoEquip
+                        )
+                        isTeleporting.value = false
                     end
-                    task.wait(1.2)
+                    task.wait(1)
                 end
             end)
+
+            farmRunning = false
         end
     end)
 end
-
 
 -- Auto Pray / Try Luck (Bone Island rituals)
 function Functions.StartAutoPray(config)
@@ -6288,7 +6309,7 @@ end
 -- AutoFarmBone foi reescrito para o hover; as demais funcoes de farm
 -- continuam com o voo antigo (ja corrigido com o ground-snap).
 local HOVER_TRIGGER_KEYS = {
-    AutoFarmBone = true,
+    -- AutoFarmBone removido: agora usa FlyToPosition igual ao Farm Level
 }
 
 function Functions.StartHoverController(config)
