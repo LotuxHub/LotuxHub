@@ -173,7 +173,14 @@ local Config = {
     KillCount           = 0,
     StartBring          = false,
     MonFarm             = "",
-}
 
-print("[LotuxHub] Configuration Loaded")
+    ScriptVersion             = "v2.4.5",
+    PreLoadVersion       = "v31.3.2",
+    FunctionsVersion     = "v2.4.1",
+    UIVersion            = "v2.4.5",
+    ConfigVersion         = "v2.4.5",
+    SaveSettingsVersion    = "v2.4.5",
+    QuestsVersion           = "v2.4.5",
+    
+}
 return Config

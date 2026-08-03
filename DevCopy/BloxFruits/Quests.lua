@@ -297,8 +297,6 @@ local Bosses = {
     [3] = {"Stone","Island Empress","Kilo Admiral","Captain Elephant","Beautiful Pirate","Longma","Soul Reaper","Dough King","Cake Prince","Rip Indra","Tyrant"},
 }
 
-print("Loaded Quest List")
-
 return {
     QuestList = QuestList,
     Islands = Islands,

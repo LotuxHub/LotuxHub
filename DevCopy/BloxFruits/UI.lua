@@ -4120,5 +4120,5 @@ Notify({
     Type        = "Success",
 })
 
-print("UI Loaded v4.37.2")
-print("Pre-Load: v31.3.2")
+print("[LotuxHub] Pre-LoadVersion: " .. tostring(Config.PreLoadVersion))
+print("[LotuxHub] Script Version: " .. tostring(Config.ScriptVersion))

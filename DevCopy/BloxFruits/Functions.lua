@@ -2293,8 +2293,11 @@ function Functions.StartAutoFarmBone(config)
                 .. " Lv" .. HAUNTED_MOBS[_boneIdx].QuestLv .. " (" .. HAUNTED_MOBS[_boneIdx].Mob .. ")")
         end
 
+        local _warnedNoHover = false
+
         while task.wait(0.1) do
             if not config.AutoFarmBone then
+                _warnedNoHover = false
                 continue
             end
             CommF_ = CommF_ or GetCommF()
@@ -2303,9 +2306,14 @@ function Functions.StartAutoFarmBone(config)
             -- auto farm) ja detecta AutoFarmBone=true e ativa o hover
             -- sozinho. So esperamos ele engatar antes de continuar.
             if not Functions.IsHovering() then
+                if not _warnedNoHover then
+                    print("[FarmBone] Aguardando o hover engatar...")
+                    _warnedNoHover = true
+                end
                 task.wait(0.2)
                 continue
             end
+            _warnedNoHover = false
 
             local char = Player.Character
             local hrp  = char and char:FindFirstChild("HumanoidRootPart")
@@ -2326,11 +2334,13 @@ function Functions.StartAutoFarmBone(config)
                     local qp = quest.CFrameQuest.Position
                     local horizDist = (Vector3.new(qp.X, 0, qp.Z) - Vector3.new(hrp.Position.X, 0, hrp.Position.Z)).Magnitude
                     if horizDist > 8 then
-                        Functions.MoveHoverTo(qp)
-                        task.wait(math.clamp(horizDist / 60, 0.3, 5))
+                        print(("[FarmBone] Indo ate o NPC da quest (%.0f studs)"):format(horizDist))
+                        Functions.MoveHoverTo(qp, config.FlySpeed or 300)
+                        task.wait(math.clamp(horizDist / (config.FlySpeed or 300), 0.3, 5))
                     end
 
                     task.wait(0.3)
+                    print("[FarmBone] Aceitando quest: " .. quest.NameQuest .. " Lv" .. quest.QuestLv)
                     pcall(function() CommF_:InvokeServer("StartQuest", quest.NameQuest, quest.QuestLv) end)
                     task.wait(0.5)
 
@@ -2351,7 +2361,7 @@ function Functions.StartAutoFarmBone(config)
                             -- Desliza o hover ate perto do mob (so X/Z) -
                             -- o mob e entao TRAZIDO ATE O PLAYER pelo bring
                             -- abaixo. O player nunca desce ate o chao.
-                            Functions.MoveHoverTo(mhrp.Position)
+                            Functions.MoveHoverTo(mhrp.Position, config.FlySpeed or 300)
 
                             local bringActive  = false
                             local bringMobName = quest.Mob
@@ -2413,7 +2423,8 @@ function Functions.StartAutoFarmBone(config)
                         local mp = quest.CFrameMon.Position
                         local horizDist = (Vector3.new(mp.X, 0, mp.Z) - Vector3.new(hrp.Position.X, 0, hrp.Position.Z)).Magnitude
                         if horizDist > 15 then
-                            Functions.MoveHoverTo(mp)
+                            print(("[FarmBone] Sem mob %s a vista - indo ate a area (%.0f studs)"):format(quest.Mob, horizDist))
+                            Functions.MoveHoverTo(mp, config.FlySpeed or 300)
                         end
                         task.wait(1)
                     end
@@ -6168,7 +6179,10 @@ function Functions.MoveHoverTo(targetPos, speed)
     local dest   = Vector3.new(targetPos.X, hoverY, targetPos.Z)
     local dist   = (dest - _hoverPart.Position).Magnitude
     if dist < 1 then return end
-    local spd = tonumber(speed) or 60
+    -- Velocidade padrao alinhada ao FlySpeed usado pelo resto do script (300).
+    -- Antes era 60 studs/s: pra ilhas longe do spawn (ex: Haunted Island)
+    -- isso levava MINUTOS pra chegar, parecendo "travado flutuando".
+    local spd = tonumber(speed) or 300
     local dur = math.clamp(dist / spd, 0.1, 30)
     TweenService:Create(_hoverPart, TweenInfo.new(dur, Enum.EasingStyle.Linear), { CFrame = CFrame.new(dest) }):Play()
 end
@@ -7784,6 +7798,4 @@ _G.UMESP = Functions.UpdateMirageESP     -- UpdateMirageESP
 _G.USESP = Functions.UpdateSeaBeastESP   -- UpdateSeaBeastESP
 _G.TTSI  = Functions.TravelToSubmergedIsland -- TravelToSubmergedIsland
 
-print("[LotuxHub] Functions Updated Loaded v2.37    .1")
-print("[LotuxHub] Pre-Load: v31.3.2")
 return Functions
