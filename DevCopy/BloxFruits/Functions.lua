@@ -2235,30 +2235,19 @@ function Functions.StartAutoBigMom(config)
     end)
 end
 -- =====================================================
--- AUTO FARM BONE (reescrito do zero)
+-- AUTO FARM BONE (reescrito do zero - v2 corrigido)
 -- =====================================================
--- Farma os NPCs da Haunted Castle (Sea 3) fazendo as quests
--- HauntedQuest1/2 em sequencia (8 kills por nivel):
---   1. Pega a quest 1 nivel 1 (Reborn Skeleton)
---   2. Farma ate completar (8 kills)
---   3. Pega a quest 1 nivel 2 (Living Zombie) e farma
---   4. Pega a quest 2 nivel 1 (Demonic Soul) e farma
---   5. Pega a quest 2 nivel 2 (Posessed Mummy) e farma
---   6. Volta pra quest 1 nivel 1 e repete o ciclo
+-- Problemas resolvidos:
+--   • Voo rápido demais → desync (servidor acha que ainda está longe)
+--   • MoveHoverTo não esperava o tween → ficava "parado no ar"
+--   • Sem settle ao chegar na ilha
 --
--- DIFERENCA DA VERSAO ANTERIOR: em vez de voar ATE o chao
--- perto do mob (o que causava quedas em terreno irregular
--- como o cemiterio, com cercas/lapides), essa versao usa o
--- HOVER SYSTEM: o player fica SUSPENSO NO AR o tempo todo
--- (o HoverController liga isso sozinho assim que
--- config.AutoFarmBone = true) e o MOB e que sobe ate o
--- player, atraves do bring (Functions.LockMobInPlace). O
--- player nunca toca o chao durante o farm inteiro, entao
--- fisicamente NAO TEM COMO cair.
---
--- Segue o mesmo padrao/estrutura do AutoFarmLevel: aceita
--- quest -> procura mob mais proximo -> traz o mob ate a
--- posicao do player -> ataca (FastAttack) -> repete.
+-- Fluxo:
+--   1. Hover ativo (nunca toca o chão)
+--   2. Vai até o NPC da quest com velocidade segura + espera chegar
+--   3. Aceita quest
+--   4. Encontra mob → desliza até perto → Bring + FastAttack
+--   5. 8 kills → próxima quest do ciclo
 -- =====================================================
 function Functions.StartAutoFarmBone(config)
     SafeSpawn(function()
@@ -2280,37 +2269,55 @@ function Functions.StartAutoFarmBone(config)
         }
         local KILLS_PER_QUEST = 8
 
-        local _boneIdx      = 1
-        local _killsThis    = 0
-        local NotAutoEquip  = { value = false }
+        local _boneIdx     = 1
+        local _killsThis   = 0
+        local NotAutoEquip = { value = false }
+        local _warnedNoHover = false
+        local _lastTravelPrint = 0
 
-        local function CurrentQuest() return HAUNTED_MOBS[_boneIdx] end
+        local function CurrentQuest()
+            return HAUNTED_MOBS[_boneIdx]
+        end
 
         local function NextMob()
             _boneIdx   = (_boneIdx % #HAUNTED_MOBS) + 1
             _killsThis = 0
-            print("[FarmBone] Proxima quest: " .. HAUNTED_MOBS[_boneIdx].NameQuest
-                .. " Lv" .. HAUNTED_MOBS[_boneIdx].QuestLv .. " (" .. HAUNTED_MOBS[_boneIdx].Mob .. ")")
+            print("[FarmBone] Próxima quest: " .. HAUNTED_MOBS[_boneIdx].NameQuest
+                .. " Lv" .. HAUNTED_MOBS[_boneIdx].QuestLv
+                .. " (" .. HAUNTED_MOBS[_boneIdx].Mob .. ")")
         end
 
-        local _warnedNoHover = false
+        local function HasActiveQuest()
+            local ok, visible = pcall(function()
+                local q = Player.PlayerGui:FindFirstChild("Main")
+                q = q and q:FindFirstChild("Quest")
+                return q and q.Visible
+            end)
+            return ok and visible
+        end
 
-        while task.wait(0.1) do
+        local function SafeEquip()
+            pcall(function()
+                if config.AutoBusoHaki then Functions.AutoHaki() end
+                Functions.EquipWeapon(config, NotAutoEquip)
+            end)
+        end
+
+        while task.wait(0.15) do
             if not config.AutoFarmBone then
                 _warnedNoHover = false
                 continue
             end
+
             CommF_ = CommF_ or GetCommF()
 
-            -- O HoverController (compartilhado com todas as funcoes de
-            -- auto farm) ja detecta AutoFarmBone=true e ativa o hover
-            -- sozinho. So esperamos ele engatar antes de continuar.
+            -- Espera o HoverController ligar
             if not Functions.IsHovering() then
                 if not _warnedNoHover then
-                    print("[FarmBone] Aguardando o hover engatar...")
+                    print("[FarmBone] Aguardando hover engatar...")
                     _warnedNoHover = true
                 end
-                task.wait(0.2)
+                task.wait(0.25)
                 continue
             end
             _warnedNoHover = false
@@ -2319,120 +2326,141 @@ function Functions.StartAutoFarmBone(config)
             local hrp  = char and char:FindFirstChild("HumanoidRootPart")
             if not hrp then continue end
 
+            local quest = CurrentQuest()
+
             pcall(function()
-                local quest = CurrentQuest()
-
-                local questGui = Player.PlayerGui:FindFirstChild("Main")
-                                 and Player.PlayerGui.Main:FindFirstChild("Quest")
-                local questVisible = questGui and questGui.Visible or false
-
-                if not questVisible then
-                    -- =====================================================
-                    -- Sem quest ativa: desliza o hover (so X/Z, altura fixa)
-                    -- ate perto do NPC que da a quest, e aceita.
-                    -- =====================================================
+                -- =====================================================
+                -- SEM QUEST → vai até o NPC e aceita
+                -- =====================================================
+                if not HasActiveQuest() then
                     local qp = quest.CFrameQuest.Position
                     local horizDist = (Vector3.new(qp.X, 0, qp.Z) - Vector3.new(hrp.Position.X, 0, hrp.Position.Z)).Magnitude
-                    if horizDist > 8 then
-                        print(("[FarmBone] Indo ate o NPC da quest (%.0f studs)"):format(horizDist))
-                        Functions.MoveHoverTo(qp, config.FlySpeed or 300)
-                        task.wait(math.clamp(horizDist / (config.FlySpeed or 300), 0.3, 5))
+
+                    if horizDist > 12 then
+                        if tick() - _lastTravelPrint > 3 then
+                            print(("[FarmBone] Indo até NPC da quest (%.0f studs)"):format(horizDist))
+                            _lastTravelPrint = tick()
+                        end
+                        -- waitFinish = true (padrão) → espera chegar de verdade
+                        Functions.MoveHoverTo(qp, config.FlySpeed or 300, true)
+
+                        -- Settle extra depois de viagem longa (ajuda o servidor)
+                        if horizDist > 600 then
+                            task.wait(0.6)
+                            -- Micro-nudge para forçar replicação
+                            if _hoverPart then
+                                local p = _hoverPart.Position
+                                _hoverPart.CFrame = CFrame.new(p.X + 0.5, p.Y, p.Z)
+                                task.wait(0.15)
+                                _hoverPart.CFrame = CFrame.new(p.X, p.Y, p.Z)
+                            end
+                            task.wait(0.4)
+                        end
                     end
 
-                    task.wait(0.3)
+                    task.wait(0.35)
                     print("[FarmBone] Aceitando quest: " .. quest.NameQuest .. " Lv" .. quest.QuestLv)
-                    pcall(function() CommF_:InvokeServer("StartQuest", quest.NameQuest, quest.QuestLv) end)
-                    task.wait(0.5)
+                    pcall(function()
+                        CommF_:InvokeServer("StartQuest", quest.NameQuest, quest.QuestLv)
+                    end)
+                    task.wait(0.7)
+                    SafeEquip()
+                    return
+                end
 
-                    Functions.EquipWeapon(config, NotAutoEquip)
-                else
-                    -- =====================================================
-                    -- Quest ativa: acha o mob mais proximo do tipo certo
-                    -- =====================================================
-                    local mob = Functions.GetNearestEnemy(char, hrp, quest.Mob)
+                -- =====================================================
+                -- QUEST ATIVA → procura e farma o mob
+                -- =====================================================
+                local mob = Functions.GetNearestEnemy(char, hrp, quest.Mob)
 
-                    if mob then
-                        local mhrp = mob:FindFirstChild("HumanoidRootPart")
-                        local mhum = mob:FindFirstChild("Humanoid")
-                        if mhrp and mhum and mhum.Health > 0 then
-                            if config.AutoBusoHaki then Functions.AutoHaki() end
-                            Functions.EquipWeapon(config, NotAutoEquip)
+                if mob then
+                    local mhrp = mob:FindFirstChild("HumanoidRootPart")
+                    local mhum = mob:FindFirstChildOfClass("Humanoid")
+                    if not (mhrp and mhum and mhum.Health > 0) then return end
 
-                            -- Desliza o hover ate perto do mob (so X/Z) -
-                            -- o mob e entao TRAZIDO ATE O PLAYER pelo bring
-                            -- abaixo. O player nunca desce ate o chao.
-                            Functions.MoveHoverTo(mhrp.Position, config.FlySpeed or 300)
+                    SafeEquip()
 
-                            local bringActive  = false
-                            local bringMobName = quest.Mob
+                    -- Aproxima do mob (só X/Z, altura do hover mantida)
+                    local mDist = (Vector3.new(mhrp.Position.X, 0, mhrp.Position.Z)
+                                 - Vector3.new(hrp.Position.X, 0, hrp.Position.Z)).Magnitude
+                    if mDist > 25 then
+                        Functions.MoveHoverTo(mhrp.Position, config.FlySpeed or 300, true)
+                    end
 
-                            local bringConn = RunService.Heartbeat:Connect(function()
-                                if not bringActive or not config.BringMob then return end
-                                local c2   = Player.Character
-                                local hrp2 = c2 and c2:FindFirstChild("HumanoidRootPart")
-                                if not hrp2 then return end
-                                local enm = workspace:FindFirstChild("Enemies")
-                                if not enm then return end
-                                for _, om in ipairs(enm:GetChildren()) do
-                                    if om.Name == bringMobName then
-                                        local ohrp = om:FindFirstChild("HumanoidRootPart")
-                                        local ohum = om:FindFirstChild("Humanoid")
-                                        if ohrp and ohum and ohum.Health > 0 then
-                                            local d = (ohrp.Position - hrp2.Position).Magnitude
-                                            if d <= (config.BringDistance or 350) then
-                                                local yOff = config.BringYOffset or -10
-                                                local bringPos = CFrame.new(hrp2.Position.X, hrp2.Position.Y + yOff, hrp2.Position.Z)
-                                                Functions.LockMobInPlace(om, bringPos)
-                                            end
-                                        end
+                    -- Bring loop + ataque
+                    local bringActive  = true
+                    local bringMobName = quest.Mob
+                    local bringConn = RunService.Heartbeat:Connect(function()
+                        if not bringActive or not config.BringMob then return end
+                        local c2   = Player.Character
+                        local hrp2 = c2 and c2:FindFirstChild("HumanoidRootPart")
+                        if not hrp2 then return end
+                        local enm = workspace:FindFirstChild("Enemies")
+                        if not enm then return end
+                        for _, om in ipairs(enm:GetChildren()) do
+                            if om.Name == bringMobName then
+                                local ohrp = om:FindFirstChild("HumanoidRootPart")
+                                local ohum = om:FindFirstChildOfClass("Humanoid")
+                                if ohrp and ohum and ohum.Health > 0 then
+                                    local d = (ohrp.Position - hrp2.Position).Magnitude
+                                    if d <= (config.BringDistance or 350) then
+                                        local yOff = config.BringYOffset or -10
+                                        local bringPos = CFrame.new(
+                                            hrp2.Position.X,
+                                            hrp2.Position.Y + yOff,
+                                            hrp2.Position.Z
+                                        )
+                                        Functions.LockMobInPlace(om, bringPos)
                                     end
-                                end
-                            end)
-
-                            bringActive = true
-
-                            repeat
-                                task.wait()
-                                if not mob.Parent then break end
-                                if not config.AutoFarmBone then break end
-                                Functions.FastAttack(mob, config, NotAutoEquip)
-                            until not mob.Parent
-                               or not mob:FindFirstChild("Humanoid")
-                               or mob.Humanoid.Health <= 0
-                               or not config.AutoFarmBone
-
-                            bringConn:Disconnect()
-
-                            if (not mob.Parent) or (mob:FindFirstChild("Humanoid") and mob.Humanoid.Health <= 0) then
-                                config.KillCount = (config.KillCount or 0) + 1
-                                _killsThis = _killsThis + 1
-                                print(("[FarmBone] %s morto! (%d/%d)"):format(quest.Mob, _killsThis, KILLS_PER_QUEST))
-
-                                if _killsThis >= KILLS_PER_QUEST then
-                                    pcall(function() CommF_:InvokeServer("AbandonQuest") end)
-                                    task.wait(0.3)
-                                    NextMob()
                                 end
                             end
                         end
-                    else
-                        -- =====================================================
-                        -- Sem mob visivel: desliza o hover ate a area geral
-                        -- da quest (CFrameMon) e espera um mob aparecer.
-                        -- =====================================================
-                        local mp = quest.CFrameMon.Position
-                        local horizDist = (Vector3.new(mp.X, 0, mp.Z) - Vector3.new(hrp.Position.X, 0, hrp.Position.Z)).Magnitude
-                        if horizDist > 15 then
-                            print(("[FarmBone] Sem mob %s a vista - indo ate a area (%.0f studs)"):format(quest.Mob, horizDist))
-                            Functions.MoveHoverTo(mp, config.FlySpeed or 300)
+                    end)
+
+                    -- Ataca até o mob morrer
+                    repeat
+                        task.wait()
+                        if not mob.Parent or not config.AutoFarmBone then break end
+                        Functions.FastAttack(mob, config, NotAutoEquip)
+                    until not mob.Parent
+                       or not mob:FindFirstChildOfClass("Humanoid")
+                       or mob.Humanoid.Health <= 0
+                       or not config.AutoFarmBone
+
+                    bringActive = false
+                    bringConn:Disconnect()
+
+                    -- Contabiliza kill
+                    if (not mob.Parent) or (mob:FindFirstChildOfClass("Humanoid") and mob.Humanoid.Health <= 0) then
+                        config.KillCount = (config.KillCount or 0) + 1
+                        _killsThis = _killsThis + 1
+                        print(("[FarmBone] %s morto! (%d/%d)"):format(quest.Mob, _killsThis, KILLS_PER_QUEST))
+
+                        if _killsThis >= KILLS_PER_QUEST then
+                            pcall(function() CommF_:InvokeServer("AbandonQuest") end)
+                            task.wait(0.4)
+                            NextMob()
                         end
-                        task.wait(1)
                     end
+                else
+                    -- =====================================================
+                    -- Sem mob → vai para a área da quest e espera
+                    -- =====================================================
+                    local mp = quest.CFrameMon.Position
+                    local horizDist = (Vector3.new(mp.X, 0, mp.Z) - Vector3.new(hrp.Position.X, 0, hrp.Position.Z)).Magnitude
+                    if horizDist > 20 then
+                        if tick() - _lastTravelPrint > 3 then
+                            print(("[FarmBone] Sem mob %s — indo para área (%.0f studs)"):format(quest.Mob, horizDist))
+                            _lastTravelPrint = tick()
+                        end
+                        Functions.MoveHoverTo(mp, config.FlySpeed or 300, true)
+                    end
+                    task.wait(1.2)
                 end
             end)
         end
     end)
-end 
+end
 
 
 -- Auto Pray / Try Luck (Bone Island rituals)
@@ -6117,7 +6145,18 @@ function Functions.StartHover(config)
     local hum  = char and char:FindFirstChildOfClass("Humanoid")
     if not char or not hrp or not hum or hum.Health <= 0 then return end
 
-    local hoverHeight = tonumber(config and config.HoverHeight) or 10
+    local hoverHeight = tonumber(config and config.HoverHeight) or 12
+
+    local rayParams = RaycastParams.new()
+    rayParams.FilterType = Enum.RaycastFilterType.Exclude
+    rayParams.FilterDescendantsInstances = { char }
+    local groundResult = workspace:Raycast(hrp.Position, Vector3.new(0, -200, 0), rayParams)
+    local targetY = groundResult and (groundResult.Position.Y + hoverHeight) or (hrp.Position.Y + hoverHeight)
+
+    -- Mínimo seguro (evita começar já embaixo da ilha / na água)
+    if targetY < 140 then
+        targetY = 155
+    end
 
     -- Calcula a altura do hover em relacao ao CHAO abaixo do player agora
     -- (nao em relacao a posicao atual dele, que pode ja estar no ar).
@@ -6173,58 +6212,66 @@ end
 -- perto de uma posicao alvo (mob, NPC de quest, etc). O player desliza
 -- suavemente ate la SEM NUNCA descer - continua na mesma altura o
 -- tempo todo.
-function Functions.MoveHoverTo(targetPos, speed)
+-- Move o hover até a posição alvo, recalculando a ALTURA no destino
+-- (evita ficar preso embaixo da ilha / na água).
+function Functions.MoveHoverTo(targetPos, speed, waitFinish)
     if not _hoverActive or not _hoverPart then return end
-    local hoverY = _hoverPart.Position.Y
-    local dest   = Vector3.new(targetPos.X, hoverY, targetPos.Z)
-    local dist   = (dest - _hoverPart.Position).Magnitude
-    if dist < 1 then return end
-    -- Velocidade padrao alinhada ao FlySpeed usado pelo resto do script (300).
-    -- Antes era 60 studs/s: pra ilhas longe do spawn (ex: Haunted Island)
-    -- isso levava MINUTOS pra chegar, parecendo "travado flutuando".
-    local spd = tonumber(speed) or 300
-    local dur = math.clamp(dist / spd, 0.1, 30)
-    TweenService:Create(_hoverPart, TweenInfo.new(dur, Enum.EasingStyle.Linear), { CFrame = CFrame.new(dest) }):Play()
-end
 
-function Functions.StopHover()
-    if not _hoverActive then return end
-    _hoverActive = false
-    if _hoverConn then _hoverConn:Disconnect(); _hoverConn = nil end
+    local hoverHeight = 12  -- altura segura acima do chão
+    -- Tenta achar o chão no destino (raycast de cima pra baixo)
+    local rayParams = RaycastParams.new()
+    rayParams.FilterType = Enum.RaycastFilterType.Exclude
+    rayParams.FilterDescendantsInstances = { Player.Character }
 
-    local char = Player.Character
-    local hum  = char and char:FindFirstChildOfClass("Humanoid")
-    if hum and _hoverPrevStates then
-        for st, wasEnabled in pairs(_hoverPrevStates) do
-            hum:SetStateEnabled(st, wasEnabled)
-        end
-        if _hoverPrevAutoRotate ~= nil then hum.AutoRotate = _hoverPrevAutoRotate end
+    local origin = Vector3.new(targetPos.X, targetPos.Y + 120, targetPos.Z)
+    local result = workspace:Raycast(origin, Vector3.new(0, -300, 0), rayParams)
 
-        -- Mesmo ground-snap usado no FlyToPosition/DestroyRaidPart: acha o
-        -- chao de verdade e reposiciona o player nele antes de soltar o
-        -- controle, para nao cair ao sair do hover.
-        local hrp = char and char:FindFirstChild("HumanoidRootPart")
-        local onGround = false
-        if hrp then
-            local rayParams = RaycastParams.new()
-            rayParams.FilterType = Enum.RaycastFilterType.Exclude
-            rayParams.FilterDescendantsInstances = { char }
-            local result = workspace:Raycast(hrp.Position, Vector3.new(0, -200, 0), rayParams)
-            if result then
-                onGround = true
-                local groundY = result.Position.Y + 3
-                if hrp.Position.Y > groundY + 0.5 then
-                    local newPos = Vector3.new(hrp.Position.X, groundY, hrp.Position.Z)
-                    hrp.CFrame = CFrame.new(newPos) * (hrp.CFrame - hrp.CFrame.Position)
-                end
-            end
-        end
-        hum:ChangeState(onGround and Enum.HumanoidStateType.Landed or Enum.HumanoidStateType.Freefall)
+    local targetY
+    if result then
+        targetY = result.Position.Y + hoverHeight
+    else
+        -- Fallback: usa o Y do alvo + offset, com mínimo seguro pra Haunted
+        targetY = math.max(targetPos.Y + hoverHeight, 155)
     end
-    _hoverPrevStates     = nil
-    _hoverPrevAutoRotate = nil
-    if _hoverPart and _hoverPart.Parent then _hoverPart:Destroy() end
-    _hoverPart = nil
+
+    -- Nunca desce abaixo de um mínimo seguro na área de bone
+    if targetY < 145 then
+        targetY = 155
+    end
+
+    local dest = Vector3.new(targetPos.X, targetY, targetPos.Z)
+    local dist = (dest - _hoverPart.Position).Magnitude
+    if dist < 2 then
+        -- Já está perto, só ajusta a altura se necessário
+        if math.abs(_hoverPart.Position.Y - targetY) > 2 then
+            _hoverPart.CFrame = CFrame.new(dest)
+        end
+        return
+    end
+
+    -- Velocidade adaptativa (evita desync)
+    local baseSpd = tonumber(speed) or 300
+    local spd
+    if dist > 2000 then
+        spd = math.min(baseSpd, 120)
+    elseif dist > 800 then
+        spd = math.min(baseSpd, 180)
+    else
+        spd = math.min(baseSpd, 250)
+    end
+
+    local dur = math.clamp(dist / spd, 0.15, 45)
+    local tween = TweenService:Create(
+        _hoverPart,
+        TweenInfo.new(dur, Enum.EasingStyle.Linear),
+        { CFrame = CFrame.new(dest) }
+    )
+    tween:Play()
+
+    if waitFinish ~= false then
+        tween.Completed:Wait()
+        task.wait(0.3)
+    end
 end
 
 -- Loop controlador: liga/desliga o hover sozinho, olhando pro mesmo
