@@ -2339,6 +2339,10 @@ function Functions.StartAutoFarmBone(config)
             Functions.EnableFarmClip()
 
             pcall(function()
+                if not Functions.EnsureNotOnSubmerged(config) then
+                    return
+                end
+
                 local hrp, char = GetHRP()
                 if not hrp or not char then return end
                 local hum = char:FindFirstChildOfClass("Humanoid")
@@ -2346,6 +2350,17 @@ function Functions.StartAutoFarmBone(config)
 
                 local quest = CurrentQuest()
                 local flyOffset = tonumber(config.FlyOffset) or 15
+
+                local questGui = Player.PlayerGui:FindFirstChild("Main")
+                    and Player.PlayerGui.Main:FindFirstChild("Quest")
+                local questVisible = questGui and questGui.Visible or false
+
+                if questVisible and not Functions.IsCorrectQuest(quest.Mob, quest.NameQuest) then
+                    print("[FarmBone] Quest errada — abandonando...")
+                    Functions.AbandonQuest()
+                    task.wait(0.5)
+                    questVisible = false
+                end
 
                 -- SEM QUEST → NPC
                 if not HasActiveQuest() then
@@ -7862,6 +7877,95 @@ function Functions.BringMobToGround(mobName, refMob, maxDist)
     end
 end
 
+-- =====================================================
+-- SAIR DA SUBMERGED ISLAND
+-- Vai até o ponto do transporte e chama o remote
+-- =====================================================
+local SUBMERGED_EXIT_POS = Vector3.new(11424.750, -2155.005, 9727.439)
+local SUBMERGED_CHECK_Y  = -500  -- se Y < isso, está na submerged
+
+function Functions.IsOnSubmergedIsland()
+    local char = Player.Character
+    if not char then return false end
+    local hrp = char:FindFirstChild("HumanoidRootPart")
+    if not hrp then return false end
+    return hrp.Position.Y < SUBMERGED_CHECK_Y
+end
+
+function Functions.ExitSubmergedIsland(config)
+    if not Functions.IsOnSubmergedIsland() then
+        return true  -- já não está lá
+    end
+
+    print("[ExitSubmerged] Saindo da Submerged Island...")
+
+    local char = Player.Character
+    local hrp  = char and char:FindFirstChild("HumanoidRootPart")
+    if not hrp then return false end
+
+    -- 1) Vai até o ponto do teleporte
+    local targetCF = CFrame.new(SUBMERGED_EXIT_POS + Vector3.new(0, 5, 0))
+    local dist = (hrp.Position - SUBMERGED_EXIT_POS).Magnitude
+
+    if dist > 12 then
+        local TweenSvc = game:GetService("TweenService")
+        local fakeTp   = { value = false }
+        local fakeNo   = { value = false }
+        pcall(function()
+            Functions.FlyToPosition(targetCF, TweenSvc, config or {}, fakeTp, fakeNo)
+        end)
+        task.wait(0.4)
+    end
+
+    -- 2) Garante que chegou perto
+    hrp = Player.Character and Player.Character:FindFirstChild("HumanoidRootPart")
+    if hrp and (hrp.Position - SUBMERGED_EXIT_POS).Magnitude > 20 then
+        -- fallback: teleport direto se o fly falhou
+        pcall(function()
+            hrp.CFrame = CFrame.new(SUBMERGED_EXIT_POS + Vector3.new(0, 5, 0))
+        end)
+        task.wait(0.3)
+    end
+
+    -- 3) Remote de saída
+    local ok, err = pcall(function()
+        local net = game:GetService("ReplicatedStorage")
+            :WaitForChild("Modules")
+            :WaitForChild("Net")
+        local rf = net:WaitForChild("RF/SubmarineTransportation")
+        rf:InvokeServer("InitiateTeleport", "Sea Castle")
+    end)
+
+    if not ok then
+        warn("[ExitSubmerged] Erro no remote: " .. tostring(err))
+        return false
+    end
+
+    -- 4) Espera sair (Y sobe de novo)
+    local waited = 0
+    while Functions.IsOnSubmergedIsland() and waited < 15 do
+        task.wait(0.5)
+        waited = waited + 0.5
+    end
+
+    if Functions.IsOnSubmergedIsland() then
+        warn("[ExitSubmerged] Timeout — ainda na submerged após " .. waited .. "s")
+        return false
+    end
+
+    print("[ExitSubmerged] Saiu com sucesso!")
+    task.wait(0.5)
+    return true
+end
+
+-- Helper: se estiver na submerged e a função NÃO precisa dela, sai primeiro
+function Functions.EnsureNotOnSubmerged(config)
+    if Functions.IsOnSubmergedIsland() then
+        return Functions.ExitSubmergedIsland(config)
+    end
+    return true
+end
+
 _G.CheckQuest = CheckQuest
 _G.MaterialMon = MaterialMon
 _G.UpdateFlowerChams = Functions.UpdateFlowerChams
@@ -7946,10 +8050,315 @@ function Functions.TravelToSubmergedIsland(config)
     end
 end
 
-print("[Lotux Hub] Carregando...")
+-- Retorna true se a quest ativa na UI é a que a gente quer
+function Functions.IsCorrectQuest(expectedMob, expectedNameQuest)
+    local ok, result = pcall(function()
+        local main = Player.PlayerGui:FindFirstChild("Main")
+        local quest = main and main:FindFirstChild("Quest")
+        if not quest or not quest.Visible then
+            return false
+        end
+        local title = ""
+        pcall(function()
+            title = quest.Container.QuestTitle.Title.Text or ""
+        end)
+        title = string.lower(tostring(title))
 
+        -- Confere pelo nome do mob (mais confiável)
+        if expectedMob and expectedMob ~= "" then
+            if string.find(title, string.lower(expectedMob), 1, true) then
+                return true
+            end
+        end
+        -- Fallback: pedaço do NameQuest
+        if expectedNameQuest and expectedNameQuest ~= "" then
+            local key = string.lower(expectedNameQuest):gsub("quest%d*$", "")
+            if key ~= "" and string.find(title, key, 1, true) then
+                return true
+            end
+        end
+        return false
+    end)
+    return ok and result == true
+end
 
-print("[Lotux Hub] Carregando aliases")
+function Functions.AbandonQuest()
+    pcall(function()
+        local c = GetCommF and GetCommF() or nil
+        if c then
+            c:InvokeServer("AbandonQuest")
+        else
+            local remotes = game:GetService("ReplicatedStorage"):FindFirstChild("Remotes")
+            local cf = remotes and remotes:FindFirstChild("CommF_")
+            if cf then cf:InvokeServer("AbandonQuest") end
+        end
+    end)
+end
+
+-- =====================================================
+-- AUTO FARM MASTERY (Castelo Assombrado)
+-- 1) Farm normal até HealthKillMob %
+-- 2) Equipa MasteryWeapon
+-- 3) Solta skills até matar
+-- =====================================================
+function Functions.StartAutoFarmMastery(config)
+    SafeSpawn(function()
+        local TweenSvc = game:GetService("TweenService")
+        local VIM = game:GetService("VirtualInputManager")
+
+        -- Área Haunted (bone)
+        local HAUNTED_AREA = CFrame.new(-8763.723632, 165.722991, 6159.861816)
+        local HAUNTED_MOBS = {
+            "Reborn Skeleton",
+            "Living Zombie",
+            "Demonic Soul",
+            "Posessed Mummy",
+        }
+
+        local SKILLS_BY_TYPE = {
+            BloxFruits = { "Z", "X", "C", "V", "F" },
+            Melee      = { "Z", "X", "C" },
+            Sword      = { "Z", "X" },
+            Gun        = { "Z", "X" },
+        }
+
+        local KEY_MAP = {
+            Z = Enum.KeyCode.Z,
+            X = Enum.KeyCode.X,
+            C = Enum.KeyCode.C,
+            V = Enum.KeyCode.V,
+            F = Enum.KeyCode.F,
+        }
+
+        local NotAutoEquip  = { value = false }
+        local isTeleporting = { value = false }
+        local farmRunning   = false
+
+        local function GetHRP()
+            local c = Player.Character
+            return c and c:FindFirstChild("HumanoidRootPart"), c
+        end
+
+        local function GetMasteryType()
+            local t = config.MasteryWeapon or "Melee"
+            if type(t) == "table" then t = t[1] or "Melee" end
+            return tostring(t)
+        end
+
+        local function GetSkillList()
+            -- Se a UI mandou MasterySkills (multi), usa isso
+            local custom = config.MasterySkills
+            if type(custom) == "table" then
+                local list = {}
+                for k, v in pairs(custom) do
+                    if v == true and KEY_MAP[k] then
+                        table.insert(list, k)
+                    elseif type(k) == "number" and type(v) == "string" and KEY_MAP[v] then
+                        table.insert(list, v)
+                    end
+                end
+                if #list > 0 then return list end
+            end
+            return SKILLS_BY_TYPE[GetMasteryType()] or { "Z", "X" }
+        end
+
+        local function CastSkill(keyName)
+            local char = Player.Character
+            if not char then return end
+            local hrp = char:FindFirstChild("HumanoidRootPart")
+            local hum = char:FindFirstChildOfClass("Humanoid")
+            if not hrp or not hum then return end
+
+            -- 1) Tecla (principal)
+            local kc = KEY_MAP[keyName]
+            if kc then
+                pcall(function()
+                    VIM:SendKeyEvent(true, kc, false, game)
+                    task.wait(0.05)
+                    VIM:SendKeyEvent(false, kc, false, game)
+                end)
+            end
+
+            -- 2) Fallback: RemoteFunction no Humanoid / Tool (se existir)
+            pcall(function()
+                local tool = char:FindFirstChildOfClass("Tool")
+                local cf = hrp.CFrame
+                -- alguns tools têm RemoteEvent/Function de skill
+                if tool then
+                    for _, r in ipairs(tool:GetDescendants()) do
+                        if r:IsA("RemoteEvent") and (r.Name == keyName or r.Name:upper() == keyName) then
+                            r:FireServer(cf)
+                        elseif r:IsA("RemoteFunction") and (r.Name == keyName or r.Name:upper() == keyName) then
+                            r:InvokeServer(cf)
+                        end
+                    end
+                end
+                -- Humanoid children (formato que você mostrou)
+                for _, r in ipairs(hum:GetChildren()) do
+                    if r:IsA("RemoteFunction") then
+                        pcall(function() r:InvokeServer(keyName, cf) end)
+                    elseif r:IsA("RemoteEvent") then
+                        pcall(function() r:FireServer(keyName, cf) end)
+                    end
+                end
+            end)
+        end
+
+        local function EquipMasteryWeapon()
+            -- Usa o mesmo resolver por tipo (wirelist)
+            local prev = _G._FarmWeapon
+            _G._FarmWeapon = GetMasteryType()
+            Functions.ResolveWeaponNow(config)
+            local ok = Functions.EquipWeapon(config, NotAutoEquip)
+            _G._FarmWeapon = prev or "Melee"
+            return ok
+        end
+
+        local function EquipFarmWeapon()
+            -- Arma normal de farm (Config.FarmWeapon / _G._FarmWeapon)
+            Functions.ResolveWeaponNow(config)
+            return Functions.EquipWeapon(config, NotAutoEquip)
+        end
+
+        local function FindHauntedMob(char, hrp)
+            for _, name in ipairs(HAUNTED_MOBS) do
+                local m = Functions.GetNearestEnemy(char, hrp, name)
+                if m then return m, name end
+            end
+            return nil, nil
+        end
+
+        while task.wait(0.1) do
+            if not config.AutoFarmMastery then
+                if Functions.DisableFarmClip then Functions.DisableFarmClip() end
+                farmRunning = false
+                continue
+            end
+            if farmRunning then continue end
+            farmRunning = true
+
+            pcall(function()
+                -- Sai da submerged se estiver lá (mastery é no Haunted, superfície)
+                if Functions.EnsureNotOnSubmerged then
+                    Functions.EnsureNotOnSubmerged(config)
+                elseif Functions.IsOnSubmergedIsland and Functions.IsOnSubmergedIsland() then
+                    Functions.ExitSubmergedIsland(config)
+                end
+
+                local hrp, char = GetHRP()
+                if not hrp or not char then return end
+
+                if Functions.EnableFarmClip then Functions.EnableFarmClip() end
+                if config.AutoBusoHaki then Functions.AutoHaki() end
+
+                -- Vai pro Haunted se estiver longe
+                if (HAUNTED_AREA.Position - hrp.Position).Magnitude > 200 then
+                    print("[Mastery] Indo pro Castelo Assombrado...")
+                    Functions.FlyToPosition(
+                        HAUNTED_AREA * CFrame.new(0, 15, 0),
+                        TweenSvc, config, isTeleporting, NotAutoEquip
+                    )
+                    isTeleporting.value = false
+                    task.wait(0.3)
+                    hrp, char = GetHRP()
+                    if not hrp then return end
+                end
+
+                local mob, mobName = FindHauntedMob(char, hrp)
+                if not mob then
+                    -- Sem mob → fica na área
+                    if (HAUNTED_AREA.Position - hrp.Position).Magnitude > 30 then
+                        Functions.FlyToPosition(
+                            HAUNTED_AREA * CFrame.new(0, 15, 0),
+                            TweenSvc, config, isTeleporting, NotAutoEquip
+                        )
+                        isTeleporting.value = false
+                    end
+                    task.wait(1)
+                    return
+                end
+
+                local mhrp = mob:FindFirstChild("HumanoidRootPart")
+                local mhum = mob:FindFirstChildOfClass("Humanoid")
+                if not mhrp or not mhum or mhum.Health <= 0 then return end
+
+                local maxHp = mhum.MaxHealth
+                local pct = tonumber(config.HealthKillMob) or 30
+                if pct < 1 then pct = 30 end
+                local threshold = maxHp * (pct / 100)
+
+                local flyOffset = tonumber(config.FlyOffset) or 15
+                local phase = "farm" -- farm = baixa vida | mastery = skills
+
+                EquipFarmWeapon()
+
+                repeat
+                    task.wait()
+                    if not config.AutoFarmMastery then break end
+                    if not mob.Parent then break end
+
+                    hrp, char = GetHRP()
+                    if not hrp then break end
+
+                    mhrp = mob:FindFirstChild("HumanoidRootPart")
+                    mhum = mob:FindFirstChildOfClass("Humanoid")
+                    if not mhrp or not mhum or mhum.Health <= 0 then break end
+
+                    if Functions.EnableFarmClip then Functions.EnableFarmClip() end
+
+                    if Functions.StayAboveMob then
+                        Functions.StayAboveMob(mob, flyOffset)
+                    else
+                        local _, yaw = hrp.CFrame:ToOrientation()
+                        hrp.CFrame = CFrame.new(mhrp.Position + Vector3.new(0, flyOffset, 0))
+                            * CFrame.Angles(0, yaw, 0)
+                    end
+
+                    if config.BringMob and Functions.BringMobToGround then
+                        Functions.BringMobToGround(mobName, mob, config.BringDistance or 350)
+                    end
+
+                    -- Troca de fase
+                    if phase == "farm" and mhum.Health <= threshold then
+                        phase = "mastery"
+                        print(("[Mastery] Mob em %.0f%% — equipando %s e skills"):format(
+                            (mhum.Health / maxHp) * 100, GetMasteryType()))
+                        EquipMasteryWeapon()
+                        task.wait(0.15)
+                    end
+
+                    if phase == "farm" then
+                        -- Dano normal até o %
+                        EquipFarmWeapon()
+                        Functions.FastAttack(mob, config, NotAutoEquip)
+                    else
+                        -- Mastery: skills + hit
+                        EquipMasteryWeapon()
+                        local skills = GetSkillList()
+                        for _, sk in ipairs(skills) do
+                            if not config.AutoFarmMastery then break end
+                            if not mob.Parent then break end
+                            CastSkill(sk)
+                            task.wait(0.2)
+                        end
+                        Functions.FastAttack(mob, config, NotAutoEquip)
+                    end
+                until not mob.Parent
+                    or not mob:FindFirstChildOfClass("Humanoid")
+                    or mob.Humanoid.Health <= 0
+                    or not config.AutoFarmMastery
+
+                if (not mob.Parent)
+                    or (mob:FindFirstChildOfClass("Humanoid") and mob.Humanoid.Health <= 0)
+                then
+                    config.KillCount = (config.KillCount or 0) + 1
+                end
+            end)
+
+            farmRunning = false
+        end
+    end)
+end
 
 _G.CheckItemBPCR = Functions.CheckItemBPCR
 _G.AutoKatakuriV2Loop = Functions.AutoKatakuriV2Loop

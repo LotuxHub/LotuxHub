@@ -1221,8 +1221,10 @@ task.spawn(function()
 end)
 
 -- =====================================================
--- FARM LOOP PRINCIPAL (estilo Tiro)
--- CFrame contínuo em cima do mob | Bring no chão | BodyClip
+-- FARM LOOP PRINCIPAL (completo)
+-- Nearest: só mob perto (sem submerged)
+-- Level: submerged só se a quest for SubmergedQuest
+-- Combate estilo Tiro: CFrame em cima + bring no chão + BodyClip
 -- =====================================================
 local farmRunning = false
 
@@ -1230,24 +1232,34 @@ task.spawn(function()
     while true do
         task.wait(0.05)
 
+        -- =====================================================
+        -- Nenhum farm ativo → limpa estado
+        -- =====================================================
         if not Config.AutoFarmLevel and not Config.AutoFarmNearest then
             if currentTarget ~= nil then currentTarget = nil end
             if NoClip.value or farmRunning then
                 NoClip.value = false
                 isTeleporting.value = false
                 Functions.StopTeleport()
-                Functions.DisableFarmClip()
+                if Functions.DisableFarmClip then
+                    Functions.DisableFarmClip()
+                end
                 pcall(function()
                     local char = Player.Character
                     local hrp = char and char:FindFirstChild("HumanoidRootPart")
                     if hrp then
                         for _, obj in ipairs(hrp:GetChildren()) do
-                            if obj:IsA("BodyVelocity") or obj:IsA("BodyPosition") or obj:IsA("BodyGyro") then
+                            if obj:IsA("BodyVelocity")
+                                or obj:IsA("BodyPosition")
+                                or obj:IsA("BodyGyro")
+                            then
                                 obj:Destroy()
                             end
                         end
                         local hum = char:FindFirstChildOfClass("Humanoid")
-                        if hum then hum:ChangeState(Enum.HumanoidStateType.Freefall) end
+                        if hum then
+                            hum:ChangeState(Enum.HumanoidStateType.Freefall)
+                        end
                     end
                 end)
             end
@@ -1256,7 +1268,9 @@ task.spawn(function()
             continue
         end
 
-        if farmRunning then continue end
+        if farmRunning then
+            continue
+        end
         farmRunning = true
 
         local char = Player.Character
@@ -1266,21 +1280,32 @@ task.spawn(function()
         end
 
         local flyOffset = tonumber(Config.FlyOffset) or 15
-        Functions.EnableFarmClip()
 
         -- =====================================================
-        -- AUTO FARM NEAREST
+        -- AUTO FARM NEAREST (só mob perto — sem submerged)
         -- =====================================================
         if Config.AutoFarmNearest and not Config.AutoFarmLevel then
             pcall(function()
+                if Functions.EnableFarmClip then
+                    Functions.EnableFarmClip()
+                end
+
                 local mob = Functions.GetNearestEnemy(Character, HumanoidRootPart, nil)
-                if not mob then farmRunning = false; return end
+                if not mob then
+                    farmRunning = false
+                    return
+                end
 
                 local mhrp = mob:FindFirstChild("HumanoidRootPart")
                 local mhum = mob:FindFirstChild("Humanoid") or mob:FindFirstChildOfClass("Humanoid")
-                if not mhrp or not mhum or mhum.Health <= 0 then farmRunning = false; return end
+                if not mhrp or not mhum or mhum.Health <= 0 then
+                    farmRunning = false
+                    return
+                end
 
-                if Config.AutoBusoHaki then Functions.AutoHaki() end
+                if Config.AutoBusoHaki then
+                    Functions.AutoHaki()
+                end
                 Functions.EquipWeapon(Config, NotAutoEquip)
                 currentTarget = mob
 
@@ -1301,18 +1326,27 @@ task.spawn(function()
                     mhum = mob:FindFirstChild("Humanoid") or mob:FindFirstChildOfClass("Humanoid")
                     if not mhrp or not mhum or mhum.Health <= 0 then break end
 
-                    Functions.EnableFarmClip()
-                    Functions.StayAboveMob(mob, flyOffset)
+                    if Functions.EnableFarmClip then
+                        Functions.EnableFarmClip()
+                    end
 
-                    if Config.BringMob then
+                    if Functions.StayAboveMob then
+                        Functions.StayAboveMob(mob, flyOffset)
+                    else
+                        local _, yaw = HumanoidRootPart.CFrame:ToOrientation()
+                        HumanoidRootPart.CFrame = CFrame.new(mhrp.Position + Vector3.new(0, flyOffset, 0))
+                            * CFrame.Angles(0, yaw, 0)
+                    end
+
+                    if Config.BringMob and Functions.BringMobToGround then
                         Functions.BringMobToGround(mob.Name, mob, Config.BringDistance or 350)
                     end
 
                     Functions.FastAttack(mob, Config, NotAutoEquip)
                 until not mob.Parent
-                   or not (mob:FindFirstChild("Humanoid") or mob:FindFirstChildOfClass("Humanoid"))
-                   or ((mob:FindFirstChild("Humanoid") or mob:FindFirstChildOfClass("Humanoid")).Health <= 0)
-                   or not Config.AutoFarmNearest
+                    or not (mob:FindFirstChild("Humanoid") or mob:FindFirstChildOfClass("Humanoid"))
+                    or ((mob:FindFirstChild("Humanoid") or mob:FindFirstChildOfClass("Humanoid")).Health <= 0)
+                    or not Config.AutoFarmNearest
 
                 Functions.StopTeleport()
                 NoClip.value = false
@@ -1330,70 +1364,128 @@ task.spawn(function()
         elseif Config.AutoFarmLevel then
             pcall(function()
                 local quest = Functions.GetQuestForLevel(QuestList, CurrentSea, Player)
-                if not quest then farmRunning = false; return end
+                if not quest then
+                    farmRunning = false
+                    return
+                end
 
-                -- Submerged
-                local isSubmerged = string.find(quest.NameQuest or "", "SubmergedQuest", 1, true) ~= nil
-                if isSubmerged then
+                -- Quest da Submerged? (NameQuest tem "SubmergedQuest" → ~level 2600+)
+                local isSubmergedQuest = string.find(quest.NameQuest or "", "SubmergedQuest", 1, true) ~= nil
+
+                if isSubmergedQuest then
+                    -- Precisa da Submerged → entra / fica
                     local jaEstaLa = HumanoidRootPart and HumanoidRootPart.Position.Y < -500
                     if not jaEstaLa then
-                        print("[AutoFarm] Indo Submerged...")
-                        local ok = Functions.TravelToSubmergedIsland(Config)
-                        if not ok then farmRunning = false; return end
+                        print("[AutoFarm] Quest Submerged — entrando...")
+                        local chegou = Functions.TravelToSubmergedIsland(Config)
+                        if not chegou then
+                            warn("[AutoFarm] Falha ao entrar na Submerged.")
+                            farmRunning = false
+                            return
+                        end
                         task.wait(1.5)
                     end
                     local c2 = Player.Character
-                    if not c2 then farmRunning = false; return end
+                    if not c2 then
+                        farmRunning = false
+                        return
+                    end
                     Character = c2
                     HumanoidRootPart = c2:FindFirstChild("HumanoidRootPart") or HumanoidRootPart
-                elseif quest.RequestEntrance and HumanoidRootPart then
-                    if (quest.CFrameMon.Position - HumanoidRootPart.Position).Magnitude > 10000 then
-                        pcall(function()
-                            (CommF_ or {}):InvokeServer("requestEntrance", quest.RequestEntrance)
-                        end)
-                        task.wait(1)
+                else
+                    -- Não precisa → se estiver dentro, sai
+                    if Functions.IsOnSubmergedIsland and Functions.IsOnSubmergedIsland() then
+                        print("[AutoFarm] Na Submerged sem precisar — saindo...")
+                        Functions.ExitSubmergedIsland(Config)
+                        local c2 = Player.Character
+                        if c2 then
+                            Character = c2
+                            HumanoidRootPart = c2:FindFirstChild("HumanoidRootPart") or HumanoidRootPart
+                        end
+                        if not HumanoidRootPart then
+                            farmRunning = false
+                            return
+                        end
+                    end
+
+                    -- Portal normal
+                    if quest.RequestEntrance and HumanoidRootPart then
+                        if (quest.CFrameMon.Position - HumanoidRootPart.Position).Magnitude > 10000 then
+                            pcall(function()
+                                (CommF_ or {}):InvokeServer("requestEntrance", quest.RequestEntrance)
+                            end)
+                            task.wait(1)
+                        end
                     end
                 end
 
+                if Functions.EnableFarmClip then
+                    Functions.EnableFarmClip()
+                end
+
+                -- Quest ativa na UI?
                 local questGui = Player.PlayerGui:FindFirstChild("Main")
-                                 and Player.PlayerGui.Main:FindFirstChild("Quest")
+                    and Player.PlayerGui.Main:FindFirstChild("Quest")
                 local questVisible = questGui and questGui.Visible or false
 
-                -- SEM QUEST → NPC
+                -- Quest ativa MAS é de outro lugar → abandona
+                if questVisible and not Functions.IsCorrectQuest(quest.Mob, quest.NameQuest) then
+                    print("[AutoFarm] Quest errada ativa — abandonando...")
+                    Functions.AbandonQuest()
+                    task.wait(0.5)
+                    questVisible = false
+                end
+
+                -- SEM QUEST → NPC + aceitar
                 if not questVisible then
                     currentTarget = nil
-                    if HumanoidRootPart and (quest.CFrameQuest.Position - HumanoidRootPart.Position).Magnitude > 8 then
+
+                    if HumanoidRootPart
+                        and (quest.CFrameQuest.Position - HumanoidRootPart.Position).Magnitude > 8
+                    then
                         NoClip.value = true
                         Functions.FlyToPosition(
                             quest.CFrameQuest * CFrame.new(0, 5, 0),
-                            TweenService, Config, isTeleporting, NotAutoEquip
+                            TweenService,
+                            Config,
+                            isTeleporting,
+                            NotAutoEquip
                         )
                         isTeleporting.value = false
                         NoClip.value = false
                         task.wait(0.35)
                     end
+
                     print("[AutoFarm] Aceitando: " .. tostring(quest.NameQuest) .. " Lv" .. tostring(quest.QuestLv))
                     pcall(function()
                         (CommF_ or {}):InvokeServer("StartQuest", quest.NameQuest, quest.QuestLv)
                     end)
                     task.wait(0.55)
-                    if Config.AutoBusoHaki then Functions.AutoHaki() end
+
+                    if Config.AutoBusoHaki then
+                        Functions.AutoHaki()
+                    end
                     Functions.EquipWeapon(Config, NotAutoEquip)
                     farmRunning = false
                     return
                 end
 
-                -- QUEST ATIVA
+                -- QUEST ATIVA → mob
                 local mob = Functions.GetNearestEnemy(Character, HumanoidRootPart, quest.Mob)
 
                 if not mob then
                     currentTarget = nil
                     local targetPos = quest.CFrameMon.Position
-                    if HumanoidRootPart and (targetPos - HumanoidRootPart.Position).Magnitude > 15 then
+                    if HumanoidRootPart
+                        and (targetPos - HumanoidRootPart.Position).Magnitude > 15
+                    then
                         NoClip.value = true
                         Functions.FlyToPosition(
                             quest.CFrameMon * CFrame.new(0, flyOffset, 0),
-                            TweenService, Config, isTeleporting, NotAutoEquip
+                            TweenService,
+                            Config,
+                            isTeleporting,
+                            NotAutoEquip
                         )
                         isTeleporting.value = false
                         NoClip.value = false
@@ -1410,7 +1502,9 @@ task.spawn(function()
                     return
                 end
 
-                if Config.AutoBusoHaki then Functions.AutoHaki() end
+                if Config.AutoBusoHaki then
+                    Functions.AutoHaki()
+                end
                 Functions.EquipWeapon(Config, NotAutoEquip)
                 currentTarget = mob
 
@@ -1432,18 +1526,27 @@ task.spawn(function()
                     mhum = mob:FindFirstChild("Humanoid") or mob:FindFirstChildOfClass("Humanoid")
                     if not mhrp or not mhum or mhum.Health <= 0 then break end
 
-                    Functions.EnableFarmClip()
-                    Functions.StayAboveMob(mob, flyOffset)
+                    if Functions.EnableFarmClip then
+                        Functions.EnableFarmClip()
+                    end
 
-                    if Config.BringMob then
+                    if Functions.StayAboveMob then
+                        Functions.StayAboveMob(mob, flyOffset)
+                    else
+                        local _, yaw = HumanoidRootPart.CFrame:ToOrientation()
+                        HumanoidRootPart.CFrame = CFrame.new(mhrp.Position + Vector3.new(0, flyOffset, 0))
+                            * CFrame.Angles(0, yaw, 0)
+                    end
+
+                    if Config.BringMob and Functions.BringMobToGround then
                         Functions.BringMobToGround(quest.Mob, mob, Config.BringDistance or 350)
                     end
 
                     Functions.FastAttack(mob, Config, NotAutoEquip)
                 until not mob.Parent
-                   or not (mob:FindFirstChild("Humanoid") or mob:FindFirstChildOfClass("Humanoid"))
-                   or ((mob:FindFirstChild("Humanoid") or mob:FindFirstChildOfClass("Humanoid")).Health <= 0)
-                   or not Config.AutoFarmLevel
+                    or not (mob:FindFirstChild("Humanoid") or mob:FindFirstChildOfClass("Humanoid"))
+                    or ((mob:FindFirstChild("Humanoid") or mob:FindFirstChildOfClass("Humanoid")).Health <= 0)
+                    or not Config.AutoFarmLevel
 
                 Functions.StopTeleport()
                 NoClip.value = false
@@ -1797,38 +1900,23 @@ Main:AddDropdown({
         Config.MasterySkills = v
     end,
 })
-Main:AddToggle({ Title = T("ui_auto_mastery"), Default = false,
-    Flag = "AutoFarmMastery", Callback = function(v)
+Main:AddToggle({
+    Title = T("ui_auto_mastery"),
+    Default = false,
+    Flag = "AutoFarmMastery",
+    Callback = function(v)
         Config.AutoFarmMastery = v
         if v then
-            task.spawn(function()
-                local keyMap = {
-                    Z = Enum.KeyCode.Z,
-                    X = Enum.KeyCode.X,
-                    C = Enum.KeyCode.C,
-                    V = Enum.KeyCode.V,
-                    F = Enum.KeyCode.F,
-                }
-                while Config.AutoFarmMastery do
-                    local skills = Config.MasterySkills or {}
-                    for key, _ in pairs(skills) do
-                        if not Config.AutoFarmMastery then break end
-                        local kc = keyMap[key]
-                        if kc then
-                            pcall(function()
-                                game:GetService("VirtualInputManager"):SendKeyEvent(true,  kc, false, game)
-                                task.wait(0.05)
-                                game:GetService("VirtualInputManager"):SendKeyEvent(false, kc, false, game)
-                            end)
-                            task.wait(0.3)
-                        end
-                    end
-                    task.wait(0.5)
-                end
-            end)
+            Functions.StartAutoFarmMastery(Config)
         end
-        Notify({ Title = v and "Auto Mastery ON" or "Auto Mastery OFF", Image = IMG, Type = v and "Success" or "Info", Duration = 2 })
-    end })
+        Notify({
+            Title = v and "Auto Mastery ON" or "Auto Mastery OFF",
+            Image = IMG,
+            Type = v and "Success" or "Info",
+            Duration = 2,
+        })
+    end,
+})
 
 Main:AddSection("Collect Chest")
 Main:AddToggle({ Title = T("ui_farm_chest"), Default = false,
