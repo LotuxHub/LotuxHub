@@ -536,15 +536,13 @@ function Functions.FlyToPosition(targetCF, tweenSvc, config, isTeleportingRef, n
     local hum  = char and char:FindFirstChildOfClass("Humanoid")
     if not char or not hrp or not hum or hum.Health <= 0 then return end
 
-
     local distance = (targetCF.Position - hrp.Position).Magnitude
     if distance < 2 then
-        -- Ja estamos no destino: NAO cancela um voo em andamento por engano.
+        -- Já estamos no destino: não cancela um voo em andamento por engano.
         return
     end
 
-    -- So cancela o voo anterior depois de confirmar que este novo voo
-    -- vai de fato acontecer (evita cortar um tween em andamento sem motivo).
+    -- Cancela voo anterior só depois de confirmar que este novo vai acontecer
     if Functions._flyCancel then
         Functions._flyCancel()
         Functions._flyCancel = nil
@@ -562,9 +560,7 @@ function Functions.FlyToPosition(targetCF, tweenSvc, config, isTeleportingRef, n
     if isTeleportingRef then isTeleportingRef.value = true end
     _isTeleporting = true
 
-    -- Trava o estado do Humanoid para a fisica nativa (gravidade/colisao/queda)
-    -- parar de "brigar" com o CFrame forcado a cada Heartbeat. E essa disputa
-    -- entre os dois sistemas que causa o tremor/pulo durante o voo.
+    -- Trava estados do Humanoid pra física nativa não brigar com o CFrame
     local prevAutoRotate = hum.AutoRotate
     local prevStates = {}
     for _, st in ipairs({
@@ -589,11 +585,11 @@ function Functions.FlyToPosition(targetCF, tweenSvc, config, isTeleportingRef, n
         TweenInfo.new(dur, Enum.EasingStyle.Linear),
         { CFrame = targetCF }
     )
+
     local conn
     conn = RunService.Heartbeat:Connect(function()
         local c    = Player.Character
         local cHrp = c and c:FindFirstChild("HumanoidRootPart")
-
         if cHrp and pt and pt.Parent then
             local _, currentYaw, _ = cHrp.CFrame:ToOrientation()
             cHrp.CFrame = CFrame.new(pt.CFrame.Position) * CFrame.Angles(0, currentYaw, 0)
@@ -605,37 +601,51 @@ function Functions.FlyToPosition(targetCF, tweenSvc, config, isTeleportingRef, n
     local function restoreHumanoidState()
         local c2   = Player.Character
         local hum2 = c2 and c2:FindFirstChildOfClass("Humanoid")
+        local hrp2 = c2 and c2:FindFirstChild("HumanoidRootPart")
+
+        -- =====================================================
+        -- SE O FLOAT ESTIVER ATIVO: NÃO puxa pro chão.
+        -- Só atualiza a altura do float pro Y onde o voo terminou
+        -- e mantém o Humanoid em Physics.
+        -- =====================================================
+        local floating = false
+        pcall(function()
+            floating = Functions.IsFloating and Functions.IsFloating()
+        end)
+
+        if floating then
+            if hrp2 and Functions.SetFloatY then
+                Functions.SetFloatY(hrp2.Position.Y)
+            end
+            if hum2 then
+                -- Mantém estados de queda desligados (o Float controla)
+                hum2.AutoRotate = false
+                hum2:ChangeState(Enum.HumanoidStateType.Physics)
+            end
+            return
+        end
+
+        -- =====================================================
+        -- Float OFF → comportamento antigo (ground-snap)
+        -- =====================================================
         if hum2 then
             for st, wasEnabled in pairs(prevStates) do
                 hum2:SetStateEnabled(st, wasEnabled)
             end
             hum2.AutoRotate = prevAutoRotate
-            -- FIX CRITICO: o raycast antigo so alcancava 4 studs abaixo do
-            -- HRP. Varias funcoes (FarmBone, FarmLevel, FarmNearest, etc)
-            -- pousam o player usando CFrame.new(0, config.FlyOffset or 15, 0)
-            -- ACIMA da posicao do mob - ou seja, o voo termina com o player
-            -- flutuando ~15 studs no ar. O raycast de 4 studs nunca alcancava
-            -- o chao nesse caso, o Humanoid entrava em Freefall, e o player
-            -- caia os ~15 studs restantes TODA VEZ que chegava perto de um
-            -- mob (o bug reportado). Agora o raycast alcanca bem mais longe
-            -- e, se achar chao, o player e reposicionado DIRETO em cima dele
-            -- (via CFrame, instantaneo, sem fisica) antes de soltar o
-            -- controle - isso elimina a queda por completo, independente de
-            -- qual FlyOffset foi usado para o pouso.
-            local c3   = Player.Character
-            local hrp3 = c3 and c3:FindFirstChild("HumanoidRootPart")
+
             local onGround = false
-            if hrp3 then
+            if hrp2 then
                 local rayParams = RaycastParams.new()
                 rayParams.FilterType = Enum.RaycastFilterType.Exclude
-                rayParams.FilterDescendantsInstances = { c3 }
-                local result = workspace:Raycast(hrp3.Position, Vector3.new(0, -200, 0), rayParams)
+                rayParams.FilterDescendantsInstances = { c2 }
+                local result = workspace:Raycast(hrp2.Position, Vector3.new(0, -200, 0), rayParams)
                 if result then
                     onGround = true
-                    local groundY = result.Position.Y + 3 -- HRP de R15 fica ~3 studs acima do chao
-                    if hrp3.Position.Y > groundY + 0.5 then
-                        local newPos = Vector3.new(hrp3.Position.X, groundY, hrp3.Position.Z)
-                        hrp3.CFrame = CFrame.new(newPos) * (hrp3.CFrame - hrp3.CFrame.Position)
+                    local groundY = result.Position.Y + 3
+                    if hrp2.Position.Y > groundY + 0.5 then
+                        local newPos = Vector3.new(hrp2.Position.X, groundY, hrp2.Position.Z)
+                        hrp2.CFrame = CFrame.new(newPos) * (hrp2.CFrame - hrp2.CFrame.Position)
                     end
                 end
             end
@@ -2258,9 +2268,22 @@ end
 --   • FastAttack
 --   • Ciclo de quests Haunted Castle
 -- =====================================================
+-- =====================================================
+-- AUTO FARM BONE (estilo Auto Farm Level + trava no ar)
+-- =====================================================
+-- • FlyToPosition acima do mob (FlyOffset)
+-- • Heartbeat trava o player no ar (anula o ground-snap)
+-- • Bring com Y travado (não empurra pro chão)
+-- • FastAttack
+-- • Ciclo de quests Haunted Castle (8 kills cada)
+-- =====================================================
+-- =====================================================
+-- AUTO FARM BONE (corrigido)
+-- Player no AR em cima do NPC | NPC no chão (não enterra)
+-- =====================================================
 function Functions.StartAutoFarmBone(config)
     SafeSpawn(function()
-        local CommF_ = GetCommF()
+        local CommF_   = GetCommF()
         local TweenSvc = game:GetService("TweenService")
 
         local HAUNTED_MOBS = {
@@ -2279,11 +2302,11 @@ function Functions.StartAutoFarmBone(config)
         }
         local KILLS_PER_QUEST = 8
 
-        local _boneIdx   = 1
-        local _killsThis = 0
-        local NotAutoEquip = { value = false }
+        local _boneIdx      = 1
+        local _killsThis    = 0
+        local NotAutoEquip  = { value = false }
         local isTeleporting = { value = false }
-        local farmRunning = false
+        local farmRunning   = false
 
         local function CurrentQuest()
             return HAUNTED_MOBS[_boneIdx]
@@ -2309,6 +2332,61 @@ function Functions.StartAutoFarmBone(config)
             return char and char:FindFirstChild("HumanoidRootPart"), char
         end
 
+        -- Bring que NÃO enterra o mob
+        local function StartSafeBring(bringMobName, config)
+            local bringActive = true
+            local bringYOff   = tonumber(config.BringYOffset)
+            if bringYOff == nil or bringYOff < -8 then bringYOff = -4 end
+
+            local conn = RunService.Heartbeat:Connect(function()
+                if not bringActive or not config.BringMob then return end
+                local c2   = Player.Character
+                local hrp2 = c2 and c2:FindFirstChild("HumanoidRootPart")
+                if not hrp2 then return end
+                local enm = workspace:FindFirstChild("Enemies")
+                if not enm then return end
+
+                for _, om in ipairs(enm:GetChildren()) do
+                    if om.Name == bringMobName then
+                        local ohrp = om:FindFirstChild("HumanoidRootPart")
+                        local ohum = om:FindFirstChildOfClass("Humanoid")
+                        if ohrp and ohum and ohum.Health > 0 then
+                            local d = (ohrp.Position - hrp2.Position).Magnitude
+                            if d <= (config.BringDistance or 350) then
+                                -- Raycast do chão embaixo do player
+                                local rayParams = RaycastParams.new()
+                                rayParams.FilterType = Enum.RaycastFilterType.Exclude
+                                rayParams.FilterDescendantsInstances = { c2, om }
+                                local origin = Vector3.new(hrp2.Position.X, hrp2.Position.Y + 80, hrp2.Position.Z)
+                                local hit = workspace:Raycast(origin, Vector3.new(0, -400, 0), rayParams)
+                                local groundY = hit and (hit.Position.Y + 3) or ohrp.Position.Y
+
+                                -- Um pouco abaixo do player no AR
+                                local desiredY = hrp2.Position.Y + bringYOff
+                                -- NUNCA abaixo do chão
+                                if desiredY < groundY then
+                                    desiredY = groundY
+                                end
+
+                                Functions.LockMobInPlace(om, CFrame.new(
+                                    hrp2.Position.X,
+                                    desiredY,
+                                    hrp2.Position.Z
+                                ))
+                            end
+                        end
+                    end
+                end
+            end)
+
+            return {
+                Stop = function()
+                    bringActive = false
+                    pcall(function() conn:Disconnect() end)
+                end
+            }
+        end
+
         while task.wait(0.08) do
             if not config.AutoFarmBone then
                 farmRunning = false
@@ -2322,21 +2400,13 @@ function Functions.StartAutoFarmBone(config)
             pcall(function()
                 local hrp, char = GetHRP()
                 if not hrp or not char then return end
-
                 local hum = char:FindFirstChildOfClass("Humanoid")
                 if not hum or hum.Health <= 0 then return end
 
-                local quest = CurrentQuest()
+                local quest     = CurrentQuest()
                 local flyOffset = tonumber(config.FlyOffset) or 15
-                -- Bring um pouco menos agressivo pra não enterrar o mob
-                local bringYOff = tonumber(config.BringYOffset)
-                if bringYOff == nil then bringYOff = -6 end
-                -- Se ainda estiver muito negativo e causando enterro, sobe um pouco
-                if bringYOff < -12 then bringYOff = -6 end
 
-                -- =================================================
-                -- SEM QUEST → vai no NPC e pega
-                -- =================================================
+                -- ========== SEM QUEST → NPC ==========
                 if not HasActiveQuest() then
                     local qPos = quest.CFrameQuest.Position
                     if (qPos - hrp.Position).Magnitude > 10 then
@@ -2346,23 +2416,20 @@ function Functions.StartAutoFarmBone(config)
                             TweenSvc, config, isTeleporting, NotAutoEquip
                         )
                         isTeleporting.value = false
-                        task.wait(0.4)
+                        task.wait(0.35)
                     end
 
                     print("[FarmBone] Aceitando: " .. quest.NameQuest .. " Lv" .. quest.QuestLv)
                     pcall(function()
                         CommF_:InvokeServer("StartQuest", quest.NameQuest, quest.QuestLv)
                     end)
-                    task.wait(0.6)
-
+                    task.wait(0.55)
                     if config.AutoBusoHaki then Functions.AutoHaki() end
                     Functions.EquipWeapon(config, NotAutoEquip)
                     return
                 end
 
-                -- =================================================
-                -- QUEST ATIVA → farm
-                -- =================================================
+                -- ========== QUEST ATIVA ==========
                 local mob = Functions.GetNearestEnemy(char, hrp, quest.Mob)
 
                 if mob then
@@ -2373,10 +2440,9 @@ function Functions.StartAutoFarmBone(config)
                     if config.AutoBusoHaki then Functions.AutoHaki() end
                     Functions.EquipWeapon(config, NotAutoEquip)
 
-                    -- Posição ORIGINAL do mob (antes do bring)
                     local mobOriginalPos = mhrp.Position
 
-                    -- Voa UMA vez pra cima do mob (igual Farm Level)
+                    -- Voa para CIMA do mob
                     if (mobOriginalPos - hrp.Position).Magnitude > 12 then
                         Functions.FlyToPosition(
                             CFrame.new(mobOriginalPos) * CFrame.new(0, flyOffset, 0),
@@ -2385,61 +2451,29 @@ function Functions.StartAutoFarmBone(config)
                         isTeleporting.value = false
                     end
 
-                    -- Atualiza HRP depois do voo
                     hrp = select(1, GetHRP())
                     if not hrp then return end
 
-                    -- Bring: Y travado UMA vez (não segue o player pra baixo)
-                    local bringActive  = true
-                    local bringMobName = quest.Mob
-                    local _bringLockedY = hrp.Position.Y + bringYOff
+                    -- Trava altura do float em cima do mob
+                    local combatY = mobOriginalPos.Y + flyOffset
+                    if Functions.SetFloatY then
+                        Functions.SetFloatY(combatY)
+                    end
 
-                    local bringConn = RunService.Heartbeat:Connect(function()
-                        if not bringActive or not config.BringMob then return end
-                        local c2 = Player.Character
-                        local hrp2 = c2 and c2:FindFirstChild("HumanoidRootPart")
-                        if not hrp2 then return end
-                        local enm = workspace:FindFirstChild("Enemies")
-                        if not enm then return end
-                        for _, om in ipairs(enm:GetChildren()) do
-                            if om.Name == bringMobName then
-                                local ohrp = om:FindFirstChild("HumanoidRootPart")
-                                local ohum = om:FindFirstChildOfClass("Humanoid")
-                                if ohrp and ohum and ohum.Health > 0 then
-                                    local d = (ohrp.Position - hrp2.Position).Magnitude
-                                    if d <= (config.BringDistance or 350) then
-                                        local bringPos = CFrame.new(
-                                            hrp2.Position.X,
-                                            _bringLockedY,
-                                            hrp2.Position.Z
-                                        )
-                                        Functions.LockMobInPlace(om, bringPos)
-                                    end
-                                end
-                            end
-                        end
-                    end)
+                    local bring = StartSafeBring(quest.Mob, config)
 
-                    -- Ataca até morrer
                     repeat
                         task.wait()
                         if not mob.Parent or not config.AutoFarmBone then break end
                         local mhrp2 = mob:FindFirstChild("HumanoidRootPart")
                         if not mhrp2 then break end
 
-                        -- Se o mob se afastou muito, voa de novo
-                        local distNow = (mhrp2.Position - (select(1, GetHRP()) or hrp).Position).Magnitude
-                        if distNow > 35 then
-                            Functions.FlyToPosition(
-                                mhrp2.CFrame * CFrame.new(0, flyOffset, 0),
-                                TweenSvc, config, isTeleporting, NotAutoEquip
-                            )
-                            isTeleporting.value = false
-                            -- Atualiza Y do bring se revoou
-                            local hrp3 = select(1, GetHRP())
-                            if hrp3 then
-                                _bringLockedY = hrp3.Position.Y + bringYOff
-                            end
+                        local hrpNow = select(1, GetHRP()) or hrp
+                        local distXZ = (Vector3.new(mhrp2.Position.X, 0, mhrp2.Position.Z)
+                                      - Vector3.new(hrpNow.Position.X, 0, hrpNow.Position.Z)).Magnitude
+                        if distXZ > 40 then
+                            combatY = mhrp2.Position.Y + flyOffset
+                            if Functions.SetFloatY then Functions.SetFloatY(combatY) end
                         end
 
                         Functions.FastAttack(mob, config, NotAutoEquip)
@@ -2448,15 +2482,14 @@ function Functions.StartAutoFarmBone(config)
                        or mob.Humanoid.Health <= 0
                        or not config.AutoFarmBone
 
-                    bringActive = false
-                    bringConn:Disconnect()
+                    bring.Stop()
                     Functions.StopTeleport()
 
-                    if (not mob.Parent) or (mob:FindFirstChildOfClass("Humanoid") and mob.Humanoid.Health <= 0) then
+                    if (not mob.Parent)
+                       or (mob:FindFirstChildOfClass("Humanoid") and mob.Humanoid.Health <= 0) then
                         config.KillCount = (config.KillCount or 0) + 1
                         _killsThis = _killsThis + 1
                         print(("[FarmBone] %s morto (%d/%d)"):format(quest.Mob, _killsThis, KILLS_PER_QUEST))
-
                         if _killsThis >= KILLS_PER_QUEST then
                             pcall(function() CommF_:InvokeServer("AbandonQuest") end)
                             task.wait(0.35)
@@ -2464,7 +2497,7 @@ function Functions.StartAutoFarmBone(config)
                         end
                     end
                 else
-                    -- Sem mob → voa pra área (CFrameMon) em cima
+                    -- Sem mob → área
                     local monPos = quest.CFrameMon.Position
                     hrp = select(1, GetHRP())
                     if hrp and (monPos - hrp.Position).Magnitude > 18 then
@@ -2474,6 +2507,9 @@ function Functions.StartAutoFarmBone(config)
                             TweenSvc, config, isTeleporting, NotAutoEquip
                         )
                         isTeleporting.value = false
+                        if Functions.SetFloatY then
+                            Functions.SetFloatY(monPos.Y + flyOffset)
+                        end
                     end
                     task.wait(1)
                 end
@@ -6387,13 +6423,158 @@ function Functions.StartMovementBlocker(config)
     end)
 end
 
+-- =====================================================
+-- FLOAT WHILE ACTIVE
+-- Enquanto qualquer farm/função importante estiver ON,
+-- o player fica travado no ar (não cai).
+-- =====================================================
+local _floatConn     = nil
+local _floatActive   = false
+local _floatY        = nil
+local _floatPrevStates = nil
+local _floatPrevAutoRotate = nil
+
+-- Flags que mantêm o player flutuando
+local FLOAT_TRIGGER_KEYS = {
+    AutoFarmLevel   = true,
+    AutoFarmNearest = true,
+    AutoFarmBone    = true,
+    AutoFarmMastery = true,
+    AutoFarmMaterial = true,
+    AutoFarmBoss    = true,
+    AutoFarmAllBoss = true,
+    AutoRaid        = true,
+    AutoRaidLaw     = true,
+    AutoCakePrince  = true,
+    AutoDoughKing   = true,
+    AutoFarmBone    = true,
+}
+
+local function _AnyFloatTrigger(config)
+    for key in pairs(FLOAT_TRIGGER_KEYS) do
+        if config[key] == true then
+            return true
+        end
+    end
+    return false
+end
+
+function Functions.IsFloating()
+    return _floatActive
+end
+
+function Functions.StartFloat(config)
+    if _floatActive then return end
+    local char = Player.Character
+    local hrp  = char and char:FindFirstChild("HumanoidRootPart")
+    local hum  = char and char:FindFirstChildOfClass("Humanoid")
+    if not char or not hrp or not hum or hum.Health <= 0 then return end
+
+    local hoverHeight = tonumber(config and config.HoverHeight) or 12
+
+    -- Altura inicial: chão abaixo + offset (ou Y atual se já estiver alto)
+    local rayParams = RaycastParams.new()
+    rayParams.FilterType = Enum.RaycastFilterType.Exclude
+    rayParams.FilterDescendantsInstances = { char }
+    local hit = workspace:Raycast(hrp.Position, Vector3.new(0, -250, 0), rayParams)
+    local baseY = hit and (hit.Position.Y + hoverHeight) or (hrp.Position.Y)
+    if baseY < hrp.Position.Y - 2 then
+        baseY = hrp.Position.Y -- se já está mais alto, mantém
+    end
+    _floatY = baseY
+
+    _floatPrevStates = {}
+    _floatPrevAutoRotate = hum.AutoRotate
+    for _, st in ipairs({
+        Enum.HumanoidStateType.Freefall,
+        Enum.HumanoidStateType.Jumping,
+        Enum.HumanoidStateType.Landed,
+        Enum.HumanoidStateType.GettingUp,
+        Enum.HumanoidStateType.Ragdoll,
+    }) do
+        _floatPrevStates[st] = hum:GetStateEnabled(st)
+        hum:SetStateEnabled(st, false)
+    end
+    hum.AutoRotate = false
+    hum:ChangeState(Enum.HumanoidStateType.Physics)
+
+    _floatActive = true
+
+    _floatConn = RunService.Heartbeat:Connect(function()
+        if not _floatActive then return end
+        local c = Player.Character
+        local cHrp = c and c:FindFirstChild("HumanoidRootPart")
+        local cHum = c and c:FindFirstChildOfClass("Humanoid")
+        if not cHrp or not cHum or cHum.Health <= 0 then return end
+
+        local pos = cHrp.Position
+        local y = _floatY or pos.Y
+        local _, yaw = cHrp.CFrame:ToOrientation()
+        cHrp.CFrame = CFrame.new(pos.X, y, pos.Z) * CFrame.Angles(0, yaw, 0)
+        cHum:ChangeState(Enum.HumanoidStateType.Physics)
+    end)
+end
+
+-- Atualiza a altura do float (chamar depois de um FlyTo / ao chegar no mob)
+function Functions.SetFloatY(y)
+    if typeof(y) == "number" then
+        _floatY = y
+    end
+end
+
+function Functions.StopFloat()
+    if not _floatActive then return end
+    _floatActive = false
+    if _floatConn then
+        _floatConn:Disconnect()
+        _floatConn = nil
+    end
+
+    local char = Player.Character
+    local hum  = char and char:FindFirstChildOfClass("Humanoid")
+    if hum and _floatPrevStates then
+        for st, was in pairs(_floatPrevStates) do
+            hum:SetStateEnabled(st, was)
+        end
+        if _floatPrevAutoRotate ~= nil then
+            hum.AutoRotate = _floatPrevAutoRotate
+        end
+        hum:ChangeState(Enum.HumanoidStateType.Freefall)
+    end
+    _floatPrevStates = nil
+    _floatPrevAutoRotate = nil
+    _floatY = nil
+end
+
+function Functions.StartFloatController(config)
+    SafeSpawn(function()
+        while task.wait(0.15) do
+            local char = Player.Character
+            local hum  = char and char:FindFirstChildOfClass("Humanoid")
+            if not hum or hum.Health <= 0 then
+                if _floatActive then Functions.StopFloat() end
+                continue
+            end
+
+            local should = _AnyFloatTrigger(config)
+            if should and not _floatActive then
+                Functions.StartFloat(config)
+            elseif not should and _floatActive then
+                Functions.StopFloat()
+            end
+        end
+    end)
+end
+
 function Functions.StartAllLoops(config)
     -- Bloqueador de movimento (roda desde o inicio)
     Functions.StartMovementBlocker(config)
     -- Hover: mantem o player flutuando no ar enquanto qualquer
     -- funcao de auto-farm estiver ativa (evita quedas por terreno)
     Functions.StartHoverController(config)
-
+    
+    -- Float: mantem o player flutuando no ar enquanto qualquer
+    Functions.StartFloatController(Config)
     -- Race
     Functions.StartAutoRace(config)
     Functions.StartAutoDooHee(config)
