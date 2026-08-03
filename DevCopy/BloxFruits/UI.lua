@@ -1221,7 +1221,8 @@ task.spawn(function()
 end)
 
 -- =====================================================
--- FARM LOOP PRINCIPAL
+-- FARM LOOP PRINCIPAL (corrigido)
+-- Player no AR em cima do NPC | NPC no chão (não enterra)
 -- =====================================================
 local farmRunning = false
 
@@ -1229,14 +1230,15 @@ task.spawn(function()
     while true do
         task.wait(0.05)
 
+        -- =====================================================
+        -- Nenhum farm ativo → limpa estado
+        -- =====================================================
         if not Config.AutoFarmLevel and not Config.AutoFarmNearest then
             if currentTarget ~= nil then currentTarget = nil end
-            -- Para o voo e derruba o player ao desativar o farm
             if NoClip.value or farmRunning then
                 NoClip.value        = false
                 isTeleporting.value = false
                 Functions.StopTeleport()
-                -- Remove qualquer BodyVelocity/BodyPosition que esteja mantendo o player no ar
                 pcall(function()
                     local char = Player.Character
                     local hrp  = char and char:FindFirstChild("HumanoidRootPart")
@@ -1261,16 +1263,80 @@ task.spawn(function()
 
         local char = Player.Character
         if not char or not HumanoidRootPart or not Humanoid or Humanoid.Health <= 0 then
-            farmRunning = false; continue
+            farmRunning = false
+            continue
         end
 
+        local flyOffset = tonumber(Config.FlyOffset) or 15
+        local bringYOff = tonumber(Config.BringYOffset)
+        if bringYOff == nil or bringYOff < -8 then
+            bringYOff = -4
+        end
+
+        -- =====================================================
+        -- Helper: Bring seguro (nunca abaixo do chão)
+        -- =====================================================
+        local function StartSafeBring(bringMobName)
+            local bringActive = true
+            local conn = RunService.Heartbeat:Connect(function()
+                if not bringActive or not Config.BringMob then return end
+                if not HumanoidRootPart then return end
+
+                local enm = workspace:FindFirstChild("Enemies")
+                if not enm then return end
+
+                for _, otherMob in ipairs(enm:GetChildren()) do
+                    if otherMob.Name == bringMobName then
+                        local ohrp = otherMob:FindFirstChild("HumanoidRootPart")
+                        local ohum = otherMob:FindFirstChild("Humanoid") or otherMob:FindFirstChildOfClass("Humanoid")
+                        if ohrp and ohum and ohum.Health > 0 then
+                            local d = (ohrp.Position - HumanoidRootPart.Position).Magnitude
+                            if d <= (Config.BringDistance or 350) then
+                                local rayParams = RaycastParams.new()
+                                rayParams.FilterType = Enum.RaycastFilterType.Exclude
+                                rayParams.FilterDescendantsInstances = { Character, otherMob }
+                                local origin = Vector3.new(
+                                    HumanoidRootPart.Position.X,
+                                    HumanoidRootPart.Position.Y + 80,
+                                    HumanoidRootPart.Position.Z
+                                )
+                                local hit = workspace:Raycast(origin, Vector3.new(0, -400, 0), rayParams)
+                                local groundY = hit and (hit.Position.Y + 3) or ohrp.Position.Y
+
+                                local desiredY = HumanoidRootPart.Position.Y + bringYOff
+                                if desiredY < groundY then
+                                    desiredY = groundY
+                                end
+
+                                Functions.LockMobInPlace(otherMob, CFrame.new(
+                                    HumanoidRootPart.Position.X,
+                                    desiredY,
+                                    HumanoidRootPart.Position.Z
+                                ))
+                            end
+                        end
+                    end
+                end
+            end)
+
+            return {
+                Stop = function()
+                    bringActive = false
+                    pcall(function() conn:Disconnect() end)
+                end
+            }
+        end
+
+        -- =====================================================
         -- AUTO FARM NEAREST
+        -- =====================================================
         if Config.AutoFarmNearest and not Config.AutoFarmLevel then
             pcall(function()
                 local mob = Functions.GetNearestEnemy(Character, HumanoidRootPart, nil)
                 if not mob then farmRunning = false; return end
+
                 local hrp = mob:FindFirstChild("HumanoidRootPart")
-                local hum = mob:FindFirstChild("Humanoid")
+                local hum = mob:FindFirstChild("Humanoid") or mob:FindFirstChildOfClass("Humanoid")
                 if not hrp or not hum or hum.Health <= 0 then farmRunning = false; return end
 
                 if Config.AutoBusoHaki then Functions.AutoHaki() end
@@ -1281,303 +1347,245 @@ task.spawn(function()
                 end
 
                 currentTarget = mob
-                NoClip.value = true
+                local mobOriginalPos = hrp.Position
 
-                -- Posicao original do mob para o voo (antes de qualquer bring)
-                local mobOriginalPos = mob:FindFirstChild("HumanoidRootPart")
-                    and mob.HumanoidRootPart.Position
-                    or HumanoidRootPart.Position
-
-                -- Voa UMA UNICA VEZ (bloqueante) at chegar perto do mob, em vez de
-                -- ficar chamando FlyToPosition a cada frame dentro do loop de combate.
-                -- Chamar de novo a cada frame fazia o voo ser cancelado/recriado
-                -- constantemente, causando o efeito de "voa um pouco e para".
-                if (mobOriginalPos - HumanoidRootPart.Position).Magnitude > 15 then
+                -- Voa pra CIMA do mob
+                if (mobOriginalPos - HumanoidRootPart.Position).Magnitude > 12 then
+                    NoClip.value = true
                     Functions.FlyToPosition(
-                        CFrame.new(mobOriginalPos) * CFrame.new(0, Config.FlyOffset, 0),
-                        TweenService, Config, isTeleporting, NotAutoEquip)
+                        CFrame.new(mobOriginalPos) * CFrame.new(0, flyOffset, 0),
+                        TweenService, Config, isTeleporting, NotAutoEquip
+                    )
+                    isTeleporting.value = false
+                    NoClip.value = false
                 end
-                isTeleporting.value = false
 
-                if not mob.Parent then farmRunning = false; return end
+                -- Atualiza HRP
+                local charNow = Player.Character
+                if charNow then
+                    Character = charNow
+                    HumanoidRootPart = charNow:FindFirstChild("HumanoidRootPart") or HumanoidRootPart
+                end
+                if not HumanoidRootPart then farmRunning = false; return end
 
-                -- Heartbeat: trava todos os mobs do tipo no lugar a 60fps
-                local bringActive   = false
-                local bringPosition = CFrame.new(0, 0, 0)
-                local bringMobName  = mob.Name
-                -- Captura a altura alvo UMA vez ao ativar o bring:
-                -- Y do player neste momento + offset. Nao muda mais.
-                local _bringLockedY = HumanoidRootPart.Position.Y + (Config.BringYOffset or -10)
-                local bringConn = RunService.Heartbeat:Connect(function()
-                    if not bringActive or not Config.BringMob then return end
-                    local enm = workspace:FindFirstChild("Enemies")
-                    if not enm then return end
-                    for _, otherMob in ipairs(enm:GetChildren()) do
-                        if otherMob.Name == bringMobName then
-                            local ohrp = otherMob:FindFirstChild("HumanoidRootPart")
-                            local ohum = otherMob:FindFirstChild("Humanoid")
-                            if ohrp and ohum and ohum.Health > 0 then
-                                local d = (ohrp.Position - HumanoidRootPart.Position).Magnitude
-                                if d <= (Config.BringDistance or 350) then
-                                    -- X/Z do player atual, Y fixo (nao segue o player pra baixo)
-                                    bringPosition = CFrame.new(
-                                        HumanoidRootPart.Position.X,
-                                        _bringLockedY,
-                                        HumanoidRootPart.Position.Z)
-                                    Functions.LockMobInPlace(otherMob, bringPosition)
-                                end
-                            end
-                        end
-                    end
-                end)
+                -- Float na altura de combate
+                if Functions.SetFloatY then
+                    Functions.SetFloatY(mobOriginalPos.Y + flyOffset)
+                end
 
-                bringActive = true
+                local bring = StartSafeBring(mob.Name)
 
                 repeat
                     task.wait()
                     if not mob.Parent then break end
+                    if not Config.AutoFarmNearest then break end
+
+                    local cUpdate = Player.Character
+                    if cUpdate then
+                        Character = cUpdate
+                        local h = cUpdate:FindFirstChild("HumanoidRootPart")
+                        if h then HumanoidRootPart = h end
+                    end
+                    if not HumanoidRootPart then break end
+
                     local mhrp = mob:FindFirstChild("HumanoidRootPart")
                     if not mhrp then break end
 
-                    -- Se o mob se afastou muito (ex: andou antes do bring travar),
-                    -- voa novamente uma vez at ele, mas so quando REALMENTE preciso
-                    -- (distancia atual ao mob, nao a posicao antiga fixa).
-                    local distNow = (mhrp.Position - HumanoidRootPart.Position).Magnitude
-                    if distNow > 30 and not bringActive then
-                        Functions.FlyToPosition(
-                            mhrp.CFrame * CFrame.new(0, Config.FlyOffset, 0),
-                            TweenService, Config, isTeleporting, NotAutoEquip)
-                        isTeleporting.value = false
+                    local distXZ = (Vector3.new(mhrp.Position.X, 0, mhrp.Position.Z)
+                                  - Vector3.new(HumanoidRootPart.Position.X, 0, HumanoidRootPart.Position.Z)).Magnitude
+                    if distXZ > 40 then
+                        if Functions.SetFloatY then
+                            Functions.SetFloatY(mhrp.Position.Y + flyOffset)
+                        end
                     end
 
                     Functions.FastAttack(mob, Config, NotAutoEquip)
-
                 until not mob.Parent
-                   or not mob:FindFirstChild("Humanoid")
-                   or mob.Humanoid.Health <= 0
-                   or (not Config.AutoFarmNearest and not Config.AutoFarmLevel)
+                   or not (mob:FindFirstChild("Humanoid") or mob:FindFirstChildOfClass("Humanoid"))
+                   or ((mob:FindFirstChild("Humanoid") or mob:FindFirstChildOfClass("Humanoid")).Health <= 0)
+                   or not Config.AutoFarmNearest
 
-                bringConn:Disconnect()
+                bring.Stop()
                 Functions.StopTeleport()
                 NoClip.value = false
-                if mob.Humanoid and mob.Humanoid.Health <= 0 then
-                    Config.KillCount = Config.KillCount + 1
+
+                local deadHum = mob:FindFirstChild("Humanoid") or mob:FindFirstChildOfClass("Humanoid")
+                if (not mob.Parent) or (deadHum and deadHum.Health <= 0) then
+                    Config.KillCount = (Config.KillCount or 0) + 1
                 end
                 currentTarget = nil
             end)
-            farmRunning = false
 
-                    elseif Config.AutoFarmLevel then
-                pcall(function()
-                    local quest = Functions.GetQuestForLevel(QuestList, CurrentSea, Player)
-                    if not quest then farmRunning = false; return end
+        -- =====================================================
+        -- AUTO FARM LEVEL
+        -- =====================================================
+        elseif Config.AutoFarmLevel then
+            pcall(function()
+                local quest = Functions.GetQuestForLevel(QuestList, CurrentSea, Player)
+                if not quest then farmRunning = false; return end
 
-                    local flyOffset = tonumber(Config.FlyOffset) or 15
-                    local NotAutoEquip = NotAutoEquip or { value = false }
-                    local isTeleporting = isTeleporting or { value = false }
-
-                    -- Submerged
-                    local isSubmerged = string.find(quest.NameQuest or "", "SubmergedQuest", 1, true) ~= nil
-                    if isSubmerged then
-                        local jaEstaLa = HumanoidRootPart and HumanoidRootPart.Position.Y < -500
-                        if not jaEstaLa then
-                            local chegou = Functions.TravelToSubmergedIsland(Config)
-                            if not chegou then farmRunning = false; return end
-                            task.wait(1.5)
+                -- Submerged Island (level 2600+)
+                local isSubmerged = string.find(quest.NameQuest or "", "SubmergedQuest", 1, true) ~= nil
+                if isSubmerged then
+                    local jaEstaLa = HumanoidRootPart and HumanoidRootPart.Position.Y < -500
+                    if not jaEstaLa then
+                        print("[AutoFarm] Indo para Submerged Island via remote...")
+                        local chegou = Functions.TravelToSubmergedIsland(Config)
+                        if not chegou then
+                            warn("[AutoFarm] Nao conseguiu chegar na Submerged Island, tentando novamente...")
+                            farmRunning = false
+                            return
                         end
-                        local char2 = Player.Character
-                        if not char2 then farmRunning = false; return end
-                        HumanoidRootPart = char2:FindFirstChild("HumanoidRootPart") or HumanoidRootPart
-                    elseif quest.RequestEntrance and HumanoidRootPart then
-                        if (quest.CFrameMon.Position - HumanoidRootPart.Position).Magnitude > 10000 then
-                            pcall(function()
-                                (CommF_ or {}):InvokeServer("requestEntrance", quest.RequestEntrance)
-                            end)
-                            task.wait(1)
-                        end
+                        task.wait(1.5)
                     end
-
-                    local questGui = Player.PlayerGui:FindFirstChild("Main")
-                                     and Player.PlayerGui.Main:FindFirstChild("Quest")
-                    local questVisible = questGui and questGui.Visible or false
-
-                    -- Sem quest → vai no NPC
-                    if not questVisible then
-                        currentTarget = nil
-                        if HumanoidRootPart and (quest.CFrameQuest.Position - HumanoidRootPart.Position).Magnitude > 8 then
-                            NoClip.value = true
-                            Functions.FlyToPosition(
-                                quest.CFrameQuest * CFrame.new(0, 5, 0),
-                                TweenService, Config, isTeleporting, NotAutoEquip
-                            )
-                            isTeleporting.value = false
-                            NoClip.value = false
-                            task.wait(0.35)
-                        end
+                    local char2 = Player.Character
+                    if not char2 then farmRunning = false; return end
+                    Character = char2
+                    HumanoidRootPart = char2:FindFirstChild("HumanoidRootPart") or HumanoidRootPart
+                elseif quest.RequestEntrance and HumanoidRootPart then
+                    if (quest.CFrameMon.Position - HumanoidRootPart.Position).Magnitude > 10000 then
                         pcall(function()
-                            (CommF_ or {}):InvokeServer("StartQuest", quest.NameQuest, quest.QuestLv)
+                            (CommF_ or {}):InvokeServer("requestEntrance", quest.RequestEntrance)
                         end)
-                        task.wait(0.5)
-                        if Config.AutoBusoHaki then Functions.AutoHaki() end
-                        Functions.EquipWeapon(Config, NotAutoEquip)
-                        farmRunning = false
-                        return
-                    end
-
-                    -- Quest ativa → mob
-                    local mob = Functions.GetNearestEnemy(Character, HumanoidRootPart, quest.Mob)
-                    if not mob then
-                        currentTarget = nil
-                        local targetPos = quest.CFrameMon.Position
-                        if HumanoidRootPart and (targetPos - HumanoidRootPart.Position).Magnitude > 15 then
-                            NoClip.value = true
-                            Functions.FlyToPosition(
-                                quest.CFrameMon * CFrame.new(0, flyOffset, 0),
-                                TweenService, Config, isTeleporting, NotAutoEquip
-                            )
-                            isTeleporting.value = false
-                            NoClip.value = false
-                            if Functions.SetFloatY then
-                                Functions.SetFloatY(targetPos.Y + flyOffset)
-                            end
-                        end
                         task.wait(1)
-                        farmRunning = false
-                        return
                     end
+                end
 
-                    local mhrp = mob:FindFirstChild("HumanoidRootPart")
-                    local mhum = mob:FindFirstChild("Humanoid")
-                    if not mhrp or not mhum or mhum.Health <= 0 then
-                        farmRunning = false
-                        return
-                    end
+                -- Quest ativa?
+                local questGui = Player.PlayerGui:FindFirstChild("Main")
+                                 and Player.PlayerGui.Main:FindFirstChild("Quest")
+                local questVisible = questGui and questGui.Visible or false
 
-                    if Config.AutoBusoHaki then Functions.AutoHaki() end
-                    Functions.EquipWeapon(Config, NotAutoEquip)
+                -- SEM QUEST → vai no NPC e aceita
+                if not questVisible then
+                    currentTarget = nil
 
-                    currentTarget = mob
-                    local mobOriginalPos = mhrp.Position
-
-                    -- Voa pra CIMA do mob
-                    if (mobOriginalPos - HumanoidRootPart.Position).Magnitude > 12 then
+                    if HumanoidRootPart and (quest.CFrameQuest.Position - HumanoidRootPart.Position).Magnitude > 8 then
                         NoClip.value = true
                         Functions.FlyToPosition(
-                            CFrame.new(mobOriginalPos) * CFrame.new(0, flyOffset, 0),
+                            quest.CFrameQuest * CFrame.new(0, 5, 0),
                             TweenService, Config, isTeleporting, NotAutoEquip
                         )
                         isTeleporting.value = false
                         NoClip.value = false
+                        task.wait(0.35)
                     end
 
-                    -- Atualiza HRP
-                    local charNow = Player.Character
-                    HumanoidRootPart = charNow and charNow:FindFirstChild("HumanoidRootPart") or HumanoidRootPart
-                    if not HumanoidRootPart then farmRunning = false; return end
-
-                    -- Float na altura de combate
-                    local combatY = mobOriginalPos.Y + flyOffset
-                    if Functions.SetFloatY then
-                        Functions.SetFloatY(combatY)
-                    end
-
-                    -- Bring seguro (não enterra)
-                    local bringActive2  = true
-                    local bringMobName2 = mob.Name
-                    local bringYOff     = tonumber(Config.BringYOffset)
-                    if bringYOff == nil or bringYOff < -8 then bringYOff = -4 end
-
-                    local bringConn2 = RunService.Heartbeat:Connect(function()
-                        if not bringActive2 or not Config.BringMob then return end
-                        local enm = workspace:FindFirstChild("Enemies")
-                        if not enm or not HumanoidRootPart then return end
-                        for _, otherMob in ipairs(enm:GetChildren()) do
-                            if otherMob.Name == bringMobName2 then
-                                local ohrp = otherMob:FindFirstChild("HumanoidRootPart")
-                                local ohum = otherMob:FindFirstChild("Humanoid")
-                                if ohrp and ohum and ohum.Health > 0 then
-                                    local d = (ohrp.Position - HumanoidRootPart.Position).Magnitude
-                                    if d <= (Config.BringDistance or 350) then
-                                        local rayParams = RaycastParams.new()
-                                        rayParams.FilterType = Enum.RaycastFilterType.Exclude
-                                        rayParams.FilterDescendantsInstances = { Character, otherMob }
-                                        local origin = Vector3.new(
-                                            HumanoidRootPart.Position.X,
-                                            HumanoidRootPart.Position.Y + 80,
-                                            HumanoidRootPart.Position.Z
-                                        )
-                                        local hit = workspace:Raycast(origin, Vector3.new(0, -400, 0), rayParams)
-                                        local groundY = hit and (hit.Position.Y + 3) or ohrp.Position.Y
-
-                                        local desiredY = HumanoidRootPart.Position.Y + bringYOff
-                                        if desiredY < groundY then
-                                            desiredY = groundY
-                                        end
-
-                                        Functions.LockMobInPlace(otherMob, CFrame.new(
-                                            HumanoidRootPart.Position.X,
-                                            desiredY,
-                                            HumanoidRootPart.Position.Z
-                                        ))
-                                    end
-                                end
-                            end
-                        end
+                    print("[AutoFarm] Aceitando quest: " .. tostring(quest.NameQuest) .. " Lv" .. tostring(quest.QuestLv))
+                    pcall(function()
+                        (CommF_ or {}):InvokeServer("StartQuest", quest.NameQuest, quest.QuestLv)
                     end)
+                    task.wait(0.55)
 
-                    repeat
-                        task.wait()
-                        if not mob.Parent then break end
-                        if not Config.AutoFarmLevel then break end
-
-                        local mhrp2 = mob:FindFirstChild("HumanoidRootPart")
-                        if not mhrp2 then break end
-
-                        local distXZ = (Vector3.new(mhrp2.Position.X, 0, mhrp2.Position.Z)
-                                      - Vector3.new(HumanoidRootPart.Position.X, 0, HumanoidRootPart.Position.Z)).Magnitude
-                        if distXZ > 40 then
-                            combatY = mhrp2.Position.Y + flyOffset
-                            if Functions.SetFloatY then Functions.SetFloatY(combatY) end
-                        end
-
-                        Functions.FastAttack(mob, Config, NotAutoEquip)
-                        until not mob.Parent
-                        or not mob:FindFirstChild("Humanoid")
-                        or mob.Humanoid.Health <= 0
-                        or not Config.AutoFarmLevel
-
-                        bringActive2 = false
-                        bringConn2:Disconnect()
-                        Functions.StopTeleport()
-                        NoClip.value = false
-
-                        if mob.Humanoid and mob.Humanoid.Health <= 0 then
-                            Config.KillCount = (Config.KillCount or 0) + 1
-                        end
-                        currentTarget = nil
-                    end)
-                        else
-                            currentTarget = nil
-                            -- Voa ate a posicao dos mobs (CFrameMon) com NoClip ativo
-                            -- Funciona tanto na superficie quanto na Submerged Island
-                            -- So chama FlyToPosition se ainda estiver longe do destino;
-                            -- sem essa checagem o loop (a cada 0.05s) chamava de novo
-                            -- toda iteracao mesmo ja estando no lugar, cancelando o
-                            -- voo anterior e causando o efeito "vai um pouco e para".
-                            local targetPos = quest.CFrameMon.Position
-                            if HumanoidRootPart and (targetPos - HumanoidRootPart.Position).Magnitude > 15 then
-                                NoClip.value = true
-                                Functions.FlyToPosition(quest.CFrameMon * CFrame.new(0, Config.FlyOffset, 0),
-                                    TweenService, Config, isTeleporting, NotAutoEquip)
-                                NoClip.value = false
-                            end
-                            task.wait(1)
-                        end
-                    end
+                    if Config.AutoBusoHaki then Functions.AutoHaki() end
+                    Functions.EquipWeapon(Config, NotAutoEquip)
+                    farmRunning = false
+                    return
                 end
+
+                -- QUEST ATIVA → procura mob
+                local mob = Functions.GetNearestEnemy(Character, HumanoidRootPart, quest.Mob)
+
+                if not mob then
+                    currentTarget = nil
+                    local targetPos = quest.CFrameMon.Position
+                    if HumanoidRootPart and (targetPos - HumanoidRootPart.Position).Magnitude > 15 then
+                        NoClip.value = true
+                        Functions.FlyToPosition(
+                            quest.CFrameMon * CFrame.new(0, flyOffset, 0),
+                            TweenService, Config, isTeleporting, NotAutoEquip
+                        )
+                        isTeleporting.value = false
+                        NoClip.value = false
+                        if Functions.SetFloatY then
+                            Functions.SetFloatY(targetPos.Y + flyOffset)
+                        end
+                    end
+                    task.wait(1)
+                    farmRunning = false
+                    return
+                end
+
+                local mhrp = mob:FindFirstChild("HumanoidRootPart")
+                local mhum = mob:FindFirstChild("Humanoid") or mob:FindFirstChildOfClass("Humanoid")
+                if not mhrp or not mhum or mhum.Health <= 0 then
+                    farmRunning = false
+                    return
+                end
+
+                if Config.AutoBusoHaki then Functions.AutoHaki() end
+                Functions.EquipWeapon(Config, NotAutoEquip)
+
+                currentTarget = mob
+                local mobOriginalPos = mhrp.Position
+
+                -- Voa pra CIMA do mob
+                if (mobOriginalPos - HumanoidRootPart.Position).Magnitude > 12 then
+                    NoClip.value = true
+                    Functions.FlyToPosition(
+                        CFrame.new(mobOriginalPos) * CFrame.new(0, flyOffset, 0),
+                        TweenService, Config, isTeleporting, NotAutoEquip
+                    )
+                    isTeleporting.value = false
+                    NoClip.value = false
+                end
+
+                local charNow = Player.Character
+                if charNow then
+                    Character = charNow
+                    HumanoidRootPart = charNow:FindFirstChild("HumanoidRootPart") or HumanoidRootPart
+                end
+                if not HumanoidRootPart then farmRunning = false; return end
+
+                if Functions.SetFloatY then
+                    Functions.SetFloatY(mobOriginalPos.Y + flyOffset)
+                end
+
+                local bring = StartSafeBring(quest.Mob)
+
+                repeat
+                    task.wait()
+                    if not mob.Parent then break end
+                    if not Config.AutoFarmLevel then break end
+
+                    local cUpdate = Player.Character
+                    if cUpdate then
+                        Character = cUpdate
+                        local h = cUpdate:FindFirstChild("HumanoidRootPart")
+                        if h then HumanoidRootPart = h end
+                    end
+                    if not HumanoidRootPart then break end
+
+                    local mhrp2 = mob:FindFirstChild("HumanoidRootPart")
+                    if not mhrp2 then break end
+
+                    local distXZ = (Vector3.new(mhrp2.Position.X, 0, mhrp2.Position.Z)
+                                  - Vector3.new(HumanoidRootPart.Position.X, 0, HumanoidRootPart.Position.Z)).Magnitude
+                    if distXZ > 40 then
+                        if Functions.SetFloatY then
+                            Functions.SetFloatY(mhrp2.Position.Y + flyOffset)
+                        end
+                    end
+
+                    Functions.FastAttack(mob, Config, NotAutoEquip)
+                until not mob.Parent
+                   or not (mob:FindFirstChild("Humanoid") or mob:FindFirstChildOfClass("Humanoid"))
+                   or ((mob:FindFirstChild("Humanoid") or mob:FindFirstChildOfClass("Humanoid")).Health <= 0)
+                   or not Config.AutoFarmLevel
+
+                bring.Stop()
+                Functions.StopTeleport()
+                NoClip.value = false
+
+                local deadHum = mob:FindFirstChild("Humanoid") or mob:FindFirstChildOfClass("Humanoid")
+                if (not mob.Parent) or (deadHum and deadHum.Health <= 0) then
+                    Config.KillCount = (Config.KillCount or 0) + 1
+                end
+                currentTarget = nil
             end)
-            farmRunning = false
         end
+
+        farmRunning = false
     end
 end)
 
