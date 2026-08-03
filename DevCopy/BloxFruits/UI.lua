@@ -1556,7 +1556,6 @@ task.spawn(function()
                         end
                         currentTarget = nil
                     end)
-                            end
                         else
                             currentTarget = nil
                             -- Voa ate a posicao dos mobs (CFrameMon) com NoClip ativo
