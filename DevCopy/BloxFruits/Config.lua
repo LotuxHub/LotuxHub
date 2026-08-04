@@ -112,6 +112,8 @@ local Config = {
     KillAuraRadius      = 1000,
     AimbotGun           = false,
     AimbotSkill         = false,
+    AimbotHitBox        = false,
+    AimbotMode          = "Nearest Player Aimbot",
     AutoKillPlayer      = false,
     AutoPlayerHunter    = false,
     SelectedPlayer      = "",
@@ -146,15 +148,6 @@ local Config = {
     AntiAFK             = false,
     SafeMode            = false,
 
-    -- Aimbot
-    AimbotActive        = false,   -- liga o aimbot de skill em players
-    AimbotMode          = "Nearest", -- "Nearest" | "Selected"
-    SelectedPlayer      = "",
-    ExpandPlayerHitbox  = false,
-    ExpandHitboxSize    = 25,      -- tamanho da hitbox expandida
-    AimbotSkill         = false,   -- (legado; pode deixar)
-    AimbotGun           = false,
-
     DisableGameNotify   = false,
     NoFog               = true,
     NotifyErroScript    = false,
@@ -185,8 +178,11 @@ local Config = {
 
     ScriptVersion             = "v2.5.4",
     PreLoadVersion       = "v31.3.2",
-    FunctionsVersion     = "v2.5.5",
-    UIVersion            = "v2.5.0",
-    ConfigVersion         = "v2.4.6",
+    FunctionsVersion     = "v2.5.6",
+    UIVersion            = "v2.5.1",
+    ConfigVersion         = "v2.4.5",
+    SaveSettingsVersion    = "v2.4.5",
+    QuestsVersion           = "v2.4.5",
+    
 }
 return Config
