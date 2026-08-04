@@ -7882,7 +7882,7 @@ end
 -- Vai até o ponto do transporte e chama o remote
 -- =====================================================
 local SUBMERGED_EXIT_POS = Vector3.new(11424.750, -2155.005, 9727.439)
-local SUBMERGED_CHECK_Y  = -500  -- se Y < isso, está na submerged
+local SUBMERGED_CHECK_Y  = -800  -- se Y < isso, está na submerged
 
 function Functions.IsOnSubmergedIsland()
     local char = Player.Character
