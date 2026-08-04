@@ -6071,68 +6071,81 @@ end
 -- Variavel de controle para o lock temporario de rotacao durante skill
 local _aimbotLocking = false
 
+-- CastSkillAtPlayer: mesma logica do CastSkillAtMob, mas o alvo e
+-- um Character de player em vez de um NPC. Chamada externamente
+-- pelo aimbot quando o jogador usa uma skill (Z/X/C).
+function Functions.CastSkillAtPlayer(keyName, targetChar)
+    local char = Player.Character
+    if not char then return end
+    local hrp  = char:FindFirstChild("HumanoidRootPart")
+    local tHrp = targetChar and targetChar:FindFirstChild("HumanoidRootPart")
+    if not hrp or not tHrp then return end
+
+    local VIM = game:GetService("VirtualInputManager")
+    local KEY_MAP = {
+        Z = Enum.KeyCode.Z, X = Enum.KeyCode.X, C = Enum.KeyCode.C,
+        V = Enum.KeyCode.V, F = Enum.KeyCode.F,
+    }
+    local kc = KEY_MAP[keyName]
+    if not kc then return end
+
+    -- Move o mouse virtual pra posicao do player na tela
+    pcall(function()
+        local camera = workspace.CurrentCamera
+        if not camera then return end
+        local screenPos, onScreen = camera:WorldToViewportPoint(tHrp.Position)
+        if onScreen then
+            VIM:SendMouseMoveEvent(screenPos.X, screenPos.Y, game)
+        end
+    end)
+
+    task.wait()
+
+    -- Gira o personagem de frente pro alvo
+    pcall(function()
+        local dir = tHrp.Position - hrp.Position
+        local flatDir = Vector3.new(dir.X, 0, dir.Z)
+        if flatDir.Magnitude > 0.1 then
+            hrp.CFrame = CFrame.new(hrp.Position, hrp.Position + flatDir)
+        end
+    end)
+
+    -- Dispara a skill com a mira ja no player
+    pcall(function()
+        VIM:SendKeyEvent(true,  kc, false, game)
+        task.wait(0.05)
+        VIM:SendKeyEvent(false, kc, false, game)
+    end)
+end
+
 function Functions.StartAimbotSkill(config)
     SafeSpawn(function()
-        local skillKeys = {
-            Enum.KeyCode.Z,
-            Enum.KeyCode.X,
-            Enum.KeyCode.C,
+        local KEY_NAMES = { -- mapa KeyCode -> nome pra CastSkillAtPlayer
+            [Enum.KeyCode.Z] = "Z",
+            [Enum.KeyCode.X] = "X",
+            [Enum.KeyCode.C] = "C",
         }
 
         local conn = UserInputService.InputBegan:Connect(function(input, gameProcessed)
-            -- FIX CRITICO: em Blox Fruits, apertar Z/X/C SEMPRE retorna
-            -- gameProcessed = true porque o jogo registra essas teclas como
-            -- atalhos de skill antes do InputBegan chegar no LocalScript.
-            -- O check "if gameProcessed then return end" matava o aimbot
-            -- inteiro antes de qualquer codigo rodar.
-            -- Removi o check - a skill dispara de qualquer forma, entao
-            -- o aimbot so precisa virar o personagem junto.
             if not config.AimbotSkill then return end
 
-            local isSkill = false
-            for _, k in ipairs(skillKeys) do
-                if input.KeyCode == k then isSkill = true; break end
-            end
-            if not isSkill then return end
+            local keyName = KEY_NAMES[input.KeyCode]
+            if not keyName then return end
 
-            local _, targetHrp = GetAimbotTarget(config)
-            if not targetHrp then return end
+            local targetChar, _ = GetAimbotTarget(config)
+            if not targetChar then return end
 
-            local char = Player.Character
-            local hrp  = char and char:FindFirstChild("HumanoidRootPart")
-            local hum  = char and char:FindFirstChildOfClass("Humanoid")
-            if not hrp or not hum then return end
-
-            if _aimbotLocking then return end
-            _aimbotLocking = true
-
-            local prevAutoRotate = hum.AutoRotate
-            hum.AutoRotate = false
-
-            -- Aponta o HRP horizontalmente pro alvo (ignora diferenca de altura
-            -- pra nao inclinar o personagem em terrenos com desnivel)
-            local targetPos = Vector3.new(targetHrp.Position.X, hrp.Position.Y, targetHrp.Position.Z)
-            hrp.CFrame = CFrame.new(hrp.Position, targetPos)
-
-            -- Mantem apontado por 0.5s (skill sai em <0.2s mas o cooldown
-            -- de algumas dura mais)
-            task.wait(0.5)
-
-            if char and char:FindFirstChildOfClass("Humanoid") then
-                char:FindFirstChildOfClass("Humanoid").AutoRotate = prevAutoRotate
-            end
-            _aimbotLocking = false
+            -- Usa exatamente o mesmo mecanismo do CastSkillAtMob:
+            -- move o mouse virtual pro player e gira o personagem,
+            -- depois dispara a tecla. Sem deteccao adicional de keys
+            -- — a funcao e chamada no proprio InputBegan, igual o
+            -- farm faz ao chamar CastSkillAtMob dentro do loop.
+            Functions.CastSkillAtPlayer(keyName, targetChar)
         end)
 
         while task.wait(0.2) do
             if not config.AimbotSkill then
                 conn:Disconnect()
-                if _aimbotLocking then
-                    _aimbotLocking = false
-                    local char = Player.Character
-                    local hum  = char and char:FindFirstChildOfClass("Humanoid")
-                    if hum then hum.AutoRotate = true end
-                end
                 break
             end
         end
