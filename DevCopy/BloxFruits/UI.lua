@@ -2780,30 +2780,62 @@ FruitRaidTab:AddToggle({ Title = "Auto Attack Law",           Default = false, F
 local LPTab = Window:MakeTab({ Title = T("tab_localplayer"), Icon = "users" })
 
 LPTab:AddSection("Aimbot")
-LPTab:AddDropdown({ Title = "Select Player",
-    Options = (function()
-        local names = {}
-        for _, plr in ipairs(Players:GetPlayers()) do
-            if plr ~= Player then table.insert(names, plr.Name) end
-        end
-        if #names == 0 then names = { "Nenhum" } end
-        return names
-    end)(),
-    Default = "Nenhum",
-    Callback = function(v) Config.SelectedPlayer = (type(v) == "table" and (v[1] or next(v)) or tostring(v)) end })
-LPTab:AddToggle({ Title = "Aimbot Method Skill",     Default = false,
-    Flag = "AimbotSkill", Callback = function(v)
-        Config.AimbotSkill = v
-        if v then task.spawn(function() Functions.StartAimbotSkill(Config) end) end
-        Notify({ Title = v and "Aimbot Skill ON" or "OFF", Image = IMG, Type = v and "Success" or "Info", Duration = 2 })
-    end })
-LPTab:AddToggle({ Title = "Aimbot Camera Closest Player", Default = false,
-    Flag = "AimbotGun", Callback = function(v)
-        Config.AimbotGun = v
-        if v then task.spawn(function() Functions.StartAimbotGun(Config) end) end
-        Notify({ Title = v and "Aimbot Gun ON" or "OFF", Image = IMG, Type = v and "Success" or "Info", Duration = 2 })
-    end })
 
+local function GetPlayerNames()
+    local names = {}
+    for _, plr in ipairs(Players:GetPlayers()) do
+        if plr ~= Player then table.insert(names, plr.Name) end
+    end
+    if #names == 0 then names = { "Nenhum" } end
+    return names
+end
+
+LPTab:AddDropdown({
+    Title = "Select Player",
+    Options = GetPlayerNames(),
+    Default = "Nenhum",
+    Flag = "SelectedPlayer",
+    Callback = function(v)
+        Config.SelectedPlayer = (type(v) == "table" and (v[1] or next(v)) or tostring(v))
+    end,
+})
+
+LPTab:AddDropdown({
+    Title = "Select Aimbot Mode",
+    Options = { "Nearest Players Aimbot", "Selected Player Aimbot" },
+    Default = "Nearest Players Aimbot",
+    Flag = "AimbotMode",
+    Callback = function(v)
+        local mode = (type(v) == "table" and (v[1] or next(v)) or tostring(v))
+        Config.AimbotMode = mode:find("Selected") and "Selected" or "Nearest"
+    end,
+})
+
+LPTab:AddToggle({
+    Title = "Expansion Hitbox Players",
+    Default = false,
+    Flag = "ExpandPlayerHitbox",
+    Callback = function(v)
+        Config.ExpandPlayerHitbox = v
+        Notify({ Title = v and "Hitbox Players ON" or "OFF", Image = IMG, Type = v and "Success" or "Info", Duration = 2 })
+    end,
+})
+
+LPTab:AddToggle({
+    Title = "Active Aimbot",
+    Default = false,
+    Flag = "AimbotActive",
+    Callback = function(v)
+        Config.AimbotActive = v
+        if v then Functions.StartActiveAimbot(Config) end
+        Notify({
+            Title = v and "Aimbot ON (Skills + M1)" or "Aimbot OFF",
+            Image = IMG,
+            Type = v and "Success" or "Info",
+            Duration = 2,
+        })
+    end,
+})
 LPTab:AddSection("Quests Players")
 LPTab:AddToggle({ Title = "Auto Get Player Quest",    Default = false, Flag = "G_AutoGetPlayerQuest", Callback = function(v) _G.AutoGetPlayerQuest  = v end })
 LPTab:AddToggle({ Title = "Auto Kill Player Quest",   Default = false, Flag = "AutoKillPlayer", Callback = function(v) Config.AutoKillPlayer  = v end })

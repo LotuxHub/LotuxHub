@@ -146,6 +146,15 @@ local Config = {
     AntiAFK             = false,
     SafeMode            = false,
 
+    -- Aimbot
+    AimbotActive        = false,   -- liga o aimbot de skill em players
+    AimbotMode          = "Nearest", -- "Nearest" | "Selected"
+    SelectedPlayer      = "",
+    ExpandPlayerHitbox  = false,
+    ExpandHitboxSize    = 25,      -- tamanho da hitbox expandida
+    AimbotSkill         = false,   -- (legado; pode deixar)
+    AimbotGun           = false,
+
     DisableGameNotify   = false,
     NoFog               = true,
     NotifyErroScript    = false,
@@ -174,13 +183,10 @@ local Config = {
     StartBring          = false,
     MonFarm             = "",
 
-    ScriptVersion             = "v2.5.3",
+    ScriptVersion             = "v2.5.4",
     PreLoadVersion       = "v31.3.2",
-    FunctionsVersion     = "v2.5.4",
-    UIVersion            = "v2.4.9",
-    ConfigVersion         = "v2.4.5",
-    SaveSettingsVersion    = "v2.4.5",
-    QuestsVersion           = "v2.4.5",
-    
+    FunctionsVersion     = "v2.5.5",
+    UIVersion            = "v2.5.0",
+    ConfigVersion         = "v2.4.6",
 }
 return Config

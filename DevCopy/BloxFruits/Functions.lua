@@ -6103,7 +6103,8 @@ local MOVEMENT_EXCLUDE_KEYS = {
     -- Estado interno / compras pontuais (nao sao loops de navegacao)
     BringMob = true, StartBring = true, AutoBuyChipRaid = true,
     AutoBuyChipRaidLaw = true, AutoBuyEnhancementColour = true,
-    AutoBuyLegendarySword = true,
+    AutoBuyLegendarySword = true,AimbotActive = true,
+    ExpandPlayerHitbox = true,
 }
 
 -- =====================================================
@@ -6618,8 +6619,144 @@ function Functions.StartAllLoops(config)
 
     -- Notificacoes
     Functions.StartDisableGameNotify(config)
+
+    --Aimbot
+    Functions.StartActiveAimbot(config)
+    -- NÃO precisa StartAimbotSkill / StartAimbotGun
 end
 
+-- =====================================================
+-- ACTIVE AIMBOT (Players)
+-- Mira só no momento da skill (Z/X/C/V) ou M1 (click)
+-- Mode: "Nearest" | "Selected"
+-- =====================================================
+
+local AIMBOT_KEYS = {
+    [Enum.KeyCode.Z] = true,
+    [Enum.KeyCode.X] = true,
+    [Enum.KeyCode.C] = true,
+    [Enum.KeyCode.V] = true,
+}
+
+local function GetAlivePlayerCharacter(plr)
+    if not plr or plr == Player then return nil end
+    local char = plr.Character
+    if not char then return nil end
+    local hum = char:FindFirstChildOfClass("Humanoid")
+    local hrp = char:FindFirstChild("HumanoidRootPart")
+    if hum and hrp and hum.Health > 0 then
+        return char, hrp, hum
+    end
+    return nil
+end
+
+function Functions.GetAimbotTarget(config)
+    local myChar = Player.Character
+    local myHrp  = myChar and myChar:FindFirstChild("HumanoidRootPart")
+    if not myHrp then return nil, nil end
+
+    local mode = config.AimbotMode or "Nearest"
+    if type(mode) == "table" then mode = mode[1] or "Nearest" end
+    mode = tostring(mode)
+
+    if mode == "Selected" or mode:find("Selected") then
+        local name = config.SelectedPlayer
+        if type(name) == "table" then name = name[1] or "" end
+        name = tostring(name or "")
+        if name == "" or name == "Nenhum" then return nil, nil end
+        local plr = Players:FindFirstChild(name)
+        local char, hrp = GetAlivePlayerCharacter(plr)
+        return char, hrp
+    end
+
+    -- Nearest
+    local nearest, nearestHrp, best = nil, nil, math.huge
+    for _, plr in ipairs(Players:GetPlayers()) do
+        local char, hrp = GetAlivePlayerCharacter(plr)
+        if hrp then
+            local d = (hrp.Position - myHrp.Position).Magnitude
+            if d < best then
+                best, nearest, nearestHrp = d, char, hrp
+            end
+        end
+    end
+    return nearest, nearestHrp
+end
+
+function Functions.AimAtPlayerOnce(targetHrp)
+    if not targetHrp then return end
+    local char = Player.Character
+    local hrp  = char and char:FindFirstChild("HumanoidRootPart")
+    if not hrp then return end
+
+    pcall(function()
+        local dir = targetHrp.Position - hrp.Position
+        local flat = Vector3.new(dir.X, 0, dir.Z)
+        if flat.Magnitude > 0.1 then
+            hrp.CFrame = CFrame.new(hrp.Position, hrp.Position + flat)
+        end
+    end)
+
+    pcall(function()
+        local cam = workspace.CurrentCamera
+        if not cam then return end
+        local sp, onScreen = cam:WorldToViewportPoint(targetHrp.Position)
+        if onScreen then
+            VirtualInputManager:SendMouseMoveEvent(sp.X, sp.Y, game)
+        end
+    end)
+
+    pcall(function()
+        local cam = workspace.CurrentCamera
+        if cam then
+            cam.CFrame = CFrame.new(cam.CFrame.Position, targetHrp.Position)
+        end
+    end)
+end
+
+local _aimbotStarted = false
+
+function Functions.StartActiveAimbot(config)
+    if _aimbotStarted then return end
+    _aimbotStarted = true
+
+    SafeSpawn(function()
+        local function DoAim()
+            if not config.AimbotActive then return end
+            local _, targetHrp = Functions.GetAimbotTarget(config)
+            if not targetHrp then return end
+            Functions.AimAtPlayerOnce(targetHrp)
+            task.wait(0.03)
+            Functions.AimAtPlayerOnce(targetHrp)
+        end
+
+        -- Skills Z / X / C / V
+        UserInputService.InputBegan:Connect(function(input, gp)
+            if gp then return end
+            if not config.AimbotActive then return end
+            if AIMBOT_KEYS[input.KeyCode] then
+                pcall(DoAim)
+            end
+        end)
+
+        -- M1 (click esquerdo)
+        UserInputService.InputBegan:Connect(function(input, gp)
+            if gp then return end
+            if not config.AimbotActive then return end
+            if input.UserInputType == Enum.UserInputType.MouseButton1 then
+                pcall(DoAim)
+            end
+        end)
+    end)
+end
+
+-- Compat: se algo ainda chamar StartAimbotSkill / StartAimbotGun
+function Functions.StartAimbotSkill(config)
+    Functions.StartActiveAimbot(config)
+end
+function Functions.StartAimbotGun(config)
+    -- não faz nada (removido)
+end
 
 -- =====================================================
 -- FUNCOES ADICIONAIS (novas, nao duplicadas)
