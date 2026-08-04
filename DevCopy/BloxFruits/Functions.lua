@@ -6059,8 +6059,8 @@ local function GetAimbotTarget(config)
         if tHrp and tHum and tHum.Health > 0 then
             local d = (tHrp.Position - hrp.Position).Magnitude
             if d < minDist then
-                minDist   = d
-                nearest   = tChar
+                minDist    = d
+                nearest    = tChar
                 nearestHrp = tHrp
             end
         end
@@ -6073,8 +6073,6 @@ local _aimbotLocking = false
 
 function Functions.StartAimbotSkill(config)
     SafeSpawn(function()
-        -- Detecta pressionamento REAL das teclas Z, X, C pelo jogador
-        -- (nao os PressKey automaticos do AutoSkill).
         local skillKeys = {
             Enum.KeyCode.Z,
             Enum.KeyCode.X,
@@ -6082,7 +6080,13 @@ function Functions.StartAimbotSkill(config)
         }
 
         local conn = UserInputService.InputBegan:Connect(function(input, gameProcessed)
-            if gameProcessed then return end
+            -- FIX CRITICO: em Blox Fruits, apertar Z/X/C SEMPRE retorna
+            -- gameProcessed = true porque o jogo registra essas teclas como
+            -- atalhos de skill antes do InputBegan chegar no LocalScript.
+            -- O check "if gameProcessed then return end" matava o aimbot
+            -- inteiro antes de qualquer codigo rodar.
+            -- Removi o check - a skill dispara de qualquer forma, entao
+            -- o aimbot so precisa virar o personagem junto.
             if not config.AimbotSkill then return end
 
             local isSkill = false
@@ -6099,29 +6103,27 @@ function Functions.StartAimbotSkill(config)
             local hum  = char and char:FindFirstChildOfClass("Humanoid")
             if not hrp or not hum then return end
 
-            -- Vira o corpo do player pro alvo por 0.4s
-            -- (sem mexer na camera, sem travar o AutoRotate permanentemente)
-            if _aimbotLocking then return end -- ja esta travado por outra skill
+            if _aimbotLocking then return end
             _aimbotLocking = true
 
             local prevAutoRotate = hum.AutoRotate
             hum.AutoRotate = false
 
-            -- Aponta o HRP horizontalmente pro alvo (ignora diferenca de altura)
+            -- Aponta o HRP horizontalmente pro alvo (ignora diferenca de altura
+            -- pra nao inclinar o personagem em terrenos com desnivel)
             local targetPos = Vector3.new(targetHrp.Position.X, hrp.Position.Y, targetHrp.Position.Z)
             hrp.CFrame = CFrame.new(hrp.Position, targetPos)
 
-            -- Mantém apontado por 0.4s (skill normalmente sai em <0.2s)
-            task.wait(0.4)
+            -- Mantem apontado por 0.5s (skill sai em <0.2s mas o cooldown
+            -- de algumas dura mais)
+            task.wait(0.5)
 
-            -- Restaura rotacao livre
             if char and char:FindFirstChildOfClass("Humanoid") then
                 char:FindFirstChildOfClass("Humanoid").AutoRotate = prevAutoRotate
             end
             _aimbotLocking = false
         end)
 
-        -- Fica vivo enquanto AimbotSkill estiver ativo
         while task.wait(0.2) do
             if not config.AimbotSkill then
                 conn:Disconnect()
@@ -6137,8 +6139,7 @@ function Functions.StartAimbotSkill(config)
     end)
 end
 
--- AimbotGun mantido por compatibilidade com o SaveSystem (flag AimbotGun),
--- mas a UI nova nao expoe mais esse toggle separado.
+-- AimbotGun mantido por compatibilidade com o SaveSystem (flag AimbotGun)
 function Functions.StartAimbotGun(config)
     SafeSpawn(function()
         while task.wait(0.05) do
@@ -6159,64 +6160,62 @@ function Functions.StartAimbotGun(config)
 end
 
 -- =====================================================
--- EXPANSION HITBOX
+-- EXPANSION HITBOX (corrigido)
 -- =====================================================
--- Cria uma BasePart grande e transparente em cima de cada
--- player adversario, aumentando fisicamente a area que
--- as skills podem acertar. Remove automaticamente quando
--- o toggle e desligado ou o player sai do jogo.
+-- A versao anterior criava uma Part invisivel local com
+-- CanCollide=false. Nao funciona: as skills de Blox Fruits
+-- usam raycasts validados no SERVIDOR contra o HumanoidRootPart
+-- do alvo — uma Part local sem colisao nunca e detectada.
+--
+-- A unica abordagem que funciona no cliente e teleportar o
+-- HRP do adversario para perto do player via sethiddenproperty
+-- SimulationRadius=math.huge (que faz o cliente simular o
+-- personagem do adversario localmente). Assim o servidor
+-- recebe o HRP na posicao nova e valida o hit normalmente.
 -- =====================================================
-local _hitboxConn = nil
+local _hitboxConn    = nil
+local _hitboxActive  = false
+local _hitboxTargets = {} -- {player -> posOriginal}
 
 function Functions.StartAimbotHitBox(config)
+    if _hitboxActive then return end
+    _hitboxActive = true
+
     if _hitboxConn then _hitboxConn:Disconnect() end
 
-    local HITBOX_SIZE = Vector3.new(8, 8, 8) -- studs extras ao redor do HRP
+    local HITBOX_OFFSET = Vector3.new(0, 0, 3) -- 3 studs a frente do player
 
-    local function AddHitboxTo(plr)
+    local function AttachTo(plr)
         if plr == Player then return end
         SafeSpawn(function()
-            while config.AimbotHitBox do
-                local tChar = plr.Character
-                local tHrp  = tChar and tChar:FindFirstChild("HumanoidRootPart")
-                if tHrp then
-                    local existing = tHrp:FindFirstChild("LotuxHitBox")
-                    if not existing then
-                        local hb         = Instance.new("Part")
-                        hb.Name          = "LotuxHitBox"
-                        hb.Size          = HITBOX_SIZE
-                        hb.Transparency  = 1
-                        hb.CanCollide    = false
-                        hb.Massless      = true
-                        hb.CFrame        = tHrp.CFrame
-                        hb.Parent        = tHrp
-                        local weld       = Instance.new("WeldConstraint")
-                        weld.Part0       = tHrp
-                        weld.Part1       = hb
-                        weld.Parent      = hb
+            while _hitboxActive and config.AimbotHitBox do
+                pcall(function()
+                    local char  = Player.Character
+                    local hrp   = char and char:FindFirstChild("HumanoidRootPart")
+                    local tChar = plr.Character
+                    local tHrp  = tChar and tChar:FindFirstChild("HumanoidRootPart")
+                    local tHum  = tChar and tChar:FindFirstChildOfClass("Humanoid")
+                    if hrp and tHrp and tHum and tHum.Health > 0 then
+                        -- Habilita simulacao local do personagem adversario
+                        sethiddenproperty(Player, "SimulationRadius", math.huge)
+                        -- Posiciona o HRP dele 3 studs a frente do player
+                        local dest = hrp.CFrame * CFrame.new(HITBOX_OFFSET)
+                        tHrp.CFrame = dest
                     end
-                end
-                task.wait(1)
+                end)
+                task.wait(0.05)
             end
         end)
     end
 
-    for _, plr in ipairs(Players:GetPlayers()) do AddHitboxTo(plr) end
-    _hitboxConn = Players.PlayerAdded:Connect(AddHitboxTo)
+    for _, plr in ipairs(Players:GetPlayers()) do AttachTo(plr) end
+    _hitboxConn = Players.PlayerAdded:Connect(AttachTo)
 end
 
 function Functions.StopAimbotHitBox()
+    _hitboxActive = false
     if _hitboxConn then _hitboxConn:Disconnect(); _hitboxConn = nil end
-    for _, plr in ipairs(Players:GetPlayers()) do
-        local tChar = plr.Character
-        local tHrp  = tChar and tChar:FindFirstChild("HumanoidRootPart")
-        if tHrp then
-            local hb = tHrp:FindFirstChild("LotuxHitBox")
-            if hb then hb:Destroy() end
-        end
-    end
 end
-
 
 
 -- =====================================================
