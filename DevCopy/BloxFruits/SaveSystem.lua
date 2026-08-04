@@ -163,9 +163,9 @@ function SaveSystem.Init(Config)
     end
     SaveSystem.StartAutoSave(Config, 30)
     if hadSave then
-        print("[SaveSystem] ✅ Configs restauradas para: " .. ACCOUNT_NAME)
+        print("Configs restauradas para: " .. ACCOUNT_NAME)
     else
-        print("[SaveSystem] 🆕 Primeira execução para: " .. ACCOUNT_NAME .. " — usando padrões.")
+        print("Primeira execução para: " .. ACCOUNT_NAME .. " — usando padrões.")
     end
     return hadSave
 end
