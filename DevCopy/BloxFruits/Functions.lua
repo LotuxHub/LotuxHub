@@ -6074,35 +6074,27 @@ local _aimbotLocking = false
 -- CastSkillAtPlayer: mesma logica do CastSkillAtMob, mas o alvo e
 -- um Character de player em vez de um NPC. Chamada externamente
 -- pelo aimbot quando o jogador usa uma skill (Z/X/C).
--- CastSkillAtPlayer: chama o remote de skill do Blox Fruits diretamente
--- com o CFrame do alvo. Esse e o mesmo remote que o jogo invoca quando
--- voce aperta Z/X/C — "Humanoid:WaitForChild(''):InvokeServer(key, CFrame)".
--- Passando o CFrame do HRP do alvo, a skill vai SEMPRE pra ele,
--- independente de mouse, camera ou input do usuario.
--- Nao precisa de SendKeyEvent (nao redispara a tecla) nem de mouse
--- virtual (nao briga com o input real). Skills hold funcionam normalmente
--- porque o input original do jogador passa direto pelo jogo — so a mira
--- e redirecionada via remote.
 function Functions.CastSkillAtPlayer(keyName, targetChar)
     local char = Player.Character
     if not char then return end
-    local hum  = char:FindFirstChildOfClass("Humanoid")
     local hrp  = char:FindFirstChild("HumanoidRootPart")
+    local hum  = char:FindFirstChildOfClass("Humanoid")
     local tHrp = targetChar and targetChar:FindFirstChild("HumanoidRootPart")
-    if not hum or not hrp or not tHrp then return end
+    if not hrp or not hum or not tHrp then return end
 
-    -- O remote de skill do BF fica dentro do Humanoid com nome vazio ("")
-    local skillRemote = hum:FindFirstChild("")
-    if not skillRemote then return end
-
-    -- CFrame apontando do player pro alvo (mesma estrutura que o jogo manda)
     local targetPos = tHrp.Position
-    local aimCFrame = CFrame.new(hrp.Position, targetPos)
-                    * CFrame.new(0, 0, -(hrp.Position - targetPos).Magnitude)
+    local cam       = workspace.CurrentCamera
 
-    pcall(function()
-        skillRemote:InvokeServer(keyName, aimCFrame)
-    end)
+    -- Vira o HRP do personagem pro alvo (yaw horizontal)
+    local flatDir = Vector3.new(targetPos.X - hrp.Position.X, 0, targetPos.Z - hrp.Position.Z)
+    if flatDir.Magnitude > 0.1 then
+        hrp.CFrame = CFrame.new(hrp.Position, hrp.Position + flatDir)
+    end
+
+    -- Vira a camera pro alvo tambem (BF usa camera pra calcular direcao de algumas skills)
+    if cam then
+        cam.CFrame = CFrame.new(cam.CFrame.Position, targetPos)
+    end
 end
 
 function Functions.StartAimbotSkill(config)
@@ -6111,35 +6103,71 @@ function Functions.StartAimbotSkill(config)
             [Enum.KeyCode.Z] = "Z",
             [Enum.KeyCode.X] = "X",
             [Enum.KeyCode.C] = "C",
+            [Enum.KeyCode.V] = "V",
         }
 
-        -- InputBegan: intercepta Z/X/C e redireciona a skill pro alvo
-        -- via remote direto. O input original do jogo continua passando
-        -- normalmente (nao cancelamos o event), mas a segunda chamada
-        -- via remote sobrescreve a mira com o CFrame do alvo.
+        -- Guarda a CFrame da camera antes do aimbot mexer nela,
+        -- pra restaurar depois que a skill saiu
+        local _prevCamCF  = nil
+        local _restoring  = false
+
         local connBegan = UserInputService.InputBegan:Connect(function(input, gameProcessed)
             if not config.AimbotSkill then return end
-            local keyName = KEY_NAMES[input.KeyCode]
-            if not keyName then return end
+            if not KEY_NAMES[input.KeyCode] then return end
 
             local targetChar = GetAimbotTarget(config)
             if not targetChar then return end
 
-            -- Chama o remote com CFrame do alvo (nao redispara a tecla,
-            -- nao mexe no mouse — so manda a mira pro servidor)
-            Functions.CastSkillAtPlayer(keyName, targetChar)
+            -- Salva camera atual antes de virar
+            local cam = workspace.CurrentCamera
+            if cam and not _prevCamCF then
+                _prevCamCF = cam.CFrame
+            end
+
+            Functions.CastSkillAtPlayer(KEY_NAMES[input.KeyCode], targetChar)
         end)
 
         local connEnded = UserInputService.InputEnded:Connect(function(input)
-            -- Nada a fazer no InputEnded — sem heldKeys, sem loop de hold
-            -- (o remote ja foi chamado com a mira correta no InputBegan)
+            if not KEY_NAMES[input.KeyCode] then return end
+            if _restoring then return end
+            -- Restaura camera original apos soltar a tecla
+            _restoring = true
+            task.wait(0.1)
+            if _prevCamCF then
+                local cam = workspace.CurrentCamera
+                if cam then cam.CFrame = _prevCamCF end
+                _prevCamCF = nil
+            end
+            _restoring = false
         end)
 
-        while task.wait(0.2) do
+        while task.wait(0.1) do
             if not config.AimbotSkill then
                 connBegan:Disconnect()
                 connEnded:Disconnect()
+                _prevCamCF = nil
                 break
+            end
+
+            -- Enquanto segurar skill, continua atualizando a mira
+            -- (necessario pra skills hold como Dragon C, Godhuman C)
+            if _prevCamCF then
+                local targetChar = GetAimbotTarget(config)
+                if targetChar then
+                    -- so atualiza o HRP/cam sem sobrescrever _prevCamCF
+                    local char = Player.Character
+                    local hrp  = char and char:FindFirstChild("HumanoidRootPart")
+                    local tHrp = targetChar:FindFirstChild("HumanoidRootPart")
+                    local cam  = workspace.CurrentCamera
+                    if hrp and tHrp and cam then
+                        local tp = tHrp.Position
+                        local fd = Vector3.new(tp.X - hrp.Position.X, 0, tp.Z - hrp.Position.Z)
+                        if fd.Magnitude > 0.1 then
+                            hrp.CFrame = CFrame.new(hrp.Position, hrp.Position + fd)
+                        end
+                        cam.CFrame = CFrame.new(cam.CFrame.Position, tp)
+                    end
+                end
             end
         end
     end)
@@ -6168,59 +6196,92 @@ end
 -- =====================================================
 -- EXPANSION HITBOX (corrigido)
 -- =====================================================
--- A versao anterior criava uma Part invisivel local com
--- CanCollide=false. Nao funciona: as skills de Blox Fruits
--- usam raycasts validados no SERVIDOR contra o HumanoidRootPart
--- do alvo — uma Part local sem colisao nunca e detectada.
---
--- A unica abordagem que funciona no cliente e teleportar o
--- HRP do adversario para perto do player via sethiddenproperty
--- SimulationRadius=math.huge (que faz o cliente simular o
--- personagem do adversario localmente). Assim o servidor
--- recebe o HRP na posicao nova e valida o hit normalmente.
+-- Expande o HumanoidRootPart do alvo diretamente e deixa
+-- levemente transparente pra visualizar. Como o HRP real
+-- fica maior, qualquer hit nessa area e validado pelo
+-- servidor normalmente — sem precisar de Part extra.
+-- Ao desativar, restaura o tamanho e transparencia originais.
 -- =====================================================
-local _hitboxConn    = nil
-local _hitboxActive  = false
-local _hitboxTargets = {} -- {player -> posOriginal}
+local _hitboxActive   = false
+local _hitboxConn     = nil
+local _hitboxOriginals = {} -- {hrp -> {Size, Transparency}}
+
+local HITBOX_SIZE        = Vector3.new(12, 12, 12) -- tamanho expandido
+local HITBOX_TRANSPARENCY = 0.5                     -- 0=opaco 1=invisivel
+
+local function ExpandHRP(plr)
+    if plr == Player then return end
+    local tChar = plr.Character
+    local tHrp  = tChar and tChar:FindFirstChild("HumanoidRootPart")
+    if not tHrp then return end
+    if _hitboxOriginals[tHrp] then return end -- ja expandido
+
+    _hitboxOriginals[tHrp] = {
+        Size         = tHrp.Size,
+        Transparency = tHrp.Transparency,
+    }
+    tHrp.Size         = HITBOX_SIZE
+    tHrp.Transparency = HITBOX_TRANSPARENCY
+end
+
+local function RestoreHRP(hrp)
+    local orig = _hitboxOriginals[hrp]
+    if not orig then return end
+    pcall(function()
+        hrp.Size         = orig.Size
+        hrp.Transparency = orig.Transparency
+    end)
+    _hitboxOriginals[hrp] = nil
+end
 
 function Functions.StartAimbotHitBox(config)
     if _hitboxActive then return end
     _hitboxActive = true
 
-    if _hitboxConn then _hitboxConn:Disconnect() end
-
-    local HITBOX_OFFSET = Vector3.new(0, 0, 3) -- 3 studs a frente do player
-
-    local function AttachTo(plr)
-        if plr == Player then return end
-        SafeSpawn(function()
-            while _hitboxActive and config.AimbotHitBox do
-                pcall(function()
-                    local char  = Player.Character
-                    local hrp   = char and char:FindFirstChild("HumanoidRootPart")
-                    local tChar = plr.Character
-                    local tHrp  = tChar and tChar:FindFirstChild("HumanoidRootPart")
-                    local tHum  = tChar and tChar:FindFirstChildOfClass("Humanoid")
-                    if hrp and tHrp and tHum and tHum.Health > 0 then
-                        -- Habilita simulacao local do personagem adversario
-                        sethiddenproperty(Player, "SimulationRadius", math.huge)
-                        -- Posiciona o HRP dele 3 studs a frente do player
-                        local dest = hrp.CFrame * CFrame.new(HITBOX_OFFSET)
-                        tHrp.CFrame = dest
-                    end
-                end)
-                task.wait(0.05)
-            end
-        end)
+    -- Expande players ja na server
+    for _, plr in ipairs(Players:GetPlayers()) do
+        pcall(function() ExpandHRP(plr) end)
     end
 
-    for _, plr in ipairs(Players:GetPlayers()) do AttachTo(plr) end
-    _hitboxConn = Players.PlayerAdded:Connect(AttachTo)
+    -- Expande players que entrarem depois
+    if _hitboxConn then _hitboxConn:Disconnect() end
+    _hitboxConn = Players.PlayerAdded:Connect(function(plr)
+        -- Espera o character carregar
+        plr.CharacterAdded:Connect(function()
+            task.wait(1)
+            if _hitboxActive then
+                pcall(function() ExpandHRP(plr) end)
+            end
+        end)
+    end)
+
+    -- Quando o character do alvo respawna, reexpande
+    SafeSpawn(function()
+        while _hitboxActive and config.AimbotHitBox do
+            for _, plr in ipairs(Players:GetPlayers()) do
+                if plr == Player then continue end
+                pcall(function()
+                    local tChar = plr.Character
+                    local tHrp  = tChar and tChar:FindFirstChild("HumanoidRootPart")
+                    if tHrp and not _hitboxOriginals[tHrp] then
+                        ExpandHRP(plr) -- respawnou, reexpande
+                    end
+                end)
+            end
+            task.wait(1)
+        end
+    end)
 end
 
 function Functions.StopAimbotHitBox()
     _hitboxActive = false
     if _hitboxConn then _hitboxConn:Disconnect(); _hitboxConn = nil end
+
+    -- Restaura todos os HRPs expandidos
+    for hrp in pairs(_hitboxOriginals) do
+        RestoreHRP(hrp)
+    end
+    _hitboxOriginals = {}
 end
 
 
