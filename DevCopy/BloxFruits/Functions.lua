@@ -6078,23 +6078,33 @@ function Functions.CastSkillAtPlayer(keyName, targetChar)
     local char = Player.Character
     if not char then return end
     local hrp  = char:FindFirstChild("HumanoidRootPart")
-    local hum  = char:FindFirstChildOfClass("Humanoid")
     local tHrp = targetChar and targetChar:FindFirstChild("HumanoidRootPart")
-    if not hrp or not hum or not tHrp then return end
+    if not hrp or not tHrp then return end
 
-    local targetPos = tHrp.Position
-    local cam       = workspace.CurrentCamera
+    local VIM    = game:GetService("VirtualInputManager")
+    local camera = workspace.CurrentCamera
+    if not camera then return end
 
-    -- Vira o HRP do personagem pro alvo (yaw horizontal)
-    local flatDir = Vector3.new(targetPos.X - hrp.Position.X, 0, targetPos.Z - hrp.Position.Z)
-    if flatDir.Magnitude > 0.1 then
-        hrp.CFrame = CFrame.new(hrp.Position, hrp.Position + flatDir)
-    end
+    -- Move o mouse virtual pra posicao do alvo na tela
+    -- (igual CastSkillAtMob faz pros NPCs)
+    pcall(function()
+        local screenPos, onScreen = camera:WorldToViewportPoint(tHrp.Position)
+        if onScreen then
+            VIM:SendMouseMoveEvent(screenPos.X, screenPos.Y, game)
+        end
+    end)
 
-    -- Vira a camera pro alvo tambem (BF usa camera pra calcular direcao de algumas skills)
-    if cam then
-        cam.CFrame = CFrame.new(cam.CFrame.Position, targetPos)
-    end
+    -- Gira o HRP pro alvo (cobre skills que usam direcao do personagem)
+    pcall(function()
+        local flatDir = Vector3.new(
+            tHrp.Position.X - hrp.Position.X,
+            0,
+            tHrp.Position.Z - hrp.Position.Z
+        )
+        if flatDir.Magnitude > 0.1 then
+            hrp.CFrame = CFrame.new(hrp.Position, hrp.Position + flatDir)
+        end
+    end)
 end
 
 function Functions.StartAimbotSkill(config)
@@ -6106,11 +6116,6 @@ function Functions.StartAimbotSkill(config)
             [Enum.KeyCode.V] = "V",
         }
 
-        -- Guarda a CFrame da camera antes do aimbot mexer nela,
-        -- pra restaurar depois que a skill saiu
-        local _prevCamCF  = nil
-        local _restoring  = false
-
         local connBegan = UserInputService.InputBegan:Connect(function(input, gameProcessed)
             if not config.AimbotSkill then return end
             if not KEY_NAMES[input.KeyCode] then return end
@@ -6118,56 +6123,44 @@ function Functions.StartAimbotSkill(config)
             local targetChar = GetAimbotTarget(config)
             if not targetChar then return end
 
-            -- Salva camera atual antes de virar
-            local cam = workspace.CurrentCamera
-            if cam and not _prevCamCF then
-                _prevCamCF = cam.CFrame
-            end
-
             Functions.CastSkillAtPlayer(KEY_NAMES[input.KeyCode], targetChar)
         end)
 
+        -- Atualiza mira enquanto tecla estiver segurada (skills hold)
         local connEnded = UserInputService.InputEnded:Connect(function(input)
-            if not KEY_NAMES[input.KeyCode] then return end
-            if _restoring then return end
-            -- Restaura camera original apos soltar a tecla
-            _restoring = true
-            task.wait(0.1)
-            if _prevCamCF then
-                local cam = workspace.CurrentCamera
-                if cam then cam.CFrame = _prevCamCF end
-                _prevCamCF = nil
-            end
-            _restoring = false
+            -- sem acao, o loop abaixo cuida do hold
         end)
 
-        while task.wait(0.1) do
+        local heldKeys = {}
+        local connB2 = UserInputService.InputBegan:Connect(function(input)
+            if KEY_NAMES[input.KeyCode] then heldKeys[input.KeyCode] = true end
+        end)
+        local connE2 = UserInputService.InputEnded:Connect(function(input)
+            heldKeys[input.KeyCode] = nil
+        end)
+
+        SafeSpawn(function()
+            while task.wait(0.05) do
+                if not config.AimbotSkill then break end
+                local anyHeld = false
+                for _ in pairs(heldKeys) do anyHeld = true; break end
+                if anyHeld then
+                    local targetChar = GetAimbotTarget(config)
+                    if targetChar then
+                        Functions.CastSkillAtPlayer("Z", targetChar) -- so move o mouse/hrp
+                    end
+                end
+            end
+        end)
+
+        while task.wait(0.2) do
             if not config.AimbotSkill then
                 connBegan:Disconnect()
                 connEnded:Disconnect()
-                _prevCamCF = nil
+                connB2:Disconnect()
+                connE2:Disconnect()
+                heldKeys = {}
                 break
-            end
-
-            -- Enquanto segurar skill, continua atualizando a mira
-            -- (necessario pra skills hold como Dragon C, Godhuman C)
-            if _prevCamCF then
-                local targetChar = GetAimbotTarget(config)
-                if targetChar then
-                    -- so atualiza o HRP/cam sem sobrescrever _prevCamCF
-                    local char = Player.Character
-                    local hrp  = char and char:FindFirstChild("HumanoidRootPart")
-                    local tHrp = targetChar:FindFirstChild("HumanoidRootPart")
-                    local cam  = workspace.CurrentCamera
-                    if hrp and tHrp and cam then
-                        local tp = tHrp.Position
-                        local fd = Vector3.new(tp.X - hrp.Position.X, 0, tp.Z - hrp.Position.Z)
-                        if fd.Magnitude > 0.1 then
-                            hrp.CFrame = CFrame.new(hrp.Position, hrp.Position + fd)
-                        end
-                        cam.CFrame = CFrame.new(cam.CFrame.Position, tp)
-                    end
-                end
             end
         end
     end)
