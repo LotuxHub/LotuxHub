@@ -6074,78 +6074,71 @@ local _aimbotLocking = false
 -- CastSkillAtPlayer: mesma logica do CastSkillAtMob, mas o alvo e
 -- um Character de player em vez de um NPC. Chamada externamente
 -- pelo aimbot quando o jogador usa uma skill (Z/X/C).
+-- CastSkillAtPlayer: chama o remote de skill do Blox Fruits diretamente
+-- com o CFrame do alvo. Esse e o mesmo remote que o jogo invoca quando
+-- voce aperta Z/X/C — "Humanoid:WaitForChild(''):InvokeServer(key, CFrame)".
+-- Passando o CFrame do HRP do alvo, a skill vai SEMPRE pra ele,
+-- independente de mouse, camera ou input do usuario.
+-- Nao precisa de SendKeyEvent (nao redispara a tecla) nem de mouse
+-- virtual (nao briga com o input real). Skills hold funcionam normalmente
+-- porque o input original do jogador passa direto pelo jogo — so a mira
+-- e redirecionada via remote.
 function Functions.CastSkillAtPlayer(keyName, targetChar)
     local char = Player.Character
     if not char then return end
+    local hum  = char:FindFirstChildOfClass("Humanoid")
     local hrp  = char:FindFirstChild("HumanoidRootPart")
     local tHrp = targetChar and targetChar:FindFirstChild("HumanoidRootPart")
-    if not hrp or not tHrp then return end
+    if not hum or not hrp or not tHrp then return end
 
-    local VIM = game:GetService("VirtualInputManager")
-    local KEY_MAP = {
-        Z = Enum.KeyCode.Z, X = Enum.KeyCode.X, C = Enum.KeyCode.C,
-        V = Enum.KeyCode.V, F = Enum.KeyCode.F,
-    }
-    local kc = KEY_MAP[keyName]
-    if not kc then return end
+    -- O remote de skill do BF fica dentro do Humanoid com nome vazio ("")
+    local skillRemote = hum:FindFirstChild("")
+    if not skillRemote then return end
 
-    -- Move o mouse virtual pra posicao do player na tela
+    -- CFrame apontando do player pro alvo (mesma estrutura que o jogo manda)
+    local targetPos = tHrp.Position
+    local aimCFrame = CFrame.new(hrp.Position, targetPos)
+                    * CFrame.new(0, 0, -(hrp.Position - targetPos).Magnitude)
+
     pcall(function()
-        local camera = workspace.CurrentCamera
-        if not camera then return end
-        local screenPos, onScreen = camera:WorldToViewportPoint(tHrp.Position)
-        if onScreen then
-            VIM:SendMouseMoveEvent(screenPos.X, screenPos.Y, game)
-        end
-    end)
-
-    task.wait()
-
-    -- Gira o personagem de frente pro alvo
-    pcall(function()
-        local dir = tHrp.Position - hrp.Position
-        local flatDir = Vector3.new(dir.X, 0, dir.Z)
-        if flatDir.Magnitude > 0.1 then
-            hrp.CFrame = CFrame.new(hrp.Position, hrp.Position + flatDir)
-        end
-    end)
-
-    -- Dispara a skill com a mira ja no player
-    pcall(function()
-        VIM:SendKeyEvent(true,  kc, false, game)
-        task.wait(0.05)
-        VIM:SendKeyEvent(false, kc, false, game)
+        skillRemote:InvokeServer(keyName, aimCFrame)
     end)
 end
 
 function Functions.StartAimbotSkill(config)
     SafeSpawn(function()
-        local KEY_NAMES = { -- mapa KeyCode -> nome pra CastSkillAtPlayer
+        local KEY_NAMES = {
             [Enum.KeyCode.Z] = "Z",
             [Enum.KeyCode.X] = "X",
             [Enum.KeyCode.C] = "C",
         }
 
-        local conn = UserInputService.InputBegan:Connect(function(input, gameProcessed)
+        -- InputBegan: intercepta Z/X/C e redireciona a skill pro alvo
+        -- via remote direto. O input original do jogo continua passando
+        -- normalmente (nao cancelamos o event), mas a segunda chamada
+        -- via remote sobrescreve a mira com o CFrame do alvo.
+        local connBegan = UserInputService.InputBegan:Connect(function(input, gameProcessed)
             if not config.AimbotSkill then return end
-
             local keyName = KEY_NAMES[input.KeyCode]
             if not keyName then return end
 
-            local targetChar, _ = GetAimbotTarget(config)
+            local targetChar = GetAimbotTarget(config)
             if not targetChar then return end
 
-            -- Usa exatamente o mesmo mecanismo do CastSkillAtMob:
-            -- move o mouse virtual pro player e gira o personagem,
-            -- depois dispara a tecla. Sem deteccao adicional de keys
-            -- — a funcao e chamada no proprio InputBegan, igual o
-            -- farm faz ao chamar CastSkillAtMob dentro do loop.
+            -- Chama o remote com CFrame do alvo (nao redispara a tecla,
+            -- nao mexe no mouse — so manda a mira pro servidor)
             Functions.CastSkillAtPlayer(keyName, targetChar)
+        end)
+
+        local connEnded = UserInputService.InputEnded:Connect(function(input)
+            -- Nada a fazer no InputEnded — sem heldKeys, sem loop de hold
+            -- (o remote ja foi chamado com a mira correta no InputBegan)
         end)
 
         while task.wait(0.2) do
             if not config.AimbotSkill then
-                conn:Disconnect()
+                connBegan:Disconnect()
+                connEnded:Disconnect()
                 break
             end
         end
