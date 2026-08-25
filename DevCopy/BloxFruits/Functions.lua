@@ -2791,670 +2791,402 @@ function Functions.StartRaidPositionDetector(config, onRaidDetected)
 end
 
 function Functions.StartAutoRaid(config)
-	_G._currentConfig = config
+    SafeSpawn(function()
 
-	-- Sea atual calculado localmente (World2/World3 nao eram definidos neste escopo antes)
-	local currentSea = Functions.DetectCurrentSea()
-	local World2     = (currentSea == 2)
-	local World3     = (currentSea == 3)
+        -- ============================================================
+        -- MÉTODO DE VOO: BodyVelocity no HRP + Tween direto no HRP
+        -- Igual ao bninikimp (BodyClip + Tween()):
+        --   • BodyVelocity Velocity=0 mantém o player no ar enquanto
+        --     AutoRaid está ativo — nunca cai entre ilhas/mobs
+        --   • Tween direto no HRP para mover (sem PartTele separada)
+        -- ============================================================
 
-	-- ==========================================
-	-- LISTA COMPLETA DE BOSSES DE RAID
-	-- ==========================================
-	local RAID_BOSS_NAMES = {
-		"Flame Master", "Ice Admiral", "Quake Admiral", "Light Admiral",
-		"Dark Master", "Magma Admiral", "Sand Master", "Buddha Master",
-		"Spider Master", "Sound Master", "Dough Master", "Phoenix Master",
-		"[Raid Boss] Flame Master", "[Raid Boss] Ice Admiral", "[Raid Boss] Quake Admiral",
-		"[Raid Boss] Light Admiral", "[Raid Boss] Dark Master", "[Raid Boss] Magma Admiral",
-		"[Raid Boss] Sand Master", "[Raid Boss] Buddha Master", "[Raid Boss] Spider Master",
-		"[Raid Boss] Sound Master", "[Raid Boss] Dough Master", "[Raid Boss] Phoenix Master"
-	}
-	local RAID_BOSS_SET = {}
-	for _, name in ipairs(RAID_BOSS_NAMES) do RAID_BOSS_SET[name] = true end
+        local TweenSvc = game:GetService("TweenService")
+        local TWEEN_SPEED = 280  -- studs/s (ajustável por RaidFlySpeed)
 
-	-- ==========================================
-	-- FLAG _portalFired declarada ANTES de qualquer
-	-- hook ou funcao que a referencie (fix bug principal)
-	-- ==========================================
-	local _portalFired = false
+        -- Instala/remove o BodyVelocity "âncora" no HRP
+        local function SetBodyClip(enable)
+            pcall(function()
+                local char = Player.Character
+                local hrp  = char and char:FindFirstChild("HumanoidRootPart")
+                if not hrp then return end
+                if enable then
+                    if hrp:FindFirstChild("RaidBodyClip") then return end
+                    local bv        = Instance.new("BodyVelocity")
+                    bv.Name         = "RaidBodyClip"
+                    bv.MaxForce     = Vector3.new(1e5, 1e5, 1e5)
+                    bv.Velocity     = Vector3.zero
+                    bv.Parent       = hrp
+                    local char2 = Player.Character
+                    local hum2  = char2 and char2:FindFirstChildOfClass("Humanoid")
+                    if hum2 then
+                        hum2:SetStateEnabled(Enum.HumanoidStateType.Freefall, false)
+                        hum2:SetStateEnabled(Enum.HumanoidStateType.Landed,   false)
+                        hum2:ChangeState(Enum.HumanoidStateType.Physics)
+                    end
+                else
+                    local char3 = Player.Character
+                    local hrp3  = char3 and char3:FindFirstChild("HumanoidRootPart")
+                    if hrp3 then
+                        local bv3 = hrp3:FindFirstChild("RaidBodyClip")
+                        if bv3 then bv3:Destroy() end
+                    end
+                    local hum3 = char3 and char3:FindFirstChildOfClass("Humanoid")
+                    if hum3 then
+                        hum3:SetStateEnabled(Enum.HumanoidStateType.Freefall, true)
+                        hum3:SetStateEnabled(Enum.HumanoidStateType.Landed,   true)
+                        hum3:ChangeState(Enum.HumanoidStateType.Freefall)
+                    end
+                end
+            end)
+        end
 
-	-- ==========================================
-	-- DETECCAO: Timer.Visible + _WorldOrigin.Locations "Island N"
-	-- (metodo confirmado, usado pelo Tiroreal)
-	-- RaidMap.RaidIslandN mantido como fallback secundario
-	-- ==========================================
-	local function GetWorldLocations()
-		local origin = workspace:FindFirstChild("_WorldOrigin")
-		return origin and origin:FindFirstChild("Locations")
-	end
+        -- Tween direto no HRP até targetCF (igual ao Tween() do bninikimp)
+        -- Bloqueia até terminar. BodyClip deve estar ativo antes de chamar.
+        local _activeTween = nil
+        local function RaidTween(targetCF)
+            local char = Player.Character
+            local hrp  = char and char:FindFirstChild("HumanoidRootPart")
+            if not hrp then return end
+            local dist = (targetCF.Position - hrp.Position).Magnitude
+            if dist < 5 then return end
+            local speed = tonumber(config.RaidFlySpeed) or TWEEN_SPEED
+            local dur   = math.clamp(dist / speed, 0.05, 30)
+            if _activeTween then _activeTween:Cancel() end
+            _activeTween = TweenSvc:Create(hrp,
+                TweenInfo.new(dur, Enum.EasingStyle.Linear),
+                { CFrame = targetCF }
+            )
+            _activeTween:Play()
+            _activeTween.Completed:Wait()
+            _activeTween = nil
+        end
 
-	local function TimerVisible()
-		local ok, vis = pcall(function()
-			return Player.PlayerGui.Main.Timer.Visible
-		end)
-		return ok and vis or false
-	end
+        -- ============================================================
+        -- RAID BOSS NAMES
+        -- ============================================================
+        local RAID_BOSS_NAMES = {
+            "Darkbeard", "Rip_indra", "Order", "Cake Prince",
+            "Dough King", "Soul Reaper", "Indra", "Longma",
+        }
+        local RAID_BOSS_SET = {}
+        for _, n in ipairs(RAID_BOSS_NAMES) do RAID_BOSS_SET[n] = true end
 
-	local function IsInRaid()
-		local char = Player.Character
-		local hrp  = char and char:FindFirstChild("HumanoidRootPart")
+        -- ============================================================
+        -- DETECÇÃO DE RAID ATIVA
+        -- ============================================================
+        local function IsInRaid()
+            local timerGui = Player.PlayerGui.Main and Player.PlayerGui.Main:FindFirstChild("Timer")
+            return timerGui and timerGui.Visible
+        end
 
-		-- Sinal mais confiavel: Timer da raid visivel NO PLAYER LOCAL
-		-- Esse GUI so aparece para o dono da raid, nao e compartilhado
-		if TimerVisible() then return true end
+        -- ============================================================
+        -- DETECÇÃO DE ILHAS
+        -- ============================================================
+        local function GetWorldLocations()
+            local origin = workspace:FindFirstChild("_WorldOrigin")
+            return origin and origin:FindFirstChild("Locations")
+        end
 
-		-- _WorldOrigin.Locations e especifico por player, nao conflita
-		local locs = GetWorldLocations()
-		if locs then
-			for i = 1, 5 do
-				if locs:FindFirstChild("Island " .. i) then return true end
-			end
-		end
+        local function GetIslandPos(n)
+            -- Fonte 1: workspace.Map.RaidMap.RaidIslandN (primária)
+            local map     = workspace:FindFirstChild("Map")
+            local raidMap = map and map:FindFirstChild("RaidMap")
+            if raidMap then
+                local best, bestDist = nil, math.huge
+                local char = Player.Character
+                local hrp  = char and char:FindFirstChild("HumanoidRootPart")
+                for _, child in ipairs(raidMap:GetChildren()) do
+                    if child.Name == "RaidIsland" .. n then
+                        local pos
+                        pcall(function()
+                            if child:IsA("BasePart") then
+                                pos = child.Position
+                            elseif child.PrimaryPart then
+                                pos = child.PrimaryPart.Position
+                            else
+                                pos = child:GetPivot().Position
+                            end
+                        end)
+                        if pos and hrp then
+                            local d = (pos - hrp.Position).Magnitude
+                            if d < bestDist then bestDist = d; best = pos end
+                        elseif pos then
+                            best = pos
+                        end
+                    end
+                end
+                if best then return best end
+            end
+            -- Fonte 2: _WorldOrigin.Locations."Island N"
+            local locs = GetWorldLocations()
+            if locs then
+                local isl = locs:FindFirstChild("Island " .. n)
+                if isl then
+                    local obj = (isl:IsA("ObjectValue") and isl.Value) or isl
+                    local pos
+                    pcall(function()
+                        if obj:IsA("BasePart") then pos = obj.Position
+                        elseif obj.PrimaryPart then pos = obj.PrimaryPart.Position
+                        else pos = obj:GetPivot().Position end
+                    end)
+                    if pos then return pos end
+                end
+            end
+            return nil
+        end
 
-		-- Fallback: RaidMap pode ter multiplas raids.
-		-- Considera "na raid" somente se alguma RaidIsland estiver
-		-- a menos de 4000 studs do player (ignora raids de outros)
-		local map     = workspace:FindFirstChild("Map")
-		local raidMap = map and map:FindFirstChild("RaidMap")
-		if raidMap and hrp then
-			for _, child in ipairs(raidMap:GetChildren()) do
-				if child.Name:match("^RaidIsland%d") then
-					local pos = nil
-					pcall(function()
-						if child:IsA("Model") and child.PrimaryPart then
-							pos = child.PrimaryPart.Position
-						elseif child:IsA("Model") then
-							local ok, cf = pcall(function() return child:GetPivot() end)
-							if ok then pos = cf.Position end
-						elseif child:IsA("BasePart") then
-							pos = child.Position
-						end
-					end)
-					if pos and (pos - hrp.Position).Magnitude <= 4000 then
-						return true
-					end
-				end
-			end
-		end
+        -- Acha a ilha mais próxima do player com mobs (varredura 1-5)
+        local function FindNearestIslandWithMobs()
+            local char = Player.Character
+            local hrp  = char and char:FindFirstChild("HumanoidRootPart")
+            if not hrp then return nil, nil end
+            local enemies = workspace:FindFirstChild("Enemies")
+            if not enemies then return nil, nil end
 
-		return false
-	end
+            local bestPos, bestDist, bestN = nil, math.huge, nil
+            for n = 1, 5 do
+                local iPos = GetIslandPos(n)
+                if iPos then
+                    local d = (iPos - hrp.Position).Magnitude
+                    -- Só considera ilhas <= 6000 studs
+                    if d <= 6000 then
+                        -- Verifica se tem mob vivo perto dela
+                        for _, mob in ipairs(enemies:GetChildren()) do
+                            local mhrp = mob:FindFirstChild("HumanoidRootPart")
+                            local mhum = mob:FindFirstChild("Humanoid")
+                            if mhrp and mhum and mhum.Health > 0 then
+                                if (mhrp.Position - iPos).Magnitude <= 3000 then
+                                    if d < bestDist then
+                                        bestDist = d
+                                        bestPos  = iPos
+                                        bestN    = n
+                                    end
+                                    break
+                                end
+                            end
+                        end
+                    end
+                end
+            end
+            return bestPos, bestN
+        end
 
-	-- PortalConfirmed: hook OU presenca de ilha (fallback robusto)
-	local function PortalConfirmed()
-		if _portalFired then return true end
-		if IsInRaid() then
-			_portalFired = true
-			return true
-		end
-		return false
-	end
+        -- ============================================================
+        -- BUSCA DE ALVO (mob ou boss)
+        -- ============================================================
+        local function FindTarget(refPos, bossOnly)
+            local enemies = workspace:FindFirstChild("Enemies")
+            if not enemies then return nil end
+            for _, mob in ipairs(enemies:GetChildren()) do
+                local mhrp = mob:FindFirstChild("HumanoidRootPart")
+                local mhum = mob:FindFirstChild("Humanoid")
+                if not mhrp or not mhum or mhum.Health <= 0 then continue end
+                local isBoss = RAID_BOSS_SET[mob.Name] or mob.Name:match("%[Raid Boss%]")
+                if bossOnly and not isBoss then continue end
+                if not bossOnly and isBoss then continue end
+                if (mhrp.Position - refPos).Magnitude <= 5000 then
+                    return mob
+                end
+            end
+            return nil
+        end
 
-	-- Hook no xisd como camada extra de deteccao
-	-- FIX: _portalFired ja existe aqui, upvalue valido
-	pcall(function()
-		local Remotes = game:GetService("ReplicatedStorage"):WaitForChild("Remotes", 10)
-		if not Remotes then return end
-		local xisd = Remotes:FindFirstChild("xisd") or Remotes:WaitForChild("xisd", 15)
-		if not xisd then
-			warn("[AutoRaid] xisd nao encontrado — usando fallback de deteccao por RaidIsland")
-			return
-		end
-		local _origInvoke = xisd.InvokeServer
-		xisd.InvokeServer = function(self, arg1, arg2, ...)
-			if arg1 == "FX" and arg2 == "PortalEffects" then
-				_portalFired = true
-				print("[AutoRaid] xisd PortalEffects -> teleportado para a raid!")
-			end
-			return _origInvoke(self, arg1, arg2, ...)
-		end
-		print("[AutoRaid] Hook xisd instalado")
-	end)
+        -- ============================================================
+        -- COMPRAR CHIP
+        -- ============================================================
+        SafeSpawn(function()
+            while task.wait(1) do
+                if not config.AutoBuyChipRaid then continue end
+                pcall(function()
+                    local hasChip = Player.Backpack:FindFirstChild("Special Microchip")
+                                 or (Player.Character and Player.Character:FindFirstChild("Special Microchip"))
+                    if hasChip then return end
+                    local chipFruit = (config.SelectChipRaid ~= nil and config.SelectChipRaid ~= "")
+                                      and tostring(config.SelectChipRaid) or "Flame"
+                    local commF = game:GetService("ReplicatedStorage").Remotes:FindFirstChild("CommF_")
+                    if not commF then return end
+                    commF:InvokeServer("RaidsNpc", "Select", chipFruit)
+                    task.wait(0.5)
+                    commF:InvokeServer("RaidsNpc", "BuyWithFruit")
+                end)
+            end
+        end)
 
-	-- ChildAdded em _WorldOrigin.Locations: detecta "Island N" em tempo real
-	-- (metodo primario, confirmado pelo Tiroreal)
-	SafeSpawn(function()
-		local origin = workspace:FindFirstChild("_WorldOrigin") or workspace:WaitForChild("_WorldOrigin", 60)
-		if not origin then return end
-		local locs = origin:FindFirstChild("Locations") or origin:WaitForChild("Locations", 60)
-		if not locs then return end
-		locs.ChildAdded:Connect(function(child)
-			if child.Name:match("^Island %d$") and not _portalFired then
-				_portalFired = true
-				print("[AutoRaid] " .. child.Name .. " detectada via ChildAdded (_WorldOrigin.Locations)!")
-			end
-		end)
-		if not _portalFired and IsInRaid() then
-			_portalFired = true
-		end
-	end)
+        -- ============================================================
+        -- INICIAR RAID
+        -- ============================================================
+        SafeSpawn(function()
+            while task.wait(0.5) do
+                if not config.AutoStartRaid then continue end
+                pcall(function()
+                    if IsInRaid() then return end
+                    local hasChip = Player.Backpack:FindFirstChild("Special Microchip")
+                                 or (Player.Character and Player.Character:FindFirstChild("Special Microchip"))
+                    if not hasChip then return end
 
-	-- ChildAdded no RaidMap: detecta RaidIsland em tempo real (fallback)
-	-- (cobre o caso do hook falhar ou o script iniciar com a raid ja ativa)
-	SafeSpawn(function()
-		local map = workspace:FindFirstChild("Map") or workspace:WaitForChild("Map", 60)
-		if not map then return end
-		local raidMap = map:FindFirstChild("RaidMap") or map:WaitForChild("RaidMap", 60)
-		if not raidMap then return end
-		raidMap.ChildAdded:Connect(function(child)
-			if child.Name:find("RaidIsland") and not _portalFired then
-				_portalFired = true
-				print("[AutoRaid] RaidIsland detectada via ChildAdded!")
-			end
-		end)
-		-- Checa se ja tem ilha no momento da conexao
-		if not _portalFired and IsInRaid() then
-			_portalFired = true
-		end
-	end)
+                    if World2 then
+                        local SEA2_ENTRANCE = Vector3.new(-286.9859619140625, 306.13739013671875, 616.8819580078125)
+                        pcall(function() CF("requestEntrance", SEA2_ENTRANCE) end)
+                        task.wait(1.5)
+                        local summonCF = CFrame.new(-6523.4746, 305.4380, -4741.3809)
+                        local hrpS = Player.Character and Player.Character:FindFirstChild("HumanoidRootPart")
+                        if hrpS and (hrpS.Position - summonCF.Position).Magnitude > 15 then
+                            SetBodyClip(true)
+                            RaidTween(summonCF)
+                        end
+                        CF("SetSpawnPoint")
+                        task.wait(0.2)
+                        pcall(function()
+                            fireclickdetector(workspace.Map.CircleIsland.RaidSummon2.Button.Main.ClickDetector)
+                        end)
+                    elseif World3 then
+                        CF("requestEntrance", Vector3.new(-5075.50927734375, 314.5155029296875, -3150.0224609375))
+                        task.wait(1.5)
+                        local summonCF = CFrame.new(-5017.40869, 314.844055, -2823.0127)
+                        local hrpS = Player.Character and Player.Character:FindFirstChild("HumanoidRootPart")
+                        if hrpS and (hrpS.Position - summonCF.Position).Magnitude > 15 then
+                            SetBodyClip(true)
+                            RaidTween(summonCF)
+                        end
+                        CF("SetSpawnPoint")
+                        task.wait(0.2)
+                        pcall(function()
+                            fireclickdetector(workspace.Map["Boat Castle"].RaidSummon2.Button.Main.ClickDetector)
+                        end)
+                    end
+                end)
+            end
+        end)
 
-	-- ==========================================
-	-- VOO SEGURO
-	-- FIX: removido AnchorPlayer (BodyVelocity) da SafeFlyTo.
-	-- O _raidPart do FlyToRaid ja mantém o player no ar;
-	-- AnchorPlayer brigava com ele causando tremor/queda.
-	-- ==========================================
-	local function SafeFlyTo(targetCF)
-		Functions.FlyToRaid(targetCF, config)
-	end
+        -- ============================================================
+        -- LOOP PRINCIPAL: FARM RAID
+        -- Lógica (igual ao bninikimp AutoNextIsland + AutoNear):
+        --   1. BodyVelocity ativo → nunca cai
+        --   2. Procura ilha com mob perto → Tween pro centro dela
+        --   3. Procura mob vivo na ilha → Tween pra cima do mob
+        --   4. Bring mob + ataca até morrer
+        --   5. Repete
+        -- ============================================================
+        local lastIslandPos = nil
+        local _killing      = false
 
-	-- ==========================================
-	-- HELPERS DE ILHA
-	-- ==========================================
-	local function GetIslandPivotPos(island)
-		-- Locations marker geralmente tem .Position direto (Attachment/Part)
-		local ok0, pos0 = pcall(function() return island.Position end)
-		if ok0 and typeof(pos0) == "Vector3" then return pos0 end
+        while task.wait(0.1) do
+            if not config.AutoRaid then
+                -- Desligou: remove âncora e limpa estado
+                SetBodyClip(false)
+                if _activeTween then _activeTween:Cancel() end
+                lastIslandPos = nil
+                _killing      = false
+                continue
+            end
 
-		local ok, cf = pcall(function() return island:GetPivot() end)
-		if ok and cf then return cf.Position end
-		if island.PrimaryPart then return island.PrimaryPart.Position end
-		for _, p in ipairs(island:GetDescendants()) do
-			if p:IsA("BasePart") then return p.Position end
-		end
-		return nil
-	end
+            pcall(function()
+                local char = Player.Character
+                local hrp  = char and char:FindFirstChild("HumanoidRootPart")
+                local hum  = char and char:FindFirstChildOfClass("Humanoid")
+                if not hrp or not hum or hum.Health <= 0 then return end
 
-	local function GetRaidIsland(n)
-		local char = Player.Character
-		local hrp  = char and char:FindFirstChild("HumanoidRootPart")
+                -- Garante BodyVelocity ativo
+                if not hrp:FindFirstChild("RaidBodyClip") then
+                    SetBodyClip(true)
+                end
 
-		-- FIX: RaidMap.RaidIslandN agora e a fonte PRIMARIA (metodo
-		-- ja confirmado funcionando). _WorldOrigin.Locations "Island N"
-		-- e novo/nao testado e pode retornar um objeto que GetIslandPivotPos
-		-- nao consegue resolver (centerPos = nil), travando o AutoRaid
-		-- sem nunca achar mobs ("ele nao vai atras dos npcs").
-		local map     = workspace:FindFirstChild("Map")
-		local raidMap = map and map:FindFirstChild("RaidMap")
-		if not raidMap then
-			-- Sem RaidMap: tenta _WorldOrigin.Locations como fallback
-			local locs = GetWorldLocations()
-			if locs then
-				local island = locs:FindFirstChild("Island " .. n)
-				if island then
-					if island:IsA("ObjectValue") and island.Value then return island.Value end
-					if island:IsA("Model") or island:IsA("BasePart") then return island end
-				end
-			end
-			return nil
-		end
+                if _killing then return end
 
-		if not hrp then
-			-- Sem HRP: retorna o primeiro que achar (comportamento legado)
-			return raidMap:FindFirstChild("RaidIsland" .. n)
-		end
+                -- ── Detecta ilha com mobs ────────────────────────────────
+                local iPos, iNum = FindNearestIslandWithMobs()
 
-		-- Coleta TODOS os objetos com o nome "RaidIslandN" (pode haver varios)
-		local candidates = {}
-		for _, child in ipairs(raidMap:GetChildren()) do
-			if child.Name == "RaidIsland" .. n then
-				table.insert(candidates, child)
-			end
-		end
+                if iPos and iPos ~= lastIslandPos then
+                    -- Ilha nova ou primeira detecção: tween pro centro dela
+                    lastIslandPos = iPos
+                    local centerY = iPos.Y + 55
+                    local centerCF = CFrame.new(iPos.X, centerY, iPos.Z)
+                    print(("[AutoRaid] Ilha %s detectada — tweening pro centro"):format(tostring(iNum)))
+                    RaidTween(centerCF)
+                    return
+                end
 
-		if #candidates == 0 then
-			-- RaidMap existe mas sem RaidIslandN: tenta _WorldOrigin.Locations
-			local locs = GetWorldLocations()
-			if locs then
-				local island = locs:FindFirstChild("Island " .. n)
-				if island then
-					if island:IsA("ObjectValue") and island.Value then return island.Value end
-					if island:IsA("Model") or island:IsA("BasePart") then return island end
-				end
-			end
-			return nil
-		end
-		if #candidates == 1 then return candidates[1] end
+                if not lastIslandPos then return end
 
-		-- Ha multiplos (duas raids simultaneas): pega o mais perto do player
-		local best, bestDist = nil, math.huge
-		for _, island in ipairs(candidates) do
-			local pos = nil
-			pcall(function()
-				if island:IsA("Model") and island.PrimaryPart then
-					pos = island.PrimaryPart.Position
-				elseif island:IsA("Model") then
-					local ok, cf = pcall(function() return island:GetPivot() end)
-					if ok then pos = cf.Position end
-				elseif island:IsA("BasePart") then
-					pos = island.Position
-				end
-			end)
-			if pos then
-				local d = (pos - hrp.Position).Magnitude
-				if d < bestDist then
-					bestDist = d
-					best     = island
-				end
-			end
-		end
+                -- ── Busca mob/boss na ilha atual ─────────────────────────
+                local refPos = lastIslandPos
+                local bossOnly = (iNum == 5)
 
-		if best then
-			print(("[AutoRaid] Multiplas RaidIsland%d detectadas (%d total) — usando a mais proxima (%.0f studs)"):format(n, #candidates, bestDist))
-		end
-		return best
-	end
+                local target = FindTarget(refPos, bossOnly)
+                if not target then
+                    -- Sem boss na ilha 5: tenta mob normal
+                    if bossOnly then target = FindTarget(refPos, false) end
+                end
+                if not target then
+                    -- Sem mobs: espera spawn ou próxima ilha
+                    lastIslandPos = nil
+                    return
+                end
 
-	-- ==========================================
-	-- HELPERS DE COMBATE
-	-- ==========================================
-	local function KillMob(mob, centerCF)
-		local vHrp = mob:FindFirstChild("HumanoidRootPart")
-		local vHum = mob:FindFirstChild("Humanoid")
-		if not vHrp or not vHum or vHum.Health <= 0 then return end
+                local tHrp = target:FindFirstChild("HumanoidRootPart")
+                local tHum = target:FindFirstChild("Humanoid")
+                if not tHrp or not tHum or tHum.Health <= 0 then return end
 
-		local char = Player.Character
-		local hrp  = char and char:FindFirstChild("HumanoidRootPart")
-		if not hrp then return end
+                -- ── Tween direto pra cima do mob (bninikimp: Tween(mob.HRP.CFrame * Pos)) ──
+                local mobTargetCF = CFrame.new(
+                    tHrp.Position.X,
+                    tHrp.Position.Y + 30,
+                    tHrp.Position.Z
+                )
+                if (hrp.Position - mobTargetCF.Position).Magnitude > 40 then
+                    RaidTween(mobTargetCF)
+                    return
+                end
 
-		-- Voa ate o mob usando FlyToRaid (fica no ar ao chegar)
-		if (vHrp.Position - hrp.Position).Magnitude > 50 then
-			Functions.FlyToRaid(
-				CFrame.new(vHrp.Position + Vector3.new(0, 30, 0)),
-				config
-			)
-		end
+                -- ── Ataca: bring + click ──────────────────────────────────
+                _killing = true
+                SafeSpawn(function()
+                    local mob = target
+                    repeat
+                        task.wait(0.05)
+                        if not config.AutoRaid then break end
+                        local c2   = Player.Character
+                        local hrp2 = c2 and c2:FindFirstChild("HumanoidRootPart")
+                        local mhrp = mob:FindFirstChild("HumanoidRootPart")
+                        local mhum = mob:FindFirstChild("Humanoid")
+                        if not mhrp or not mhum or mhum.Health <= 0 then break end
+                        if not hrp2 then break end
 
-		-- Ataca puxando o mob para baixo do player
-		repeat
-			task.wait(0.05)
-			if not config.AutoRaid then break end
-			char = Player.Character
-			hrp  = char and char:FindFirstChild("HumanoidRootPart")
-			Functions.AutoHaki()
-			Functions.EquipWeapon(config)
-			pcall(function()
-				if hrp then
-					vHrp.CFrame = CFrame.new(hrp.Position.X, hrp.Position.Y - 3, hrp.Position.Z)
-				end
-				vHrp.CanCollide = false
-				vHrp.Size       = Vector3.new(50, 50, 50)
-				-- [SimRadius removido: causava NoStun/queda no player]
-				VirtualUser:CaptureController()
-				VirtualUser:Button1Down(Vector2.new(1280, 672))
-			end)
-		until not mob.Parent
-			or not mob:FindFirstChild("Humanoid")
-			or mob.Humanoid.Health <= 0
-			or not config.AutoRaid
+                        -- Bring: puxa mob para baixo do player (bninikimp style)
+                        pcall(function()
+                            mhrp.CFrame      = CFrame.new(hrp2.Position.X, hrp2.Position.Y - 3, hrp2.Position.Z)
+                            mhrp.CanCollide  = false
+                            mhrp.Size        = Vector3.new(50, 50, 50)
+                        end)
 
-		-- Volta pro centro
-		if config.AutoRaid then
-			Functions.FlyToRaid(centerCF, config)
-		end
-	end
+                        -- Haki + equipa arma
+                        Functions.AutoHaki()
+                        Functions.EquipWeapon(config)
 
-	local function KillBossInstant(boss, centerCF)
-		local bossHrp = boss:FindFirstChild("HumanoidRootPart")
-		local bossHum = boss:FindFirstChild("Humanoid")
-		if not bossHrp or not bossHum or bossHum.Health <= 0 then return end
+                        -- Ataca (click)
+                        pcall(function()
+                            VirtualUser:CaptureController()
+                            VirtualUser:Button1Down(Vector2.new(1280, 672))
+                        end)
 
-		repeat
-			task.wait(0.01)
-			pcall(function()
-				-- [SimRadius removido: causava NoStun/queda no player]
-				bossHum.Health     = 0
-				bossHrp.CanCollide = false
-				bossHrp.Size       = Vector3.new(150, 150, 150)
-			end)
-		until not boss.Parent
-			or not boss:FindFirstChild("Humanoid")
-			or boss.Humanoid.Health <= 0
-			or not config.AutoRaid
+                        -- FastAttack se disponível
+                        pcall(function()
+                            Functions.FastAttack(mob, config)
+                        end)
 
-		if config.AutoRaid then
-			Functions.FlyToRaid(centerCF, config)
-		end
-	end
+                    until not mob.Parent
+                        or not mob:FindFirstChild("Humanoid")
+                        or mob.Humanoid.Health <= 0
+                        or not config.AutoRaid
 
-	-- ==========================================
-	-- LOOP: COMPRAR CHIP COM BELI (AutoBuyChipRaid)
-	-- ==========================================
-	SafeSpawn(function()
-		while task.wait(1) do
-			if not config.AutoBuyChipRaid then continue end
-			pcall(function()
-				local rawChip = _G.SelectedRaidChip
-				local chipFruit
-				if type(rawChip) == "table" then
-					chipFruit = rawChip.Value or rawChip.value or rawChip[1] or rawChip.Name or rawChip.Option or "Flame"
-				elseif type(rawChip) == "string" and rawChip ~= "" then
-					chipFruit = rawChip
-				else
-					chipFruit = (config.SelectChipRaid ~= nil and config.SelectChipRaid ~= "") and config.SelectChipRaid or "Flame"
-				end
-				chipFruit = tostring(chipFruit)
-				config.SelectChipRaid = chipFruit
-				_G.SelectedRaidChip   = chipFruit
-
-				local hasChip = Player.Backpack:FindFirstChild("Special Microchip")
-				            or (Player.Character and Player.Character:FindFirstChild("Special Microchip"))
-				if hasChip then return end
-
-				local remotes = game:GetService("ReplicatedStorage"):FindFirstChild("Remotes")
-				local commF   = remotes and remotes:FindFirstChild("CommF_")
-				if not commF then return end
-
-				commF:InvokeServer("RaidsNpc", "Select", chipFruit)
-				task.wait(0.5)
-				commF:InvokeServer("RaidsNpc", "Buy")
-			end)
-		end
-	end)
-
-	-- ==========================================
-	-- LOOP: COMPRAR CHIP COM FRUTA (AutoBuyChipDF)
-	-- ==========================================
-	SafeSpawn(function()
-		while task.wait(1) do
-			if not _G.AutoBuyChipDF then continue end
-			pcall(function()
-				local rawChip2 = _G.SelectedRaidChip
-				local chipFruit
-				if type(rawChip2) == "table" then
-					chipFruit = rawChip2.Value or rawChip2.value or rawChip2[1] or rawChip2.Name or rawChip2.Option or "Flame"
-				elseif type(rawChip2) == "string" and rawChip2 ~= "" then
-					chipFruit = rawChip2
-				else
-					chipFruit = (config.SelectChipRaid ~= nil and config.SelectChipRaid ~= "") and config.SelectChipRaid or "Flame"
-				end
-				chipFruit = tostring(chipFruit)
-				config.SelectChipRaid = chipFruit
-				_G.SelectedRaidChip   = chipFruit
-
-				local hasChip = Player.Backpack:FindFirstChild("Special Microchip")
-				            or (Player.Character and Player.Character:FindFirstChild("Special Microchip"))
-				if hasChip then return end
-
-				local remotes = game:GetService("ReplicatedStorage"):FindFirstChild("Remotes")
-				local commF   = remotes and remotes:FindFirstChild("CommF_")
-				if not commF then return end
-
-				commF:InvokeServer("RaidsNpc", "Select", chipFruit)
-				task.wait(0.5)
-				commF:InvokeServer("RaidsNpc", "BuyWithFruit")
-			end)
-		end
-	end)
-
-	-- ==========================================
-	-- LOOP: INICIAR RAID
-	-- ==========================================
-	SafeSpawn(function()
-		while task.wait(0.5) do
-			if not config.AutoStartRaid then continue end
-			pcall(function()
-				local timerGui = Player.PlayerGui.Main and Player.PlayerGui.Main:FindFirstChild("Timer")
-				if timerGui and timerGui.Visible then return end
-				local hasChip = Player.Backpack:FindFirstChild("Special Microchip")
-							or (Player.Character and Player.Character:FindFirstChild("Special Microchip"))
-				if not hasChip then return end
-
-				-- FIX: removido o gate IsInRaid() daqui.
-				-- IsInRaid() checa _WorldOrigin.Locations "Island N" e RaidMap,
-				-- que podem existir por OUTROS motivos (marcadores de
-				-- localizacao do mapa nao relacionados a raid), bloqueando
-				-- AutoStartRaid para sempre mesmo sem raid ativa.
-				-- Timer.Visible (acima) ja e a condicao correta (igual Tiroreal).
-
-				if World2 then
-					-- Sea 2: requestEntrance Sea 2 -> tween fly ao summon -> clica
-					-- Passo 1: requestEntrance para entrar na area (Sea 2)
-					local SEA2_ENTRANCE = Vector3.new(-286.9859619140625, 306.13739013671875, 616.8819580078125)
-					pcall(function()
-						local CommF__ = game:GetService("ReplicatedStorage").Remotes:FindFirstChild("CommF_")
-						if CommF__ then CommF__:InvokeServer("requestEntrance", SEA2_ENTRANCE) end
-					end)
-					task.wait(1.5)
-					-- Passo 2: Tween fly ate o ponto do RaidSummon2
-					local summonCF = CFrame.new(-6523.4746, 305.4380, -4741.3809)
-					local hrp2 = Player.Character and Player.Character:FindFirstChild("HumanoidRootPart")
-					if hrp2 and (hrp2.Position - summonCF.Position).Magnitude > 15 then
-						SafeFlyTo(summonCF)
-						task.wait(0.3)
-						hrp2 = Player.Character and Player.Character:FindFirstChild("HumanoidRootPart")
-						if hrp2 and (hrp2.Position - summonCF.Position).Magnitude > 15 then
-							Functions.TeleportTo(summonCF)
-							task.wait(0.3)
-						end
-					end
-					CF("SetSpawnPoint")
-					task.wait(0.2)
-					-- Passo 3: Clica no detector da raid
-					local clicked = false
-					pcall(function()
-						local btn = workspace.Map.CircleIsland.RaidSummon2.Button.Main.ClickDetector
-						fireclickdetector(btn)
-						clicked = true
-					end)
-					if not clicked then
-						pcall(function() CF("requestEntrance", summonCF.Position) end)
-					end
-					task.wait(1)
-
-				elseif World3 then
-					-- Sea 3: requestEntrance pro castelo, voa ate o summon e clica
-					CF("requestEntrance", Vector3.new(-5075.50927734375, 314.5155029296875, -3150.0224609375))
-					task.wait(1.5)
-					local summonCF = CFrame.new(-5017.40869, 314.844055, -2823.0127)
-					local hrp3 = Player.Character and Player.Character:FindFirstChild("HumanoidRootPart")
-					if hrp3 and (hrp3.Position - summonCF.Position).Magnitude > 15 then
-						SafeFlyTo(summonCF)
-						task.wait(0.3)
-						hrp3 = Player.Character and Player.Character:FindFirstChild("HumanoidRootPart")
-						if hrp3 and (hrp3.Position - summonCF.Position).Magnitude > 15 then
-							Functions.TeleportTo(summonCF)
-							task.wait(0.3)
-						end
-					end
-					CF("SetSpawnPoint")
-					task.wait(0.2)
-					local clicked3 = false
-					pcall(function()
-						local btn = workspace.Map["Boat Castle"].RaidSummon2.Button.Main.ClickDetector
-						fireclickdetector(btn)
-						clicked3 = true
-					end)
-					if not clicked3 then
-						pcall(function() CF("requestEntrance", summonCF.Position) end)
-					end
-					task.wait(1)
-				end
-			end)
-		end
-	end)
-
-	-- ==========================================
-	-- LOOP PRINCIPAL: FARM RAID
-	-- Lógica:
-	--   1. Assim que ativa: fica no ar procurando inimigos perto do player
-	--   2. Em paralelo, monitora se uma ilha nova spawnou perto dele
-	--   3. Se achar ilha próxima: voa até o centro dela e continua
-	--      procurando/matando inimigos a partir de lá
-	--   4. Mata mobs um a um (puxa pra baixo do player); ilha 5 prioriza boss
-	-- ==========================================
-	SafeSpawn(function()
-		local MAX_DIST   = 4500  -- raio máximo para considerar uma ilha "minha"
-		local atCenter   = false
-		local lastIsland = nil   -- última ilha que fomos
-		local isFlying   = false
-		local _killing   = false
-		local homeCF      = nil  -- posição de referência atual (centro da ilha ou onde começou)
-
-		-- Busca a ilha que exista perto do player (varre 1 a 5)
-		local function FindNearestIsland()
-			local char = Player.Character
-			local hrp  = char and char:FindFirstChild("HumanoidRootPart")
-			if not hrp then return nil end
-
-			for i = 1, 5 do
-				-- Fonte 1: workspace.Map.RaidMap.RaidIslandN
-				local map     = workspace:FindFirstChild("Map")
-				local raidMap = map and map:FindFirstChild("RaidMap")
-				if raidMap then
-					for _, child in ipairs(raidMap:GetChildren()) do
-						if child.Name == "RaidIsland" .. i then
-							local pos = GetIslandPivotPos(child)
-							if pos and (pos - hrp.Position).Magnitude <= MAX_DIST then
-								return child, pos, i
-							end
-						end
-					end
-				end
-
-				-- Fonte 2: workspace._WorldOrigin.Locations."Island N"
-				local locs = GetWorldLocations()
-				if locs then
-					local wIsl = locs:FindFirstChild("Island " .. i)
-					if wIsl then
-						local obj = (wIsl:IsA("ObjectValue") and wIsl.Value) or wIsl
-						local pos = GetIslandPivotPos(obj)
-						if pos and (pos - hrp.Position).Magnitude <= MAX_DIST then
-							return obj, pos, i
-						end
-					end
-				end
-			end
-
-			return nil
-		end
-
-		local function FlyAsync(targetCF)
-			if isFlying then return end
-			isFlying = true
-			SafeSpawn(function()
-				Functions.FlyToRaid(targetCF, config)
-				isFlying = false
-			end)
-		end
-
-		-- Procura boss (ilha 5) ou mob normal num raio do ponto de referência
-		local function FindTarget(enemies, refPos, bossOnly)
-			for _, v in ipairs(enemies:GetChildren()) do
-				local vHrp = v:FindFirstChild("HumanoidRootPart")
-				local vHum = v:FindFirstChild("Humanoid")
-				if not vHrp or not vHum or vHum.Health <= 0 then continue end
-				local isBoss = RAID_BOSS_SET[v.Name] or v.Name:match("%[Raid Boss%]")
-				if bossOnly and not isBoss then continue end
-				if not bossOnly and isBoss then continue end
-				if (vHrp.Position - refPos).Magnitude <= 5000 then
-					return v
-				end
-			end
-			return nil
-		end
-
-		while task.wait(0.1) do
-			if not config.AutoRaid then
-				DestroyRaidPart()
-				atCenter   = false
-				lastIsland = nil
-				isFlying   = false
-				_killing   = false
-				homeCF     = nil
-				continue
-			end
-
-			pcall(function()
-				local char = Player.Character
-				local hrp  = char and char:FindFirstChild("HumanoidRootPart")
-				local hum  = char and char:FindFirstChildOfClass("Humanoid")
-				if not hrp or not hum or hum.Health <= 0 then return end
-
-				-- Define ponto de referência inicial (onde começou a raid) se ainda não tem
-				if not homeCF then
-					homeCF = hrp.CFrame
-				end
-
-				-- ---- MONITORAMENTO DE ILHA (roda sempre, em paralelo ao combate) ----
-				local island, centerPos, islandNum = FindNearestIsland()
-
-				if island and island ~= lastIsland then
-					-- Ilha nova detectada perto: define como novo ponto de referência e voa
-					print("[AutoRaid] Ilha " .. tostring(islandNum) .. " spawnou perto! Indo até ela...")
-					lastIsland = island
-					homeCF     = CFrame.new(centerPos.X, centerPos.Y + 55, centerPos.Z)
-					atCenter   = false
-					isFlying   = false
-				end
-
-				-- ---- VOO ATÉ O PONTO DE REFERÊNCIA ATUAL ----
-				local distHome = (hrp.Position - homeCF.Position).Magnitude
-				if not atCenter then
-					if distHome < 40 then
-						atCenter = true
-						isFlying = false
-					else
-						FlyAsync(homeCF)
-						return
-					end
-				elseif distHome > 80 then
-					-- Se afastou muito do ponto de referência: volta
-					FlyAsync(homeCF)
-					return
-				end
-
-				-- Garante PartTele ativo (player sempre no ar, nunca cai)
-				if not workspace:FindFirstChild("RaidPartTele") then
-					Functions.FlyToRaid(homeCF, config)
-				end
-
-				-- ---- BUSCA E MATA INIMIGOS PERTO ----
-				local enemies = workspace:FindFirstChild("Enemies")
-				if not enemies or _killing then return end
-
-				-- Se estamos na ilha 5: prioridade total pro boss
-				if islandNum == 5 then
-					local boss = FindTarget(enemies, homeCF.Position, true)
-					if boss then
-						print("[AutoRaid] Boss detectado (ilha 5): " .. boss.Name)
-						_killing = true
-						SafeSpawn(function()
-							KillBossInstant(boss, homeCF)
-							atCenter = true
-							_killing = false
-						end)
-						return
-					end
-				end
-
-				-- Mobs normais (procurando perto do ponto de referência atual)
-				local mob = FindTarget(enemies, homeCF.Position, false)
-				if mob then
-					print("[AutoRaid] Mob detectado: " .. mob.Name)
-					_killing = true
-					SafeSpawn(function()
-						KillMob(mob, homeCF)
-						atCenter = true
-						_killing = false
-					end)
-				end
-				-- Sem mobs/boss perto: fica no ar aguardando spawn ou ilha nova
-			end)
-		end
-	end)
+                    _killing = false
+                end)
+            end)
+        end
+    end)
 end
+
 -- AWAKENER FRUIT (ativar frutas desperto no raid)
 -- =====================================================
 function Functions.StartAutoAwakenAbilities(config)
@@ -3771,193 +3503,233 @@ end
 
 -- Auto Pirate Raid (Sea 3)
 function Functions.StartAutoPirateRaid(config)
-	-- =====================================================
-	-- AUTO PIRATE RAID
-	--
-	-- Fluxo:
-	--   1. Monitora notificacoes do jogo via SetCore hook
-	--   2. Quando detecta "Piratas estao invadindo" E
-	--      config.AutoPirateRaid == true:
-	--      a. Salva o que o player estava fazendo (pausa)
-	--      b. Voa pro centro do Boat Castle
-	--      c. Espera mobs spawnarem (max 30s)
-	--      d. Mata todos os mobs que aparecerem la
-	--      e. Se passar 10s sem nenhum mob novo: encerra
-	--      f. Restaura o estado anterior (retoma o que fazia)
-	-- =====================================================
-	local CASTLE_CF   = CFrame.new(-5036, 355, -3179)  -- centro do Boat Castle no ar
-	local MOB_RADIUS  = 800    -- raio de busca de mobs ao redor do castelo
-	local WAIT_SPAWN  = 30     -- segundos maximos esperando mobs spawnarem
-	local WAIT_NEXT   = 10     -- segundos sem mob novo antes de encerrar
-	local _isTp       = { value = false }
-	local _noEquip    = { value = false }
-	local _running    = false  -- evita execucoes paralelas
+    -- =====================================================
+    -- AUTO PIRATE RAID — método do bninikimp (CastleRaid)
+    --
+    -- Fluxo:
+    --   1. Loop contínuo verificando mobs na área do Boat Castle
+    --   2. Quando detecta mobs vivos:
+    --      a. Instala BodyVelocity (nunca cai)
+    --      b. Tweena pro centro do castelo
+    --      c. Acha mob mais próximo → tweena pra cima dele
+    --      d. Bring + ataca até morrer
+    --      e. Próximo mob
+    --   3. Sem mobs por WAIT_EMPTY segundos → remove BodyVelocity e aguarda
+    --
+    -- NÃO usa hookfunction nem detecta notificação —
+    -- só monitora workspace.Enemies em loop, igual ao CastleRaid do bninikimp.
+    -- =====================================================
+    SafeSpawn(function()
 
-	-- ── Voa pro alvo e fica no ar ──
-	local function FlyTo(targetCF)
-		Functions.FlyToPosition(targetCF, TweenService, config, _isTp, _noEquip)
-	end
+        local TweenSvc   = game:GetService("TweenService")
+        local TWEEN_SPEED = tonumber(config.FlySpeed) or 300  -- studs/s
+        local FLY_OFFSET  = tonumber(config.FlyOffset) or 15  -- Y acima do mob
 
-	-- ── Para no ar sem cair ──
-	local function HoverHere()
-		local char = Player.Character
-		local hrp  = char and char:FindFirstChild("HumanoidRootPart")
-		if not hrp then return end
-		local pt        = Instance.new("Part")
-		pt.Name         = "PirateRaidHover"
-		pt.Size         = Vector3.new(10,1,10)
-		pt.Anchored     = true
-		pt.Transparency = 1
-		pt.CanCollide   = false
-		pt.CFrame       = hrp.CFrame
-		pt.Parent       = workspace
-		local conn
-		conn = RunService.Heartbeat:Connect(function()
-			local c   = Player.Character
-			local cHrp = c and c:FindFirstChild("HumanoidRootPart")
-			if cHrp and pt and pt.Parent then
-				local _, yaw, _ = cHrp.CFrame:ToOrientation()
-				cHrp.CFrame = CFrame.new(pt.CFrame.Position) * CFrame.Angles(0, yaw, 0)
-			else
-				conn:Disconnect()
-			end
-		end)
-		return pt, conn
-	end
+        -- Centro do Boat Castle (Sea 3) — posição confirmada do bninikimp
+        local CASTLE_POS  = Vector3.new(-5036, 315, -3179)
+        local CASTLE_CF   = CFrame.new(CASTLE_POS + Vector3.new(0, 55, 0))
+        local MOB_RADIUS  = 800    -- raio de busca ao redor do castelo
+        local WAIT_EMPTY  = 10     -- segundos sem mob antes de parar o hover
 
-	-- ── Para o hover ──
-	local function StopHover(pt, conn)
-		if conn then conn:Disconnect() end
-		if pt and pt.Parent then pt:Destroy() end
-		Functions.StopTeleport()
-	end
+        -- --------------------------------------------------
+        -- BodyVelocity âncora — igual ao RaidBodyClip do AutoRaid
+        -- --------------------------------------------------
+        local function SetBodyClip(enable)
+            pcall(function()
+                local char = Player.Character
+                local hrp  = char and char:FindFirstChild("HumanoidRootPart")
+                if not hrp then return end
+                if enable then
+                    if hrp:FindFirstChild("PirateRaidClip") then return end
+                    local bv        = Instance.new("BodyVelocity")
+                    bv.Name         = "PirateRaidClip"
+                    bv.MaxForce     = Vector3.new(1e5, 1e5, 1e5)
+                    bv.Velocity     = Vector3.zero
+                    bv.Parent       = hrp
+                    local hum = char:FindFirstChildOfClass("Humanoid")
+                    if hum then
+                        hum:SetStateEnabled(Enum.HumanoidStateType.Freefall, false)
+                        hum:SetStateEnabled(Enum.HumanoidStateType.Landed,   false)
+                        hum:ChangeState(Enum.HumanoidStateType.Physics)
+                    end
+                else
+                    local char2 = Player.Character
+                    local hrp2  = char2 and char2:FindFirstChild("HumanoidRootPart")
+                    if hrp2 then
+                        local bv2 = hrp2:FindFirstChild("PirateRaidClip")
+                        if bv2 then bv2:Destroy() end
+                    end
+                    local hum2 = char2 and char2:FindFirstChildOfClass("Humanoid")
+                    if hum2 then
+                        hum2:SetStateEnabled(Enum.HumanoidStateType.Freefall, true)
+                        hum2:SetStateEnabled(Enum.HumanoidStateType.Landed,   true)
+                        hum2:ChangeState(Enum.HumanoidStateType.Freefall)
+                    end
+                end
+            end)
+        end
 
-	-- ── Busca mobs vivos no castelo ──
-	local function GetCastleMobs()
-		local result  = {}
-		local enemies = workspace:FindFirstChild("Enemies")
-		if not enemies then return result end
-		for _, v in ipairs(enemies:GetChildren()) do
-			local vHrp = v:FindFirstChild("HumanoidRootPart")
-			local vHum = v:FindFirstChild("Humanoid")
-			if vHrp and vHum and vHum.Health > 0
-			   and (vHrp.Position - CASTLE_CF.Position).Magnitude <= MOB_RADIUS then
-				table.insert(result, v)
-			end
-		end
-		return result
-	end
+        -- --------------------------------------------------
+        -- Tween direto no HRP (igual ao RaidTween do AutoRaid)
+        -- --------------------------------------------------
+        local _activeTween = nil
+        local function PirateTween(targetCF)
+            local char = Player.Character
+            local hrp  = char and char:FindFirstChild("HumanoidRootPart")
+            if not hrp then return end
+            local dist = (targetCF.Position - hrp.Position).Magnitude
+            if dist < 4 then return end
+            local dur = math.clamp(dist / TWEEN_SPEED, 0.05, 20)
+            if _activeTween then _activeTween:Cancel() end
+            _activeTween = TweenSvc:Create(hrp,
+                TweenInfo.new(dur, Enum.EasingStyle.Linear),
+                { CFrame = targetCF }
+            )
+            _activeTween:Play()
+            _activeTween.Completed:Wait()
+            _activeTween = nil
+        end
 
-	-- ── Executa o farm do Pirate Raid ──
-	local function RunPirateRaid()
-		if _running then return end
-		_running = true
-		print("[PirateRaid] Notificacao detectada! Iniciando...")
+        -- --------------------------------------------------
+        -- Busca mobs vivos na área do Boat Castle
+        -- --------------------------------------------------
+        local function GetCastleMobs()
+            local result  = {}
+            local enemies = workspace:FindFirstChild("Enemies")
+            if not enemies then return result end
+            for _, v in ipairs(enemies:GetChildren()) do
+                local vHrp = v:FindFirstChild("HumanoidRootPart")
+                local vHum = v:FindFirstChild("Humanoid")
+                if vHrp and vHum and vHum.Health > 0
+                   and (vHrp.Position - CASTLE_POS).Magnitude <= MOB_RADIUS then
+                    table.insert(result, v)
+                end
+            end
+            return result
+        end
 
-		Functions.RunPriorityTask(config, function()
-			-- Voa pro castelo
-			print("[PirateRaid] Voando para o Boat Castle...")
-			FlyTo(CASTLE_CF)
+        -- --------------------------------------------------
+        -- Acha o mob mais próximo do player dentro da lista
+        -- --------------------------------------------------
+        local function GetNearestMob(mobs)
+            local char = Player.Character
+            local hrp  = char and char:FindFirstChild("HumanoidRootPart")
+            if not hrp then return nil end
+            local best, bestDist = nil, math.huge
+            for _, v in ipairs(mobs) do
+                local vHrp = v:FindFirstChild("HumanoidRootPart")
+                local vHum = v:FindFirstChild("Humanoid")
+                if vHrp and vHum and vHum.Health > 0 then
+                    local d = (vHrp.Position - hrp.Position).Magnitude
+                    if d < bestDist then bestDist = d; best = v end
+                end
+            end
+            return best
+        end
 
-			-- Hover no centro enquanto aguarda mobs
-			local hoverPt, hoverConn = HoverHere()
+        -- --------------------------------------------------
+        -- LOOP PRINCIPAL — igual ao CastleRaid do bninikimp
+        -- --------------------------------------------------
+        local emptyTimer = 0
 
-			-- Espera mobs spawnarem (max WAIT_SPAWN segundos)
-			local waited = 0
-			while waited < WAIT_SPAWN do
-				if not config.AutoPirateRaid then break end
-				local mobs = GetCastleMobs()
-				if #mobs > 0 then break end
-				task.wait(1)
-				waited = waited + 1
-				print(("[PirateRaid] Aguardando mobs... %ds/%ds"):format(waited, WAIT_SPAWN))
-			end
+        while task.wait(0.1) do
+            if not config.AutoPirateRaid then
+                SetBodyClip(false)
+                emptyTimer = 0
+                task.wait(1)
+                continue
+            end
 
-			-- Mata os mobs, aguardando ate 10s sem novo mob
-			local lastKillTime = os.clock()
-			while config.AutoPirateRaid do
-				local mobs = GetCastleMobs()
+            local mobs = GetCastleMobs()
 
-				if #mobs == 0 then
-					if os.clock() - lastKillTime >= WAIT_NEXT then
-						print("[PirateRaid] Sem mobs por " .. WAIT_NEXT .. "s. Encerrando.")
-						break
-					end
-					task.wait(0.5)
-				else
-					lastKillTime = os.clock()
-					for _, v in ipairs(mobs) do
-						if not config.AutoPirateRaid then break end
-						local vHrp = v:FindFirstChild("HumanoidRootPart")
-						local vHum = v:FindFirstChild("Humanoid")
-						if not vHrp or not vHum or vHum.Health <= 0 then continue end
+            if #mobs == 0 then
+                -- Sem mobs — acumula tempo vazio
+                emptyTimer = emptyTimer + 0.1
+                if emptyTimer >= WAIT_EMPTY then
+                    -- Passou do tempo → remove hover e aguarda próxima raid
+                    SetBodyClip(false)
+                end
+                continue
+            end
 
-						StopHover(hoverPt, hoverConn)
-						FlyTo(vHrp.CFrame * CFrame.new(0, 25, 0))
-						hoverPt, hoverConn = HoverHere()
+            -- Tem mobs — reseta timer e ativa hover
+            emptyTimer = 0
+            SetBodyClip(true)
 
-						repeat
-							task.wait(0.05)
-							if not config.AutoPirateRaid then break end
-							Functions.AutoHaki()
-							Functions.EquipWeapon(config, _noEquip)
-							pcall(function()
-								vHrp.CanCollide = false
-								vHrp.Size = Vector3.new(60, 60, 60)
-								VirtualUser:CaptureController()
-								VirtualUser:Button1Down(Vector2.new(1280, 672))
-							end)
-						until not v.Parent
-							or not v:FindFirstChild("Humanoid")
-							or v.Humanoid.Health <= 0
-							or not config.AutoPirateRaid
+            -- Se estiver longe do castelo, vai primeiro pro centro
+            local char = Player.Character
+            local hrp  = char and char:FindFirstChild("HumanoidRootPart")
+            if hrp and (hrp.Position - CASTLE_POS).Magnitude > MOB_RADIUS then
+                print("[PirateRaid] Indo para o Boat Castle...")
+                PirateTween(CASTLE_CF)
+            end
 
-						StopHover(hoverPt, hoverConn)
-						FlyTo(CASTLE_CF)
-						hoverPt, hoverConn = HoverHere()
-						lastKillTime = os.clock()
-					end
-				end
-			end
+            -- Pega o mob mais próximo
+            local mob = GetNearestMob(mobs)
+            if not mob then continue end
 
-			-- Para o hover ao terminar
-			StopHover(hoverPt, hoverConn)
-		end)
+            local mHrp = mob:FindFirstChild("HumanoidRootPart")
+            local mHum = mob:FindFirstChild("Humanoid")
+            if not mHrp or not mHum or mHum.Health <= 0 then continue end
 
-		_running = false
-	end
+            -- Tweena pra cima do mob
+            local targetCF = mHrp.CFrame * CFrame.new(0, FLY_OFFSET, 0)
+            PirateTween(targetCF)
 
-	-- ── Hook de notificacao do jogo ──
-	-- Intercepta qualquer chamada a StarterGui:SetCore("SendNotification", ...)
-	-- e verifica se o texto contem a frase do Pirate Raid.
-	local StarterGui = game:GetService("StarterGui")
-	local oldSetCore = hookfunction(StarterGui.SetCore, function(self, coreType, data)
-		pcall(function()
-			if coreType == "SendNotification" and config.AutoPirateRaid then
-				local title = tostring(data and (data.Title or data.title) or ""):lower()
-				local text  = tostring(data and (data.Text  or data.text ) or ""):lower()
-				-- Detecta tanto em portugues quanto em ingles
-				local isPirateRaid = title:match("pirat") or text:match("pirat")
-				              or title:match("invad")  or text:match("invad")
-				              or title:match("castelo") or text:match("castelo")
-				              or title:match("castle")  or text:match("castle")
-				if isPirateRaid then
-					print("[PirateRaid] Notificacao capturada: " .. tostring(data.Title or data.title))
-					SafeSpawn(RunPirateRaid)
-				end
-			end
-		end)
-		return oldSetCore(self, coreType, data)
-	end)
+            print(("[PirateRaid] Atacando: %s"):format(mob.Name))
 
-	-- Limpa o hook quando o script e destruido/desativado
-	game:GetService("Players").LocalPlayer.CharacterRemoving:Connect(function()
-		if oldSetCore then
-			pcall(function() hookfunction(StarterGui.SetCore, oldSetCore) end)
-		end
-	end)
+            -- Ataca o mob até morrer (igual ao bninikimp)
+            repeat
+                task.wait(0.05)
+                if not config.AutoPirateRaid then break end
+
+                local char2 = Player.Character
+                local hrp2  = char2 and char2:FindFirstChild("HumanoidRootPart")
+                if not hrp2 then break end
+
+                -- Haki + arma
+                Functions.AutoHaki(config)
+                Functions.EquipWeapon(config, { value = false })
+
+                -- Bring: expande hitbox e traz mob pra baixo do player
+                pcall(function()
+                    mHrp.CanCollide = false
+                    mHrp.Size = Vector3.new(60, 60, 60)
+                    mHrp.CFrame = CFrame.new(hrp2.Position - Vector3.new(0, FLY_OFFSET, 0))
+                end)
+
+                -- Ataca
+                pcall(function()
+                    VirtualUser:CaptureController()
+                    VirtualUser:Button1Down(Vector2.new(1280, 672))
+                    task.wait(0.02)
+                    VirtualUser:Button1Up(Vector2.new(1280, 672))
+                end)
+
+                -- Mantém posição acima do mob (BodyClip segura no ar)
+                if mHrp and mHrp.Parent then
+                    pcall(function()
+                        local bv = hrp2:FindFirstChild("PirateRaidClip")
+                        if bv then
+                            -- Só atualiza se o mob se mover muito
+                            local diff = (hrp2.Position - (mHrp.Position + Vector3.new(0, FLY_OFFSET, 0))).Magnitude
+                            if diff > 8 then
+                                hrp2.CFrame = mHrp.CFrame * CFrame.new(0, FLY_OFFSET, 0)
+                            end
+                        end
+                    end)
+                end
+
+            until not mob.Parent
+                or not mob:FindFirstChildOfClass("Humanoid")
+                or mob.Humanoid.Health <= 0
+                or not config.AutoPirateRaid
+
+            config.KillCount = (config.KillCount or 0) + 1
+            print(("[PirateRaid] Mob morto! Total: %d"):format(config.KillCount))
+        end
+    end)
 end
-
 function Functions.StartAutoFarmChocola(config)
     SafeSpawn(function()
         while task.wait() do
