@@ -2988,25 +2988,53 @@ Teleport:AddButton({ Title = "Teleport to Sea 3",
         Notify({ Title = "Teleportado!", Description = "Sea 3 - Port Town", Image = IMG, Type = "Success", Duration = 3 })
     end })
 
-Teleport:AddSection("Teleport For Island")
-Teleport:AddDropdown({ Title = "Select Island",
+Teleport:AddSection("Fly to Island")
+
+-- Dropdown: escolhe a ilha de destino
+Teleport:AddDropdown({
+    Title    = "Select Island",
     Options  = Islands[CurrentSea],
     Default  = Islands[CurrentSea][1],
-    Callback = function(v) Config.FarmIsland = (type(v) == "table" and (v[1] or next(v)) or tostring(v)) end,
+    Callback = function(v)
+        Config.FarmIsland = (type(v) == "table" and (v[1] or next(v)) or tostring(v))
+    end,
 })
-Teleport:AddButton({ Title = "Auto Teleport Island",
-    Callback = function()
-        local islandName = Config.FarmIsland or Islands[CurrentSea][1]
-        local found = false
-        for _, q in ipairs(QuestList) do
-            if q.Sea == CurrentSea and q.Mob:lower():find(islandName:lower():sub(1, 5), 1, true) then
-                if HumanoidRootPart then HumanoidRootPart.CFrame = q.CFrameQuest end
-                Notify({ Title = T("teleported"), Description = islandName, Image = IMG, Type = "Success", Duration = 3 })
-                found = true; break
-            end
+
+-- Toggle: ativa/desativa o voo para a ilha selecionada
+-- Igual ao AutoFarmLevel: usa FlyToPosition + StartFloat + EnableFarmClip
+-- O player fica flutuando ao chegar e não cai
+Teleport:AddToggle({
+    Title       = "Fly to Island",
+    Description = "Voa para a ilha selecionada usando o mesmo voo do Auto Farm",
+    Default     = false,
+    Callback    = function(v)
+        local islandName = Config.FarmIsland
+        if not islandName or islandName == "" then
+            islandName = Islands[CurrentSea][1]
         end
-        if not found then
-            Notify({ Title = T("teleported"), Description = islandName .. " - " .. T("teleport_not_mapped"), Image = IMG, Type = "Warning", Duration = 3 })
+
+        if v then
+            -- Ativa o toggle de voo
+            Notify({
+                Title       = "Voando para: " .. islandName,
+                Description = "FlySpeed: " .. tostring(Config.FlySpeed) .. " studs/s",
+                Image       = IMG,
+                Type        = "Info",
+                Duration    = 3,
+            })
+            task.spawn(function()
+                Functions.StartFlyIslandToggle(islandName, Config)
+            end)
+        else
+            -- Desativa
+            Functions.StopFlyIslandToggle(Config)
+            Notify({
+                Title       = "Voo cancelado",
+                Description = islandName,
+                Image       = IMG,
+                Type        = "Warning",
+                Duration    = 2,
+            })
         end
     end,
 })
@@ -4136,10 +4164,10 @@ task.spawn(function()
     end)
 end)
 
-print("[LotuxHub] ✅ Carregado! v1.2 | Sea " .. CurrentSea .. " | by LoadFlint/lucas")
+print("[LotuxHub] " .. tostring(Config.ScriptVersion) .. " | Sea " .. CurrentSea .. " | by LoadFlint/lucas")
 
 Notify({
-    Title       = "Lotux Hub v1.2 Carregado!",
+    Title       = "Lotux Hub Carregado!",
     Description = "Sea " .. CurrentSea .. " | PlaceId: " .. game.PlaceId,
     Image       = IMG,
     Duration    = 5,

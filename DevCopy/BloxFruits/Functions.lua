@@ -8426,6 +8426,183 @@ _G.SS3  = Functions.StartAutoSea3        -- StartAutoSea3
 _G.SATTK = Functions.StartAutoBuyTTK     -- StartAutoBuyTTK
 _G.SADBV2 = Functions.StartAutoDarkBladeV2 -- StartAutoDarkBladeV2
 _G.SAFC = Functions.StartAutoFarmChocola -- StartAutoFarmChocola
+-- =====================================================
+-- FLY TO ISLAND
+-- Voo igual ao AutoFarmLevel:
+--   • FlyToPosition (PartTele + Heartbeat) para voar
+--   • StartFloat ativo durante o voo (não cai)
+--   • EnableFarmClip (BodyVelocity) durante o voo
+--   • requestEntrance para ilhas que precisam
+--   • Toggle FlyIsland: fica no ar ao chegar
+-- =====================================================
+
+-- Coordenadas de chegada por ilha/Sea
+local ISLAND_POSITIONS = {
+    [1] = {
+        ["Starter Island"]    = CFrame.new(1046,  14,  1552),
+        ["Middle Town"]       = CFrame.new(-625,  10,  1626),
+        ["Jungle"]            = CFrame.new(-1428,  50,   163),
+        ["Pirate Village"]    = CFrame.new(-1161,  40,  3810),
+        ["Desert"]            = CFrame.new( 934,  16,  4414),
+        ["Frozen Village"]    = CFrame.new(1276, 102, -1324),
+        ["Marineford"]        = CFrame.new(-5020,  28,  4300),
+        ["Skylands"]          = CFrame.new(-4842, 717, -2623),
+        ["Prison"]            = CFrame.new(5100,   2,   800),
+        ["Colosseum"]         = CFrame.new(-1578,   7, -2984),
+        ["Magma Village"]     = CFrame.new(-5320,  12,  8517),
+        ["Underwater City"]   = CFrame.new(61163,  11,  1819),
+        ["Fountain City"]     = CFrame.new(-2620,   5, -2800),
+    },
+    [2] = {
+        ["Kingdom of Rose"]   = CFrame.new( -630,  12,  1735),
+        ["Green Zone"]        = CFrame.new( 1420, 160, -3040),
+        ["Graveyard"]         = CFrame.new(-1386,  12, -3030),
+        ["Snow Mountain"]     = CFrame.new(  930, 276, -3740),
+        ["Hot and Cold"]      = CFrame.new(-7100,  50, -4300),
+        ["Cursed Ship"]       = CFrame.new(  923, 126, 32852),
+        ["Ice Castle"]        = CFrame.new(-6250,  95, -4800),
+        ["Forgotten Island"]  = CFrame.new(-9500,  73, -2800),
+        ["Dark Arena"]        = CFrame.new(  390, 332,   673),
+        ["Factory"]           = CFrame.new( -286, 306,   616),
+    },
+    [3] = {
+        ["Port Town"]         = CFrame.new(  -380,  16,   -780),
+        ["Hydra Island"]      = CFrame.new(  5657, 1013,  -335),
+        ["Great Tree"]        = CFrame.new(-12462,  375, -7552),
+        ["Floating Turtle"]   = CFrame.new(-12462,  375, -7552),
+        ["Haunted Castle"]    = CFrame.new( -5036,  315, -3179),
+        ["Sea of Treats"]     = CFrame.new( -2130,   70,-12327),
+        ["Cake Land"]         = CFrame.new( -1932,   38,-12848),
+        ["Tiki Outpost"]      = CFrame.new(  6571,  299, -6967),
+        ["Submerged Island"]  = CFrame.new( 61163,   11,  1819),
+    },
+}
+
+-- Ilhas que precisam de requestEntrance antes de voar
+local ISLAND_ENTRANCE = {
+    ["Underwater City"]  = Vector3.new( 61163,  11,  1819),
+    ["Cursed Ship"]      = Vector3.new(   923, 126, 32852),
+    ["Dark Arena"]       = Vector3.new(   390, 332,   673),
+    ["Factory"]          = Vector3.new(-286.98, 306.13, 616.88),
+    ["Hydra Island"]     = Vector3.new( 5657.88, 1013.07, -335.49),
+    ["Great Tree"]       = Vector3.new(-12462,  375, -7552),
+    ["Floating Turtle"]  = Vector3.new(-12462,  375, -7552),
+    ["Submerged Island"] = Vector3.new( 61163,   11,  1819),
+}
+
+-- Estado do toggle FlyIsland
+local _flyIslandActive = false
+local _flyIslandConn   = nil
+
+function Functions.IsFlyingToIsland()
+    return _flyIslandActive
+end
+
+-- Para o toggle FlyIsland (remove float + clip se nenhuma outra função os usa)
+local function StopFlyIsland(config)
+    _flyIslandActive = false
+    if _flyIslandConn then
+        _flyIslandConn:Disconnect()
+        _flyIslandConn = nil
+    end
+    -- Só para o float se nenhuma função de farm estiver ativa
+    if Functions.StopFloat and not _AnyFloatTrigger(config) then
+        Functions.StopFloat()
+    end
+    Functions.DisableFarmClip()
+end
+
+-- Voa para uma ilha usando o mesmo sistema do AutoFarmLevel
+function Functions.FlyToIsland(islandName, config)
+    if not islandName or islandName == "" then return end
+
+    local sea    = Functions.DetectCurrentSea()
+    local seaPos = ISLAND_POSITIONS[sea]
+    if not seaPos then return end
+
+    local targetCF = seaPos[islandName]
+    if not targetCF then
+        warn("[FlyIsland] Ilha não encontrada: " .. tostring(islandName))
+        return
+    end
+
+    print(("[FlyIsland] Iniciando voo para: %s (Sea %d)"):format(islandName, sea))
+
+    -- requestEntrance antes de voar (ilhas isoladas)
+    local entrancePos = ISLAND_ENTRANCE[islandName]
+    if entrancePos then
+        pcall(function() CF("requestEntrance", entrancePos) end)
+        task.wait(0.8)
+    end
+
+    -- Ativa o mesmo sistema de float + clip do AutoFarmLevel
+    if Functions.StartFloat then Functions.StartFloat(config) end
+    Functions.EnableFarmClip()
+
+    -- Voa usando FlyToPosition (PartTele + Heartbeat), igual ao farm
+    local flyTarget = targetCF * CFrame.new(0, 15, 0)
+    local isTp    = { value = false }
+    local noEquip = { value = false }
+    Functions.FlyToPosition(flyTarget, TweenService, config, isTp, noEquip)
+
+    -- Atualiza o floatY para a altura de chegada
+    local char = Player.Character
+    local hrp  = char and char:FindFirstChild("HumanoidRootPart")
+    if hrp and Functions.SetFloatY then
+        Functions.SetFloatY(hrp.Position.Y)
+    end
+
+    print(("[FlyIsland] Chegou em: %s"):format(islandName))
+end
+
+-- Toggle: fica voando para a ilha selecionada até desativar
+-- Quando ativo, mantém o player no ar (float + clip) e refaz o voo
+-- se o player cair (ex: morrer e respawnar)
+function Functions.StartFlyIslandToggle(islandName, config)
+    if _flyIslandActive then return end  -- já rodando
+    _flyIslandActive = true
+
+    SafeSpawn(function()
+        -- Faz o voo inicial
+        Functions.FlyToIsland(islandName, config)
+
+        -- Fica monitorando: se o toggle ainda estiver ativo,
+        -- mantém float + clip. Se o player morrer e respawnar,
+        -- refaz o voo.
+        local lastPos = nil
+        _flyIslandConn = RunService.Heartbeat:Connect(function()
+            if not _flyIslandActive then return end
+
+            local c = Player.Character
+            local h = c and c:FindFirstChild("HumanoidRootPart")
+            if not h then return end
+
+            -- Garante que float e clip estão ativos
+            Functions.EnableFarmClip()
+
+            -- Detecta respawn (posição mudou muito de golpe)
+            if lastPos then
+                local delta = (h.Position - lastPos).Magnitude
+                if delta > 500 then
+                    -- Respawnou — refaz o voo
+                    task.spawn(function()
+                        task.wait(1)
+                        if _flyIslandActive then
+                            Functions.FlyToIsland(islandName, config)
+                        end
+                    end)
+                end
+            end
+            lastPos = h.Position
+        end)
+    end)
+end
+
+function Functions.StopFlyIslandToggle(config)
+    StopFlyIsland(config)
+end
+
+
 _G.RFog  = Functions.RemoveFog           -- RemoveFog
 _G.RLava = Functions.RemoveLava          -- RemoveLava
 _G.UESP  = Functions.UpdatePlayerESP     -- UpdatePlayerESP
@@ -8434,6 +8611,9 @@ _G.UCESP = Functions.UpdateChestESP      -- UpdateChestESP
 _G.UBESP = Functions.UpdateBerriesESP    -- UpdateBerriesESP
 _G.UMESP = Functions.UpdateMirageESP     -- UpdateMirageESP
 _G.USESP = Functions.UpdateSeaBeastESP   -- UpdateSeaBeastESP
-_G.TTSI  = Functions.TravelToSubmergedIsland -- TravelToSubmergedIsland
+_G.TTSI  = Functions.TravelToSubmergedIsland
+_G.FLI   = Functions.FlyToIsland          -- FlyToIsland
+_G.SFLIT = Functions.StartFlyIslandToggle  -- StartFlyIslandToggle
+_G.STOPLIT = Functions.StopFlyIslandToggle -- StopFlyIslandToggle -- TravelToSubmergedIsland
 
 return Functions
