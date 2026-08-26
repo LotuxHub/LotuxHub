@@ -1537,6 +1537,124 @@ function Functions.FastAttackAdvanced()
 end
 
 -- =====================================================
+-- ATTACK NO COOLDOWN (SuperFastAttack)
+-- Usa getsenv para pegar SendHitsToServer do LocalScript,
+-- detecta COMBAT_REMOTE_THREAD e cai no RegisterHit como
+-- fallback — mais agressivo que o FastAttack normal.
+-- =====================================================
+function Functions.AttackNoCoolDown(targetMob)
+    local char = Player.Character
+    if not char then return end
+
+    local tool = char:FindFirstChildOfClass("Tool")
+    if not tool then return end
+
+    -- Coleta alvos no raio de 60 studs
+    local root = char:FindFirstChild("HumanoidRootPart")
+    if not root then return end
+
+    local hits = {}
+    local basePart = nil
+
+    local function collectFrom(folder)
+        if not folder then return end
+        for _, enemy in ipairs(folder:GetChildren()) do
+            if enemy == char or enemy:GetAttribute("IsBoat") then continue end
+            local hum = enemy:FindFirstChildOfClass("Humanoid")
+            local hrp = enemy:FindFirstChild("HumanoidRootPart")
+            if not hum or not hrp or hum.Health <= 0 then continue end
+            if (hrp.Position - root.Position).Magnitude > 60 then continue end
+            local limbs = {
+                "RightLowerArm","RightUpperArm","LeftLowerArm",
+                "LeftUpperArm","RightHand","LeftHand",
+            }
+            local picked = enemy:FindFirstChild(limbs[math.random(#limbs)]) or hrp
+            table.insert(hits, { enemy, picked })
+            if not basePart then basePart = picked end
+        end
+    end
+
+    collectFrom(workspace:FindFirstChild("Enemies"))
+    collectFrom(workspace:FindFirstChild("Characters"))
+
+    -- Garante pelo menos o alvo principal
+    if targetMob and #hits == 0 then
+        local hrp = targetMob:FindFirstChild("HumanoidRootPart")
+        if hrp then
+            basePart = hrp
+            table.insert(hits, { targetMob, hrp })
+        end
+    end
+
+    if not basePart or #hits == 0 then return end
+
+    local Net = ReplicatedStorage:FindFirstChild("Modules")
+            and ReplicatedStorage.Modules:FindFirstChild("Net")
+    if not Net then return end
+
+    local RegisterAttack = Net:FindFirstChild("RE/RegisterAttack")
+    local RegisterHit    = Net:FindFirstChild("RE/RegisterHit")
+    if not RegisterAttack or not RegisterHit then return end
+
+    -- Dispara RegisterAttack
+    pcall(function() RegisterAttack:FireServer(0) end)
+
+    -- Tenta usar SendHitsToServer via getsenv (sem cooldown client-side)
+    local usedGetsenv = false
+    if getsenv then
+        local scripts = Player:FindFirstChild("PlayerScripts")
+        if scripts then
+            local ls = scripts:FindFirstChildOfClass("LocalScript")
+            if ls then
+                local ok, env = pcall(getsenv, ls)
+                if ok and env and env._G and env._G.SendHitsToServer then
+                    -- Verifica flag do anti-cheat
+                    local flagOk, flag = pcall(function()
+                        return (require(ReplicatedStorage.Modules.Flags)).COMBAT_REMOTE_THREAD
+                    end)
+                    if flagOk and flag then
+                        pcall(function() env._G.SendHitsToServer(basePart, hits) end)
+                        usedGetsenv = true
+                    end
+                end
+            end
+        end
+    end
+
+    -- Fallback: RegisterHit direto
+    if not usedGetsenv then
+        pcall(function() RegisterHit:FireServer(basePart, hits) end)
+    end
+end
+
+-- =====================================================
+-- DISPATCH DE ATAQUE — roteia pelo config.FarmAttack:
+--   "Normal"         → VirtualUser click (mouse virtual)
+--   "FastAttack"     → Functions.FastAttack (RegisterHit padrão)
+--   "SuperFastAttack"→ Functions.AttackNoCoolDown (getsenv + RegisterHit)
+-- =====================================================
+function Functions.DispatchAttack(targetMob, config, notAutoEquipRef)
+    local mode = (config and config.FarmAttack) or "FastAttack"
+
+    if mode == "SuperFastAttack" then
+        Functions.AttackNoCoolDown(targetMob)
+
+    elseif mode == "Normal" then
+        -- Mouse virtual — não afeta a UI (usa coordenada fora da área do hub)
+        pcall(function()
+            VirtualUser:CaptureController()
+            VirtualUser:Button1Down(Vector2.new(1280, 672))
+            task.wait(0.05)
+            VirtualUser:Button1Up(Vector2.new(1280, 672))
+        end)
+
+    else
+        -- "FastAttack" (padrão)
+        Functions.FastAttack(targetMob, config, notAutoEquipRef)
+    end
+end
+
+-- =====================================================
 -- AUTO SKILL (Z / X / C)
 -- =====================================================
 
@@ -2425,7 +2543,7 @@ function Functions.StartAutoFarmBone(config)
                         Functions.BringMobToGround(quest.Mob, mob, config.BringDistance or 350)
                     end
 
-                    Functions.FastAttack(mob, config, NotAutoEquip)
+                    Functions.DispatchAttack(mob, config, NotAutoEquip)
                 until not mob.Parent
                    or not mob:FindFirstChildOfClass("Humanoid")
                    or mob.Humanoid.Health <= 0
@@ -3079,7 +3197,7 @@ function Functions.StartAutoRaid(config)
                             VirtualUser:CaptureController()
                             VirtualUser:Button1Down(Vector2.new(1280, 672))
                         end)
-                        pcall(function() Functions.FastAttack(mob, config) end)
+                        pcall(function() Functions.DispatchAttack(mob, config) end)
 
                     until not mob.Parent
                         or not mob:FindFirstChild("Humanoid")
@@ -3554,7 +3672,7 @@ function Functions.StartAutoPirateRaid(config)
                     task.wait(0.02)
                     VirtualUser:Button1Up(Vector2.new(1280, 672))
                 end)
-                pcall(function() Functions.FastAttack(mob, config) end)
+                pcall(function() Functions.DispatchAttack(mob, config) end)
 
             until not mob.Parent
                 or not mob:FindFirstChild("Humanoid")
@@ -3917,29 +4035,78 @@ end
 -- VULCAO (Prehistoric Island)
 -- =====================================================
 
+-- Encontra a volcanorock vermelha ativa no PrehistoricIsland
+local function FindActiveVolcanoRock()
+    local ok, rocks = pcall(function()
+        return workspace.Map.PrehistoricIsland.Core.VolcanoRocks:GetChildren()
+    end)
+    if not ok or not rocks then return nil end
+    for _, model in ipairs(rocks) do
+        if model:IsA("Model") then
+            local rock = model:FindFirstChild("volcanorock")
+            if rock and rock:IsA("MeshPart") then
+                local c = rock.Color
+                -- Cores que indicam pedra ativa (extraídas do script antigo)
+                if c == Color3.fromRGB(185, 53, 56)
+                or c == Color3.fromRGB(185, 53, 57) then
+                    return rock
+                end
+            end
+        end
+    end
+    return nil
+end
+
+-- Equipa a arma do tipo correto e usa todas as skills (Z/X/C/V/F)
+local function UseWeaponOnRock(config)
+    local char = Player.Character
+    if not char then return end
+    local hum = char:FindFirstChildOfClass("Humanoid")
+    if not hum or hum.Health <= 0 then return end
+
+    -- Equipa a arma do tipo selecionado no FarmWeapon
+    Functions.EquipWeapon(config)
+
+    local keys = { Enum.KeyCode.Z, Enum.KeyCode.X, Enum.KeyCode.C,
+                   Enum.KeyCode.V, Enum.KeyCode.F }
+    for _, key in ipairs(keys) do
+        pcall(function() Functions.PressKey(key) end)
+        task.wait(0.05)
+    end
+end
+
 function Functions.StartDefendVolcano(config)
     SafeSpawn(function()
-        while task.wait(0.1) do
+        while task.wait(0.15) do
             if not config.DefendVolcano then continue end
             pcall(function()
-                -- Ficar perto do vulcao e matar inimigos
-                local volcanoPos = CFrame.new(-14000, 300, -14000)
-                local hrp = Player.Character and Player.Character:FindFirstChild("HumanoidRootPart")
-                if not hrp then return end
+                -- Auto Haki antes de atacar
+                if config.AutoBusoHaki then Functions.AutoHaki() end
 
-                if (volcanoPos.Position - hrp.Position).Magnitude > 500 then
-                    Functions.TeleportTo(volcanoPos)
-                end
-
-                for _, v in ipairs(workspace.Enemies:GetChildren()) do
-                    if v:FindFirstChild("Humanoid") and v:FindFirstChild("HumanoidRootPart")
-                       and v.Humanoid.Health > 0
-                       and (v.HumanoidRootPart.Position - volcanoPos.Position).Magnitude <= 1000 then
-                        pcall(function()
-                            v.Humanoid.Health = 0
-                            v.HumanoidRootPart.CanCollide = false
--- [SimRadius removido: causava NoStun/queda no player]
-                        end)
+                local rock = FindActiveVolcanoRock()
+                if rock then
+                    -- Vai até a pedra vermelha
+                    local targetCF = CFrame.new(rock.Position)
+                    local hrp = Player.Character and Player.Character:FindFirstChild("HumanoidRootPart")
+                    if hrp then
+                        local dist = (rock.Position - hrp.Position).Magnitude
+                        if dist > 5 then
+                            Functions.TPP(targetCF)
+                            task.wait(0.3)
+                        end
+                        -- Usa arma + skills na pedra
+                        UseWeaponOnRock(config)
+                    end
+                    -- Depois que pedra sumiu, volta a procurar
+                    config.AutoFindPrehistoric = true
+                else
+                    -- Sem pedra vermelha → tween para área do vulcão
+                    config.AutoFindPrehistoric = false
+                    local hrp = Player.Character and Player.Character:FindFirstChild("HumanoidRootPart")
+                    local volcanoAreaCF = CFrame.new(workspace.Map.PrehistoricIsland.Core.Position
+                                       + Vector3.new(0, 50, 0))
+                    if hrp and (volcanoAreaCF.Position - hrp.Position).Magnitude > 100 then
+                        pcall(function() Functions.TPP(volcanoAreaCF) end)
                     end
                 end
             end)
@@ -3992,13 +4159,24 @@ end
 
 function Functions.StartAutoCollectBone(config)
     SafeSpawn(function()
-        while task.wait(0.5) do
+        while task.wait(0.3) do
             if not config.AutoCollectBone then continue end
             pcall(function()
+                local hrp = Player.Character and Player.Character:FindFirstChild("HumanoidRootPart")
+                if not hrp then return end
+                -- Varre todos os DinoBone visíveis no workspace
                 for _, obj in ipairs(workspace:GetDescendants()) do
+                    if not config.AutoCollectBone then break end
                     if obj:IsA("BasePart") and obj.Name == "DinoBone" then
-                        Functions.TeleportTo(CFrame.new(obj.Position))
-                        task.wait(0.1)
+                        -- Tween suave até o osso (igual ao script antigo)
+                        local targetCF = CFrame.new(obj.Position)
+                        Functions.TPP(targetCF)
+                        -- Aguarda chegar perto antes de ir pro próximo
+                        local deadline = tick() + 3
+                        repeat task.wait(0.1) until
+                            not obj.Parent
+                            or (hrp.Position - obj.Position).Magnitude < 5
+                            or tick() > deadline
                     end
                 end
             end)
@@ -4011,7 +4189,41 @@ function Functions.StartAutoCollectEgg(config)
         while task.wait(0.5) do
             if not config.CollectEgg then continue end
             pcall(function()
-                ReplicatedStorage.Modules.Net["RE/CollectedDragonEgg"]:FireServer()
+                local hrp = Player.Character and Player.Character:FindFirstChild("HumanoidRootPart")
+                if not hrp then return end
+
+                -- Path correto do workspace (confirmado pelo script antigo)
+                local eggsFolder = workspace:FindFirstChild("Map")
+                              and workspace.Map:FindFirstChild("PrehistoricIsland")
+                              and workspace.Map.PrehistoricIsland:FindFirstChild("Core")
+                              and workspace.Map.PrehistoricIsland.Core:FindFirstChild("SpawnedDragonEggs")
+
+                -- Fallback: remote direto (método rápido)
+                if not eggsFolder then
+                    pcall(function()
+                        ReplicatedStorage.Modules.Net["RE/CollectedDragonEgg"]:FireServer()
+                    end)
+                    return
+                end
+
+                local eggs = eggsFolder:GetChildren()
+                if #eggs == 0 then return end
+
+                -- Vai até um ovo aleatório e pressiona E
+                local egg = eggs[math.random(#eggs)]
+                if egg:IsA("Model") and egg.PrimaryPart then
+                    Functions.TPP(egg.PrimaryPart.CFrame)
+                    -- Aguarda chegar
+                    local deadline = tick() + 3
+                    repeat task.wait(0.1) until
+                        (hrp.Position - egg.PrimaryPart.Position).Magnitude < 3
+                        or tick() > deadline
+                    -- Pressiona E para coletar
+                    VirtualInputManager:SendKeyEvent(true,  Enum.KeyCode.E, false, game)
+                    task.wait(0.1)
+                    VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.E, false, game)
+                    task.wait(1.5) -- cooldown de coleta
+                end
             end)
         end
     end)
@@ -6435,6 +6647,9 @@ function Functions.StartAllLoops(config)
     Functions.StartAutoTryLuck(config)
     Functions.StartAutoTradeBone(config)
 
+    -- Ken / Observation Haki (CommE)
+    Functions.StartAutoKenLoop(config)
+
     -- Player
     Functions.StartSafeMode(config)
 
@@ -6502,11 +6717,45 @@ function Functions.BringMobFunc(mob, targetCFrame)
 end
 
 -- ActivateBuso - Ativar Haki Busoushoku
+-- ActivateObservation - tenta CommF_ primeiro, CommE como fallback
+-- CommE:FireServer("Ken", true) é o método mais confiável em versões recentes
 function Functions.ActivateObservation(commF)
-    if not commF then return end
-    
+    -- Método 1: CommE (Ken = Observation no BF)
     pcall(function()
-        commF:InvokeServer("Observation")
+        local commE = ReplicatedStorage:FindFirstChild("Remotes")
+                  and ReplicatedStorage.Remotes:FindFirstChild("CommE")
+        if commE then
+            commE:FireServer("Ken", true)
+            return
+        end
+    end)
+    -- Método 2: CommF_ fallback
+    if commF then
+        pcall(function() commF:InvokeServer("Observation") end)
+    end
+end
+
+-- Loop que mantém Ken/Observation ativo via CommE (mais estável que CommF_)
+-- Verifica a tag "Ken" no character antes de disparar — evita spam desnecessário
+function Functions.StartAutoKenLoop(config)
+    SafeSpawn(function()
+        local CollectionService = game:GetService("CollectionService")
+        while task.wait(0.2) do
+            if not config.AutoObservation then continue end
+            pcall(function()
+                local char = Player.Character
+                if not char then return end
+                -- Só reativa se Ken não estiver ativo
+                if CollectionService:HasTag(char, "Ken") then return end
+                local commE = ReplicatedStorage:FindFirstChild("Remotes")
+                          and ReplicatedStorage.Remotes:FindFirstChild("CommE")
+                if commE then
+                    commE:FireServer("Ken", true)
+                else
+                    CF("Observation")
+                end
+            end)
+        end
     end)
 end
 
@@ -8163,7 +8412,7 @@ function Functions.StartAutoFarmMastery(config)
 
                     if phase == "farm" then
                         EquipFarmWeapon()
-                        Functions.FastAttack(mob, config, NotAutoEquip)
+                        Functions.DispatchAttack(mob, config, NotAutoEquip)
                     else
                         EquipMasteryWeapon()
                         local skills = GetSkillList()
@@ -8175,7 +8424,7 @@ function Functions.StartAutoFarmMastery(config)
                             Functions.CastSkillAtMob(sk, mob)
                             task.wait(0.18)
                         end
-                        Functions.FastAttack(mob, config, NotAutoEquip)
+                        Functions.DispatchAttack(mob, config, NotAutoEquip)
                     end
                 until not mob.Parent
                     or not mob:FindFirstChildOfClass("Humanoid")
