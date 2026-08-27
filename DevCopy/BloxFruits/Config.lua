@@ -176,15 +176,15 @@ local Config = {
     InfiniteStamina     = false,
     InfiniteObsRange    = false, 
     InfiniteAbility     = false,
-    ESPPrehistoric      = false,nEgg
+    ESPPrehistoric      = false,
     ESPAura             = false,
-    ScriptVersion             = "v2.6.1",
-    PreLoadVersion       = "v31.4.0",
-    FunctionsVersion     = "v2.5.4",
-    UIVersion            = "v2.4.9",
-    ConfigVersion         = "v2.4.5",
-    SaveSettingsVersion    = "v2.4.5",
-    QuestsVersion           = "v2.4.5",
+    ScriptVersion       = "v2.6.1",
+    PreLoadVersion      = "v31.4.0",
+    FunctionsVersion    = "v2.5.4",
+    UIVersion           = "v2.4.9",
+    ConfigVersion       = "v2.4.5",
+    SaveSettingsVersion = "v2.4.5",
+    QuestsVersion       = "v2.4.5",
     
 }
 return Config
