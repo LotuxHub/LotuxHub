@@ -1,10 +1,3 @@
-print("Loading Payload...")
-print("Payload Loaded")
-print("Detecting Version Game: Geting Version label...")
-print("Detected Pre-load:" .. tostring(Config.PreLoadVersion))
-print("Geting Adderess(name script)...")
-print("Adderess > [Lotux Hub]")
-print("Re-name prints for [Lotux Hub] mensenger")
 
 if _G.LotuxHub_Running then
     warn("[LotuxHub] O script ja esta rodando! Nao execute duas vezes - se quiser recarregar, reingresse no jogo primeiro.")
@@ -732,6 +725,13 @@ local isTeleporting = { value = false }
 local NoClip        = { value = false }
 local NotAutoEquip  = { value = false }
 local BringPos      = CFrame.new(0, -10, 0)
+print("Loading Payload...")
+print("Payload Loaded")
+print("Detecting Version Game: Geting Version label...")
+print("Detected Pre-LoadVersion: " .. tostring(Config.PreLoadVersion))
+print("Geting Adderess(name script)...")
+print("Adderess > [Lotux Hub]")
+
 
 local Character, Humanoid, HumanoidRootPart
 local function UpdateChar(c)
