@@ -7,12 +7,12 @@ local Config = {
     AutoFarmNearest     = false,
     FarmIsland          = "",
     FlySpeed            = 300,
-    RaidFlySpeed        = 80,   -- velocidade de voo exclusiva da raid (studs/s)
+    RaidFlySpeed        = 80,
     FlyOffset           = 15,
+    HoverHeight         = 10,
     BringMob            = true,
     BringDistance       = 350,
-    BringYOffset        = -10,  -- studs abaixo do player (negativo = abaixo)
-
+    BringYOffset        = -10,
     AutoPirateRaid      = false,
     AutoRipIndra        = false,
     AutoTyrantSpawn     = false,
@@ -53,7 +53,6 @@ local Config = {
     AutoKillPiranha     = false,
     AutoKillFishCrew    = false,
     AutoKillGolem       = false,
-
     AutoSea3            = false,
     AutoFactory         = false,
     AutoRaid            = false,
@@ -69,17 +68,14 @@ local Config = {
     AutoBuyLegendarySword    = false,
     AutoGetPole         = false,
     AutoGetSaw          = false,
-
     AutoSea2            = false,
     AutoBuyTTK          = false,
     AutoGrayBeard       = false,
     AutoDarkBladeV2     = false,
-
     AutoRaceV3          = false,
     AutoRaceV4          = false,
     AutoQuestRace       = false,
     AutoDooHee          = false,
-
     AutoStoreFruit      = false,
     TweenFlyFruit       = false,
     GrabFruit           = false,
@@ -88,7 +84,6 @@ local Config = {
     NotifyFruitSpawn    = false,
     SelectFruitFarm     = "Farm Level Mastery",
     SelectChipRaid      = "Flame",
-
     AutoCollectBerry    = false,
     AutoCollectBerryHop = false,
     AutoBarista         = false,
@@ -105,7 +100,6 @@ local Config = {
     AutoTryLuck         = false,
     AutoTradeBone       = false,
     AutoPray            = false,
-
     EnabledPvP          = false,
     KillAura            = false,
     KillAuraRadius      = 1000,
@@ -118,21 +112,17 @@ local Config = {
     SelectedPlayer      = "",
     FastAttack          = false,
     FastAttackDelay     = 0.1,
-
     SelectedBoss        = "None",
     AutoFarmBoss        = false,
     AutoFarmAllBoss     = false,
     AutoFarmRaidBoss    = false,
-
     SelectedMaterial    = "",
     AutoFarmMaterial    = false,
-
     MasteryWeapon       = "Gun",
     HealthKillMob       = 30,
     MasteryIsland       = "",
     MasterySkills       = {},
     AutoFarmMastery     = false,
-
     AutoClick           = true,
     AutoSetSpawn        = false,
     AutoBusoHaki        = true,
@@ -146,7 +136,6 @@ local Config = {
     InfiniteJump        = false,
     AntiAFK             = false,
     SafeMode            = false,
-
     DisableGameNotify   = false,
     NoFog               = true,
     NotifyErroScript    = false,
@@ -166,16 +155,30 @@ local Config = {
     RainbowBillboard    = false,
     SelfHighlight       = false,
     RenderOnFocus       = true,
-
     UIScale             = 450,
     Language            = "English",
-
     ScriptStartTime     = os.time(),
     KillCount           = 0,
     StartBring          = false,
     MonFarm             = "",
-
-    ScriptVersion             = "v2.6.0",
+    AutoFishing         = false,
+    SelectedFishingRod  = "Fishing Rod",
+    SelectedFishingBait = "",
+    AutoDungeon         = false,
+    TPIsland            = false,
+    SelectedTPIsland    = "",
+    AutoClickLoop       = false,
+    AntiLagEnabled      = false,
+    ServerHopEnabled    = false,
+    TimeOfDay           = 12,
+    NoFogLocal          = false,
+    CopyPosOnKey        = false,
+    InfiniteStamina     = false,
+    InfiniteObsRange    = false, 
+    InfiniteAbility     = false,
+    ESPPrehistoric      = false,nEgg
+    ESPAura             = false,
+    ScriptVersion             = "v2.6.1",
     PreLoadVersion       = "v31.4.0",
     FunctionsVersion     = "v2.5.4",
     UIVersion            = "v2.4.9",
