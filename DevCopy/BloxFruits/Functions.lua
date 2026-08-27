@@ -8214,7 +8214,13 @@ end
 
 -- Helper: se estiver na submerged e a função NÃO precisa dela, sai primeiro
 function Functions.EnsureNotOnSubmerged(config)
-    if Functions.IsOnSubmergedIsland() then
+    if Functions.IsOnSubmergedIsland and Functions.IsOnSubmergedIsland() then
+        if Functions.ExitSubmergedIsland then
+            Functions.ExitSubmergedIsland(config)
+        end
+    end
+end
+
 _G.InfAb = Functions.InfAb
 _G.CheckColorRipIndra = Functions.CheckColorRipIndra
 _G.ActivateColor = Functions.ActivateColor
