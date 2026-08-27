@@ -6559,7 +6559,7 @@ function Functions.StartAllLoops(config)
     Functions.StartAutoRipIndra(config)
     Functions.StartAutoBigMom(config)
     Functions.StartAutoFarmBone(config)
-    Functions.StartAutoPirateRaid(config)
+    Functions.StartAutoPirateRaidV2(config)  -- V2: FlyOffset correto, sem tremor
     Functions.StartAutoFarmChocola(config)
 
     -- Sea 3 - Especiais
@@ -6650,11 +6650,29 @@ function Functions.StartAllLoops(config)
     -- Ken / Observation Haki (CommE)
     Functions.StartAutoKenLoop(config)
 
+    -- Infinite Stamina / ObsRange / Ability
+    Functions.StartInfiniteStamina(config)
+    Functions.StartInfiniteObsRange(config)
+    Functions.StartInfiniteAbility(config)
+
+    -- ESPs extras
+    Functions.StartPrehistoricESP(config)
+    Functions.StartAuraESP(config)
+
     -- Player
     Functions.StartSafeMode(config)
 
     -- Notificacoes
     Functions.StartDisableGameNotify(config)
+
+    -- Visual / QoL (todos usam config flags)
+    Functions.StartAntiAFK()
+    Functions.StartAquaAura()
+    Functions.StartFPSCounter()
+    Functions.StartMobESP()
+    Functions.StartRainbowSkills()
+    Functions.StartRainbowBillboard("Lotux Hub")
+    Functions.StartSelfHighlight()
 end
 
 
@@ -7008,7 +7026,204 @@ end
 
 -- DetectMob2 - Versao alternativa de DetectMob
 function Functions.DetectMob2(mobName)
-    return Functions.DetectMob(mobName)
+    
+-- =====================================================================
+-- AUTO FISHING — baseado no nanahub
+-- =====================================================================
+function Functions.StartAutoFishing(config)
+    SafeSpawn(function()
+        local FishReplicated = game:GetService("ReplicatedStorage"):WaitForChild("FishReplicated", 10)
+        if not FishReplicated then
+            warn("[AutoFishing] FishReplicated não encontrado — jogo não tem pesca?")
+            return
+        end
+        local FishingRequest = FishReplicated:WaitForChild("FishingRequest", 10)
+        if not FishingRequest then return end
+
+        local ok, maxDist = pcall(function()
+            return require(FishReplicated.FishingClient.Config).Rod.MaxLaunchDistance
+        end)
+        maxDist = (ok and maxDist) or 30
+
+        local ok2, GetWaterHeight = pcall(function()
+            return require(game:GetService("ReplicatedStorage").Util.GetWaterHeightAtLocation)
+        end)
+        local getWater = ok2 and GetWaterHeight or function() return 0 end
+
+        print("[AutoFishing] Sistema de pesca iniciado.")
+
+        while task.wait(0.05) do
+            if not config.AutoFishing then continue end
+            pcall(function()
+                local char   = Player.Character
+                local hrp    = char and char:FindFirstChild("HumanoidRootPart")
+                local tool   = char and char:FindFirstChildOfClass("Tool")
+
+                -- Equipa a rod selecionada se não estiver equipada
+                local rodName = config.SelectedFishingRod or "Fishing Rod"
+                if tool and tool.Name ~= rodName then tool = nil end
+                if not tool then
+                    local rod = Player.Backpack:FindFirstChild(rodName)
+                    if rod then
+                        Player.Character.Humanoid:EquipTool(rod)
+                        tool = rod
+                        task.wait(0.2)
+                    end
+                end
+
+                if not char or not hrp or not tool then return end
+
+                -- Seleciona isca se configurada
+                if config.SelectedFishingBait and config.SelectedFishingBait ~= "" then
+                    pcall(function()
+                        FishingRequest:InvokeServer("SelectBait", config.SelectedFishingBait)
+                    end)
+                end
+
+                local waterY = getWater(hrp.Position)
+                local state  = pcall(function() return tool:GetAttribute("State") end)
+                local srvState = pcall(function() return tool:GetAttribute("ServerState") end)
+
+                local toolState, toolSrvState
+                pcall(function() toolState    = tool:GetAttribute("State") end)
+                pcall(function() toolSrvState = tool:GetAttribute("ServerState") end)
+
+                if toolSrvState == "Biting" then
+                    -- Peixe mordeu: coleta
+                    FishingRequest:InvokeServer("Catching", true)
+                    task.wait(0.1)
+                    FishingRequest:InvokeServer("Catch", 1)
+                elseif toolState == "ReeledIn" or toolSrvState == "ReeledIn" or not toolState then
+                    -- Lança a linha
+                    local lookDir = hrp.CFrame.LookVector
+                    local castTarget = hrp.Position + lookDir * maxDist
+                    castTarget = Vector3.new(castTarget.X, math.max(castTarget.Y, waterY), castTarget.Z)
+
+                    FishingRequest:InvokeServer("StartCasting")
+                    task.wait(0.05)
+                    FishingRequest:InvokeServer("CastLineAtLocation", castTarget, 100, true)
+                end
+            end)
+        end
+    end)
+end
+
+-- =====================================================================
+-- AUTO KILL GOLEM (Sea 3 / Volcanic)
+-- =====================================================================
+function Functions.StartAutoKillGolem(config)
+    SafeSpawn(function()
+        local _isTp    = { value = false }
+        local _noEquip = { value = false }
+        while task.wait(0.5) do
+            if not config.AutoKillGolem then continue end
+            pcall(function()
+                local enemies = workspace:FindFirstChild("Enemies")
+                if not enemies then return end
+                for _, v in ipairs(enemies:GetChildren()) do
+                    if v.Name ~= "Stone Golem" and v.Name ~= "Lava Golem" then continue end
+                    local mhrp = v:FindFirstChild("HumanoidRootPart")
+                    local mhum = v:FindFirstChild("Humanoid")
+                    if not mhrp or not mhum or mhum.Health <= 0 then continue end
+
+                    local char = Player.Character
+                    local hrp  = char and char:FindFirstChild("HumanoidRootPart")
+                    if not hrp then return end
+
+                    local flyOff = tonumber(config.FlyOffset) or 15
+                    Functions.FlyToPosition(
+                        CFrame.new(mhrp.Position + Vector3.new(0, flyOff, 0)),
+                        TweenService, config, _isTp, _noEquip
+                    )
+                    Functions.EquipWeapon(config)
+                    Functions.AutoHaki()
+                    pcall(function()
+                        mhrp.CFrame = CFrame.new(hrp.Position - Vector3.new(0, flyOff, 0))
+                        mhrp.CanCollide = false
+                    end)
+                    pcall(function()
+                        VirtualUser:CaptureController()
+                        VirtualUser:Button1Down(Vector2.new(1280, 672))
+                    end)
+                    return
+                end
+            end)
+        end
+    end)
+end
+
+-- =====================================================================
+-- AUTO KILL SEA CREATURES (Shark, Terrorshark, Piranha, Fish Crew)
+-- =====================================================================
+function Functions.StartAutoKillSeaCreatures(config)
+    SafeSpawn(function()
+        local SEA_MOBS = {
+            ["Shark"]            = "AutoKillShark",
+            ["Terrorshark"]      = "AutoTerrorshark",
+            ["Piranha"]          = "AutoKillPiranha",
+            ["Fish Crew Member"] = "AutoKillFishCrew",
+        }
+        local _isTp    = { value = false }
+        local _noEquip = { value = false }
+
+        while task.wait(0.3) do
+            local anyActive = false
+            for _, flag in pairs(SEA_MOBS) do
+                if config[flag] then anyActive = true break end
+            end
+            if not anyActive then continue end
+
+            pcall(function()
+                local enemies = workspace:FindFirstChild("Enemies")
+                if not enemies then return end
+                local char = Player.Character
+                local hrp  = char and char:FindFirstChild("HumanoidRootPart")
+                if not hrp then return end
+
+                for _, v in ipairs(enemies:GetChildren()) do
+                    local flag = SEA_MOBS[v.Name]
+                    if not flag or not config[flag] then continue end
+                    local mhrp = v:FindFirstChild("HumanoidRootPart")
+                    local mhum = v:FindFirstChild("Humanoid")
+                    if not mhrp or not mhum or mhum.Health <= 0 then continue end
+                    local flyOff = tonumber(config.FlyOffset) or 15
+                    Functions.FlyToPosition(
+                        CFrame.new(mhrp.Position + Vector3.new(0, flyOff, 0)),
+                        TweenService, config, _isTp, _noEquip
+                    )
+                    Functions.EquipWeapon(config)
+                    Functions.AutoHaki()
+                    pcall(function()
+                        mhrp.CFrame     = CFrame.new(hrp.Position - Vector3.new(0, flyOff, 0))
+                        mhrp.CanCollide = false
+                    end)
+                    pcall(function()
+                        VirtualUser:CaptureController()
+                        VirtualUser:Button1Down(Vector2.new(1280, 672))
+                    end)
+                    pcall(function() Functions.DispatchAttack(v, config) end)
+                    return
+                end
+            end)
+        end
+    end)
+end
+
+-- =====================================================================
+-- AUTO GET POLE e GET SAW — já existem mas garante que start loops rode
+-- =====================================================================
+-- Eles já existem no código original; apenas garantimos que o StartAllLoops
+-- já os chama (verificado acima — StartAutoGetPole e StartAutoGetSaw já estão lá)
+
+-- =====================================================================
+-- EXPORTS novos
+-- =====================================================================
+_G.SAF   = Functions.StartAutoFishing
+_G.SAKSC = Functions.StartAutoKillSeaCreatures
+_G.SAKG  = Functions.StartAutoKillGolem
+_G.SADD  = Functions.StartAutoDungeon
+
+return Functions.DetectMob(mobName)
 end
 
 -- GetLocalBoat - Pega barco do jogador pelo Owner no workspace.Boats
@@ -7702,38 +7917,6 @@ function Functions.DodgeNoCDLoop()
     end)
 end
 
-function Functions.InfAb()
-    if _G.InfAbility then
-        if not Character.HumanoidRootPart:FindFirstChild("Agility") then
-            local inf = Instance.new("ParticleEmitter")
-            inf.Name = "Agility"
-            inf.Acceleration = Vector3.new(0,0,0)
-            inf.Drag = 20
-            inf.EmissionDirection = Enum.NormalId.Top
-            inf.Enabled = true
-            inf.Lifetime = NumberRange.new(0,0)
-            inf.LightInfluence = 0
-            inf.LockedToPart = true
-            inf.Rate = 500
-            inf.Size = NumberSequence.new({NumberSequenceKeypoint.new(0,0), NumberSequenceKeypoint.new(1,4)})
-            inf.RotSpeed = NumberRange.new(9999, 99999)
-            inf.Rotation = NumberRange.new(0, 0)
-            inf.Speed = NumberRange.new(30, 30)
-            inf.SpreadAngle = Vector2.new(0,0)
-            inf.Texture = ""
-            inf.VelocityInheritance = 0
-            inf.ZOffset = 2
-            inf.Transparency = NumberSequence.new(0)
-            inf.Color = ColorSequence.new(Color3.fromRGB(0,0,0))
-            inf.Parent = Character.HumanoidRootPart
-        end
-    else
-        if Character.HumanoidRootPart:FindFirstChild("Agility") then
-            Character.HumanoidRootPart.Agility:Destroy()
-        end
-    end
-end
-
 function Functions.CheckColorRipIndra()
     local colors = {}
     local circle = workspace.Map["Boat Castle"].Summoner.Circle
@@ -8032,29 +8215,6 @@ end
 -- Helper: se estiver na submerged e a função NÃO precisa dela, sai primeiro
 function Functions.EnsureNotOnSubmerged(config)
     if Functions.IsOnSubmergedIsland() then
-        return Functions.ExitSubmergedIsland(config)
-    end
-    return true
-end
-
-_G.CheckQuest = CheckQuest
-_G.MaterialMon = MaterialMon
-_G.UpdateFlowerChams = Functions.UpdateFlowerChams
-_G.UpdateRealFruitChams = Functions.UpdateRealFruitChams
-_G.UpdateGeaESP = Functions.UpdateGearESP
-_G.TPB = Functions.TPB
-_G.BTP = Functions.BTP
-_G.fastpos = Functions.fastpos
-_G.slowpos = Functions.slowpos
-_G.GetLocalBoat = Functions.GetLocalBoat
-_G.GetPlayerBoat = Functions.GetPlayerBoat
-_G.MoveBoat = Functions.MoveBoat
-_G.StartBoatMovement = Functions.StartBoatMovement
-_G.StopBoatMovement = Functions.StopBoatMovement
-_G.CheckPirateBoat = Functions.CheckPirateBoat
-_G.InfiniteSoruLoop = Functions.InfiniteSoruLoop
-_G.InfiniteGeppoLoop = Functions.InfiniteGeppoLoop
-_G.DodgeNoCDLoop = Functions.DodgeNoCDLoop
 _G.InfAb = Functions.InfAb
 _G.CheckColorRipIndra = Functions.CheckColorRipIndra
 _G.ActivateColor = Functions.ActivateColor
@@ -8291,29 +8451,6 @@ function Functions.StartAutoFarmMastery(config)
 
         local function EquipFarmWeapon()
             pcall(function() Functions.ResolveWeaponNow(config) end)
-            return Functions.EquipWeapon(config, NotAutoEquip)
-        end
-
-        local function FindHauntedMob(char, hrp)
-            for _, name in ipairs(HAUNTED_MOBS) do
-                local m = Functions.GetNearestEnemy(char, hrp, name)
-                if m then return m, name end
-            end
-            return nil, nil
-        end
-
-        while task.wait(0.1) do
-            if not config.AutoFarmMastery then
-                if Functions.DisableFarmClip then Functions.DisableFarmClip() end
-                farmRunning = false
-                continue
-            end
-            if farmRunning then continue end
-            farmRunning = true
-
-            pcall(function()
-                -- Sai da submerged se estiver (mastery é no Haunted)
-                if Functions.EnsureNotOnSubmerged then
                     Functions.EnsureNotOnSubmerged(config)
                 elseif Functions.IsOnSubmergedIsland and Functions.IsOnSubmergedIsland() then
                     Functions.ExitSubmergedIsland(config)
@@ -8446,6 +8583,310 @@ function Functions.StartAutoFarmMastery(config)
     end)
 end
 
+-- =====================================================================
+-- INFINITE STAMINA / ENERGY
+-- Trava o Energy.Value do personagem no máximo via evento .Changed
+-- Baseado no Zen Hub
+-- =====================================================================
+local _infStamConn = nil
+
+function Functions.StartInfiniteStamina(config)
+    SafeSpawn(function()
+        while task.wait(0.1) do
+            if not config.InfiniteStamina then
+                if _infStamConn then
+                    pcall(function() _infStamConn:Disconnect() end)
+                    _infStamConn = nil
+                end
+                continue
+            end
+            pcall(function()
+                local char = Player.Character
+                if not char then return end
+                local energy = char:FindFirstChild("Energy")
+                if not energy then return end
+
+                -- Guarda o valor máximo atual
+                local maxEnergy = energy.Value
+
+                -- Reconecta se ainda não conectou nesta vida
+                if not _infStamConn or not _infStamConn.Connected then
+                    _infStamConn = energy.Changed:Connect(function()
+                        if config.InfiniteStamina then
+                            pcall(function() energy.Value = maxEnergy end)
+                        end
+                    end)
+                end
+            end)
+        end
+    end)
+end
+
+-- =====================================================================
+-- INFINITE OBSERVATION RANGE
+-- Expande VisionRadius do player para math.huge enquanto ativo
+-- Baseado no Zen Hub
+-- =====================================================================
+function Functions.StartInfiniteObsRange(config)
+    SafeSpawn(function()
+        local originalVR = nil
+        while task.wait(0.05) do
+            if not config.InfiniteObsRange then
+                -- Restaura o raio original ao desligar
+                if originalVR ~= nil then
+                    pcall(function()
+                        local vr = Player:FindFirstChild("VisionRadius")
+                        if vr then vr.Value = originalVR end
+                    end)
+                    originalVR = nil
+                end
+                continue
+            end
+            pcall(function()
+                local vr = Player:FindFirstChild("VisionRadius")
+                if not vr then return end
+                if originalVR == nil then originalVR = vr.Value end
+                vr.Value = math.huge
+            end)
+        end
+    end)
+end
+
+-- =====================================================================
+-- INFINITE ABILITY (Agility clone)
+-- Clona FX/Agility no HRP — remove cooldown de habilidades
+-- Baseado no Zen Hub
+-- =====================================================================
+function Functions.SetInfiniteAbility(enabled)
+    pcall(function()
+        local char = Player.Character
+        local hrp  = char and char:FindFirstChild("HumanoidRootPart")
+        if not hrp then return end
+
+        if enabled then
+            -- Remove instância antiga para não duplicar
+            local old = hrp:FindFirstChild("Agility")
+            if old then old:Destroy() end
+            -- Clona FX/Agility
+            local fx = game:GetService("ReplicatedStorage"):FindFirstChild("FX")
+            local agility = fx and fx:FindFirstChild("Agility")
+            if agility then
+                local clone = agility:Clone()
+                clone.Parent = hrp
+            end
+        else
+            local ag = hrp:FindFirstChild("Agility")
+            if ag then ag:Destroy() end
+        end
+    end)
+end
+
+function Functions.StartInfiniteAbility(config)
+    SafeSpawn(function()
+        local lastState = false
+        -- Reaplica ao respawn
+        Player.CharacterAdded:Connect(function()
+            task.wait(1)
+            if config.InfiniteAbility then
+                Functions.SetInfiniteAbility(true)
+            end
+        end)
+        while task.wait(0.5) do
+            local cur = config.InfiniteAbility == true
+            if cur ~= lastState then
+                Functions.SetInfiniteAbility(cur)
+                lastState = cur
+            end
+        end
+    end)
+end
+
+-- =====================================================================
+-- ESP PREHISTORIC ISLAND (DinoBone + DragonEgg)
+-- Mostra billboard em ossos e ovos no mapa da Prehistoric Island
+-- Baseado no Tiroreal + NanaHub
+-- =====================================================================
+local _prehistoricESPObjs = {}
+
+function Functions.UpdatePrehistoricIslandESP(enabled)
+    -- Limpa ESPs anteriores
+    for _, bill in ipairs(_prehistoricESPObjs) do
+        pcall(function() bill:Destroy() end)
+    end
+    _prehistoricESPObjs = {}
+
+    if not enabled then return end
+
+    pcall(function()
+        local hrp = Player.Character and Player.Character:FindFirstChild("HumanoidRootPart")
+
+        -- Varre todo workspace por DinoBone e DragonEgg
+        for _, obj in ipairs(workspace:GetDescendants()) do
+            if not (obj:IsA("BasePart") or obj:IsA("MeshPart") or obj:IsA("Model")) then continue end
+            local isBone = obj.Name == "DinoBone"
+            local isEgg  = obj.Name:find("DragonEgg") or obj.Name:find("Egg")
+            if not (isBone or isEgg) then continue end
+
+            local adornee = obj:IsA("Model") and (obj.PrimaryPart or obj:FindFirstChildOfClass("BasePart")) or obj
+            if not adornee then continue end
+
+            -- Cria billboard
+            local bill = Instance.new("BillboardGui")
+            bill.Name = "LotuxPrehistoricESP"
+            bill.AlwaysOnTop = true
+            bill.Size = UDim2.new(0, 160, 0, 40)
+            bill.StudsOffset = Vector3.new(0, 3, 0)
+            bill.Adornee = adornee
+            bill.Parent = adornee
+
+            local lbl = Instance.new("TextLabel", bill)
+            lbl.Size = UDim2.new(1, 0, 1, 0)
+            lbl.BackgroundTransparency = 1
+            lbl.TextStrokeTransparency = 0.4
+            lbl.Font = Enum.Font.GothamBold
+            lbl.TextSize = 13
+            lbl.TextColor3 = isBone and Color3.fromRGB(245, 210, 80) or Color3.fromRGB(80, 245, 160)
+            lbl.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+            lbl.TextWrapped = true
+
+            -- Atualiza distância em tempo real
+            local conn
+            conn = game:GetService("RunService").Heartbeat:Connect(function()
+                if not bill.Parent or not adornee.Parent then
+                    conn:Disconnect()
+                    bill:Destroy()
+                    return
+                end
+                if not hrp then
+                    hrp = Player.Character and Player.Character:FindFirstChild("HumanoidRootPart")
+                end
+                local dist = hrp and math.floor((adornee.Position - hrp.Position).Magnitude) or 0
+                lbl.Text = (isBone and "🦴 DinoBone" or "🥚 DragonEgg") .. "\n" .. dist .. " studs"
+            end)
+
+            table.insert(_prehistoricESPObjs, bill)
+        end
+    end)
+end
+
+function Functions.StartPrehistoricESP(config)
+    SafeSpawn(function()
+        local lastState = false
+        while task.wait(3) do
+            local cur = config.ESPPrehistoric == true
+            if cur ~= lastState then
+                Functions.UpdatePrehistoricIslandESP(cur)
+                lastState = cur
+            elseif cur then
+                -- Reescaneia a cada 3s para pegar novos spawns
+                Functions.UpdatePrehistoricIslandESP(true)
+            end
+        end
+    end)
+end
+
+-- =====================================================================
+-- ESP AURA (Master of Enhancement NPC)
+-- Mostra billboard no NPC de Aura com distância
+-- Baseado no Tiroreal
+-- =====================================================================
+local _auraESPBills = {}
+
+function Functions.UpdateAuraESP(enabled)
+    for _, b in ipairs(_auraESPBills) do pcall(function() b:Destroy() end) end
+    _auraESPBills = {}
+    if not enabled then return end
+
+    pcall(function()
+        local hrp = Player.Character and Player.Character:FindFirstChild("HumanoidRootPart")
+        local npcs = workspace:FindFirstChild("NPCs")
+        if not npcs then return end
+
+        for _, npc in ipairs(npcs:GetChildren()) do
+            if npc.Name ~= "Master of Enhancement" then continue end
+            local root = npc:FindFirstChild("HumanoidRootPart") or npc:FindFirstChildOfClass("BasePart")
+            if not root then continue end
+
+            local bill = Instance.new("BillboardGui")
+            bill.Name = "LotuxAuraESP"
+            bill.AlwaysOnTop = true
+            bill.Size = UDim2.new(0, 200, 0, 40)
+            bill.StudsOffset = Vector3.new(0, 4, 0)
+            bill.Adornee = root
+            bill.Parent = root
+
+            local lbl = Instance.new("TextLabel", bill)
+            lbl.Size = UDim2.new(1, 0, 1, 0)
+            lbl.BackgroundTransparency = 1
+            lbl.TextStrokeTransparency = 0.4
+            lbl.Font = Enum.Font.GothamBold
+            lbl.TextSize = 13
+            lbl.TextColor3 = Color3.fromRGB(255, 170, 0)
+            lbl.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+            lbl.TextWrapped = true
+
+            local conn
+            conn = game:GetService("RunService").Heartbeat:Connect(function()
+                if not bill.Parent or not root.Parent then
+                    conn:Disconnect()
+                    bill:Destroy()
+                    return
+                end
+                if not hrp then hrp = Player.Character and Player.Character:FindFirstChild("HumanoidRootPart") end
+                local dist = hrp and math.floor((root.Position - hrp.Position).Magnitude) or 0
+                lbl.Text = "✨ Master of Enhancement\n" .. dist .. " studs"
+            end)
+
+            table.insert(_auraESPBills, bill)
+        end
+    end)
+end
+
+function Functions.StartAuraESP(config)
+    SafeSpawn(function()
+        local lastState = false
+        while task.wait(5) do
+            local cur = config.ESPAura == true
+            if cur ~= lastState or cur then
+                Functions.UpdateAuraESP(cur)
+                lastState = cur
+            end
+        end
+    end)
+end
+
+-- =====================================================================
+-- CIRCLE CLICK (efeito visual de ripple no clique — UI cosmético)
+-- Baseado no Tiroreal
+-- =====================================================================
+function Functions.CircleClick(button, x, y)
+    task.spawn(function()
+        local ok, circle = pcall(function()
+            local c = Instance.new("ImageLabel")
+            c.Parent = button
+            c.Name = "CircleRipple"
+            c.BackgroundTransparency = 1
+            c.ZIndex = 10
+            c.Image = "rbxassetid://79932823311771"
+            c.AnchorPoint = Vector2.new(0.5, 0.5)
+            c.Size = UDim2.new(0, 0, 0, 0)
+            c.Position = UDim2.new(0, x, 0, y)
+            c.ImageTransparency = 0.3
+            return c
+        end)
+        if not ok or not circle then return end
+
+        local TweenSvc = game:GetService("TweenService")
+        local expand = TweenSvc:Create(circle,
+            TweenInfo.new(0.35, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+            { Size = UDim2.new(0, 80, 0, 80), ImageTransparency = 1 }
+        )
+        expand:Play()
+        expand.Completed:Wait()
+        circle:Destroy()
+    end)
+end
+
 _G.CheckItemBPCR = Functions.CheckItemBPCR
 _G.AutoKatakuriV2Loop = Functions.AutoKatakuriV2Loop
 _G.AutoClick = Functions.FastAttackAdvanced
@@ -8520,4 +8961,13 @@ _G.UMESP = Functions.UpdateMirageESP     -- UpdateMirageESP
 _G.USESP = Functions.UpdateSeaBeastESP   -- UpdateSeaBeastESP
 _G.TTSI  = Functions.TravelToSubmergedIsland -- TravelToSubmergedIsland
 
-return Functions
+-- Novas features
+_G.SIS   = Functions.StartInfiniteStamina     -- StartInfiniteStamina
+_G.SIOR  = Functions.StartInfiniteObsRange    -- StartInfiniteObsRange
+_G.SIA   = Functions.StartInfiniteAbility     -- StartInfiniteAbility
+_G.SIAB  = Functions.SetInfiniteAbility       -- SetInfiniteAbility
+_G.SPESP = Functions.StartPrehistoricESP      -- StartPrehistoricESP
+_G.UPERSP = Functions.UpdatePrehistoricIslandESP -- UpdatePrehistoricIslandESP
+_G.SAUESP = Functions.StartAuraESP            -- StartAuraESP
+_G.UAESP  = Functions.UpdateAuraESP           -- UpdateAuraESP
+_G.CCClick = Functions.CircleClick            -- CircleClick

@@ -9,7 +9,6 @@ local Config = {
     FlySpeed            = 300,
     RaidFlySpeed        = 80,   -- velocidade de voo exclusiva da raid (studs/s)
     FlyOffset           = 15,
-    HoverHeight         = 10,  -- studs acima do chao que o player fica flutuando durante qualquer funcao ativa
     BringMob            = true,
     BringDistance       = 350,
     BringYOffset        = -10,  -- studs abaixo do player (negativo = abaixo)

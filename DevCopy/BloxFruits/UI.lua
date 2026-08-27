@@ -1,27 +1,11 @@
--- =====================================================
---         Lotux Hub - Blox Fruits Script
---         by LoadFlint/lucas
---         v3.0 - Modular + Visual Features
--- =====================================================
+print("Loading Payload...")
+print("Payload Loaded")
+print("Detecting Version Game: Geting Version label...")
+print("Detected Pre-load:" .. tostring(Config.PreLoadVersion))
+print("Geting Adderess(name script)...")
+print("Adderess > [Lotux Hub]")
+print("Re-name prints for [Lotux Hub] mensenger")
 
--- =====================================================
--- FIX: TRAVA ANTI-EXECUCAO-DUPLICADA
--- =====================================================
--- Sem isso, se o script for executado 2x (clique duplo em
--- "Execute", ou "Inject" + "Auto Execute" disparando junto),
--- todo o hub roda em PARALELO duas vezes: 2 UIs sobrepostas,
--- 2 loops de MovementBlocker, 2 loops de NoClip brigando pelo
--- CanCollide, 2 Heartbeats de Bring escrevendo CFrame no mesmo
--- mob/player ao mesmo tempo, 2x FastAttack clicando, etc.
--- Isso desperdiça performance e pode causar bugs bizarros
--- (incluindo instabilidade de fisica) por dois sistemas
--- disputando o mesmo Humanoid a cada frame.
---
--- Se ja existe uma instancia rodando (a flag so eh limpa
--- quando o personagem morre/o jogador sai, pois threads soltas
--- nao tem como ser "canceladas" de fora com seguranca), essa
--- nova execucao simplesmente para aqui e avisa o usuario -
--- para recarregar de verdade, precisa reingressar no jogo.
 if _G.LotuxHub_Running then
     warn("[LotuxHub] O script ja esta rodando! Nao execute duas vezes - se quiser recarregar, reingresse no jogo primeiro.")
     pcall(function()
@@ -33,15 +17,11 @@ if _G.LotuxHub_Running then
 end
 _G.LotuxHub_Running = true
 
--- =====================================================
--- LOADING SCREEN - PAINEL VISUAL (v3.1 Redesign)
--- =====================================================
 local _Players   = game:GetService("Players")
 local _TweenSvc  = game:GetService("TweenService")
 local _LocalPl   = _Players.LocalPlayer
 local _PGui      = _LocalPl:WaitForChild("PlayerGui")
 
--- Remove loading gui antiga se existir
 pcall(function()
     if _PGui:FindFirstChild("LotuxLoading") then
         _PGui:FindFirstChild("LotuxLoading"):Destroy()
@@ -56,7 +36,6 @@ _LGui.DisplayOrder = 9999
 _LGui.IgnoreGuiInset = true
 _LGui.Parent = _PGui
 
--- Fundo escuro com gradiente radial simulado
 local _BG = Instance.new("Frame")
 _BG.Size = UDim2.fromScale(1, 1)
 _BG.BackgroundColor3 = Color3.fromRGB(4, 4, 10)
@@ -65,7 +44,6 @@ _BG.BorderSizePixel = 0
 _BG.ZIndex = 1
 _BG.Parent = _LGui
 
--- Gradiente de fundo (canto escuro -> centro levemente iluminado)
 local _BGGrad = Instance.new("UIGradient")
 _BGGrad.Color = ColorSequence.new({
     ColorSequenceKeypoint.new(0,   Color3.fromRGB(8, 4, 20)),
@@ -75,7 +53,6 @@ _BGGrad.Color = ColorSequence.new({
 _BGGrad.Rotation = 135
 _BGGrad.Parent = _BG
 
--- Estrelas decorativas (pontos pequenos no fundo)
 local _starPositions = {
     {0.08,0.12},{0.18,0.32},{0.05,0.55},{0.12,0.78},{0.22,0.92},
     {0.32,0.08},{0.45,0.18},{0.38,0.72},{0.28,0.60},{0.42,0.88},
@@ -99,7 +76,6 @@ for i, sp in ipairs(_starPositions) do
     star.Parent = _BG
     Instance.new("UICorner", star).CornerRadius = UDim.new(1, 0)
 
-    -- Animacao de pulsar nas estrelas
     task.spawn(function()
         local delay = math.random(0, 30) / 10
         task.wait(delay)
@@ -112,7 +88,6 @@ for i, sp in ipairs(_starPositions) do
     end)
 end
 
--- Painel central (mais alto e elegante)
 local _Panel = Instance.new("Frame")
 _Panel.Size = UDim2.fromOffset(560, 400)
 _Panel.Position = UDim2.new(0.5, -280, 0.5, -200)
@@ -122,7 +97,6 @@ _Panel.ZIndex = 2
 _Panel.Parent = _BG
 Instance.new("UICorner", _Panel).CornerRadius = UDim.new(0, 20)
 
--- Brilho de fundo no painel (glow effect via frame maior e transparente)
 local _PanelGlow = Instance.new("Frame")
 _PanelGlow.Size = UDim2.new(1, 30, 1, 30)
 _PanelGlow.Position = UDim2.new(0, -15, 0, -15)
@@ -133,14 +107,12 @@ _PanelGlow.ZIndex = 1
 _PanelGlow.Parent = _Panel
 Instance.new("UICorner", _PanelGlow).CornerRadius = UDim.new(0, 28)
 
--- Stroke com gradiente simulado (UIStroke nao suporta gradiente nativo)
 local _PStroke = Instance.new("UIStroke")
 _PStroke.Color = Color3.fromRGB(100, 55, 230)
 _PStroke.Thickness = 1.5
 _PStroke.Transparency = 0.2
 _PStroke.Parent = _Panel
 
--- Animacao do stroke (pulsa levemente)
 task.spawn(function()
     while _PStroke and _PStroke.Parent do
         local t1 = _TweenSvc:Create(_PStroke, TweenInfo.new(2, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {Transparency = 0.6})
@@ -150,7 +122,6 @@ task.spawn(function()
     end
 end)
 
--- Barra topo com gradiente animado
 local _AccBar = Instance.new("Frame")
 _AccBar.Size = UDim2.new(1, 0, 0, 4)
 _AccBar.BackgroundColor3 = Color3.fromRGB(100, 50, 255)
@@ -167,7 +138,6 @@ _AccGrad.Color = ColorSequence.new({
 })
 _AccGrad.Parent = _AccBar
 
--- Animacao do gradiente da barra (efeito shimmer)
 task.spawn(function()
     local offset = 0
     while _AccGrad and _AccGrad.Parent do
@@ -177,7 +147,6 @@ task.spawn(function()
     end
 end)
 
--- Icone / Logo area (circulo com inicial animado)
 local _LogoBG = Instance.new("Frame")
 _LogoBG.Size = UDim2.fromOffset(72, 72)
 _LogoBG.Position = UDim2.new(0.5, -36, 0, 22)
@@ -190,7 +159,6 @@ local _LogoStroke = Instance.new("UIStroke")
 _LogoStroke.Color = Color3.fromRGB(130, 70, 255)
 _LogoStroke.Thickness = 2
 _LogoStroke.Parent = _LogoBG
--- Pulsar o logo stroke
 task.spawn(function()
     while _LogoStroke and _LogoStroke.Parent do
         local t1 = _TweenSvc:Create(_LogoStroke, TweenInfo.new(1.5, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {Transparency = 0.7})
@@ -209,7 +177,6 @@ _LogoLabel.Font = Enum.Font.GothamBold
 _LogoLabel.TextSize = 32
 _LogoLabel.ZIndex = 5
 _LogoLabel.Parent = _LogoBG
--- Rotacao suave do icone
 task.spawn(function()
     local rot = 0
     while _LogoLabel and _LogoLabel.Parent do
@@ -219,7 +186,6 @@ task.spawn(function()
     end
 end)
 
--- Titulo
 local _Title = Instance.new("TextLabel")
 _Title.Size = UDim2.new(1, 0, 0, 32)
 _Title.Position = UDim2.new(0, 0, 0, 102)
@@ -231,7 +197,6 @@ _Title.TextSize = 24
 _Title.ZIndex = 3
 _Title.Parent = _Panel
 
--- Efeito shimmer no titulo
 task.spawn(function()
     while _Title and _Title.Parent do
         local t1 = _TweenSvc:Create(_Title, TweenInfo.new(2.5, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut), {TextColor3 = Color3.fromRGB(180, 140, 255)})
@@ -241,7 +206,6 @@ task.spawn(function()
     end
 end)
 
--- Subtitulo
 local _Sub = Instance.new("TextLabel")
 _Sub.Size = UDim2.new(1, 0, 0, 18)
 _Sub.Position = UDim2.new(0, 0, 0, 136)
@@ -253,7 +217,6 @@ _Sub.TextSize = 12
 _Sub.ZIndex = 3
 _Sub.Parent = _Panel
 
--- Separador com gradiente
 local _SepFrame = Instance.new("Frame")
 _SepFrame.Size = UDim2.new(0.88, 0, 0, 1)
 _SepFrame.Position = UDim2.new(0.06, 0, 0, 162)
@@ -270,7 +233,6 @@ _SepGrad.Color = ColorSequence.new({
 })
 _SepGrad.Parent = _SepFrame
 
--- Label status
 local _StatusMsg = Instance.new("TextLabel")
 _StatusMsg.Size = UDim2.new(1, -30, 0, 20)
 _StatusMsg.Position = UDim2.new(0, 15, 0, 172)
@@ -283,7 +245,6 @@ _StatusMsg.TextXAlignment = Enum.TextXAlignment.Left
 _StatusMsg.ZIndex = 3
 _StatusMsg.Parent = _Panel
 
--- Mini console (frame de fundo)
 local _ConFrame = Instance.new("Frame")
 _ConFrame.Size = UDim2.new(0.88, 0, 0, 138)
 _ConFrame.Position = UDim2.new(0.06, 0, 0, 200)
@@ -297,7 +258,6 @@ _ConStroke.Color = Color3.fromRGB(45, 30, 90)
 _ConStroke.Thickness = 1
 _ConStroke.Parent = _ConFrame
 
--- Cabecalho do console
 local _ConHeader = Instance.new("Frame")
 _ConHeader.Size = UDim2.new(1, 0, 0, 22)
 _ConHeader.BackgroundColor3 = Color3.fromRGB(14, 10, 30)
@@ -315,7 +275,6 @@ _ConHeaderLabel.TextSize = 10
 _ConHeaderLabel.ZIndex = 5
 _ConHeaderLabel.Parent = _ConHeader
 
--- ScrollingFrame dentro do console
 local _ConScroll = Instance.new("ScrollingFrame")
 _ConScroll.Size = UDim2.new(1, -8, 1, -28)
 _ConScroll.Position = UDim2.new(0, 4, 0, 24)
@@ -331,7 +290,6 @@ _ConLayout.SortOrder = Enum.SortOrder.LayoutOrder
 _ConLayout.Padding = UDim.new(0, 2)
 _ConLayout.Parent = _ConScroll
 
--- Barra de progresso (fundo) - com label de etapa acima
 local _StepLabel = Instance.new("TextLabel")
 _StepLabel.Size = UDim2.new(0.88, 0, 0, 16)
 _StepLabel.Position = UDim2.new(0.06, 0, 0, 345)
@@ -353,7 +311,7 @@ _BarBG.ZIndex = 3
 _BarBG.Parent = _Panel
 Instance.new("UICorner", _BarBG).CornerRadius = UDim.new(0, 8)
 
--- Preenchimento da barra
+
 local _BarFill = Instance.new("Frame")
 _BarFill.Size = UDim2.new(0, 0, 1, 0)
 _BarFill.BackgroundColor3 = Color3.fromRGB(100, 50, 255)
@@ -369,7 +327,7 @@ _FillGrad.Color = ColorSequence.new({
 })
 _FillGrad.Parent = _BarFill
 
--- Brilho (shimmer) que percorre a barra
+
 local _BarShimmer = Instance.new("Frame")
 _BarShimmer.Size = UDim2.new(0, 30, 1, 0)
 _BarShimmer.Position = UDim2.new(-0.1, 0, 0, 0)
@@ -388,7 +346,6 @@ task.spawn(function()
     end
 end)
 
--- Label de porcentagem (dentro da barra)
 local _PctLabel = Instance.new("TextLabel")
 _PctLabel.Size = UDim2.fromScale(1, 1)
 _PctLabel.BackgroundTransparency = 1
@@ -399,7 +356,6 @@ _PctLabel.TextSize = 10
 _PctLabel.ZIndex = 6
 _PctLabel.Parent = _BarBG
 
--- Versao no rodape do painel
 local _Footer = Instance.new("TextLabel")
 _Footer.Size = UDim2.new(1, 0, 0, 16)
 _Footer.Position = UDim2.new(0, 0, 0, 382)
@@ -411,10 +367,8 @@ _Footer.TextSize = 10
 _Footer.ZIndex = 3
 _Footer.Parent = _Panel
 
--- Contador de linhas no console (para layout)
 local _conLineCount = 0
 
--- Animacao de entrada do painel (slide + fade in)
 _Panel.Position = UDim2.new(0.5, -280, 0.6, -200)
 _Panel.BackgroundTransparency = 1
 task.spawn(function()
@@ -426,7 +380,6 @@ task.spawn(function()
     }):Play()
 end)
 
--- Funcoes do painel
 local function _SetProgress(pct)
     pct = math.clamp(pct, 0, 100)
     _TweenSvc:Create(_BarFill, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
@@ -458,7 +411,6 @@ local function _ConsoleLog(msg)
     line.ZIndex = 5
     line.BackgroundTransparency = 1
     line.Parent = _ConScroll
-    -- Auto scroll para o fim
     task.defer(function()
         _ConScroll.CanvasSize = UDim2.new(0, 0, 0, _ConLayout.AbsoluteContentSize.Y + 8)
         _ConScroll.CanvasPosition = Vector2.new(0, math.max(0, _ConScroll.CanvasSize.Y.Offset - _ConScroll.AbsoluteSize.Y))
@@ -472,9 +424,6 @@ local function _SetStatus(msg)
     task.wait(0.1)
 end
 
--- =====================================================
--- PAINEL DE ERRO VISUAL (mostra arquivo + linha exatos)
--- =====================================================
 local function _CriarPainelErro(arquivo, linha, mensagem)
     pcall(function()
         if _PGui:FindFirstChild("LotuxHubErro") then
@@ -697,31 +646,27 @@ local function _CriarPainelErro(arquivo, linha, mensagem)
     end)
 end
 
--- Extrai "arquivo.lua", "linha" e "mensagem" de uma string de erro Lua
 local function _ParseErro(nomeModulo, errMsg)
     errMsg = tostring(errMsg)
 
-    -- Formato: "@Nome.lua:492: mensagem" ou "Nome.lua:492: mensagem"
+
     local arquivo, linha, msg = errMsg:match("@?([%w%.%-_]+%.lua):(%d+):%s*(.+)$")
     if arquivo and linha then
         return arquivo, linha, msg:sub(1, 300)
     end
 
-    -- Formato: ":492: mensagem" (sem nome do arquivo explicito)
     linha, msg = errMsg:match(":(%d+):%s*(.+)$")
     if linha then
         return nomeModulo .. ".lua", linha, msg:sub(1, 300)
     end
 
-    -- Formato: "line 492"
     linha = errMsg:match("[Ll]ine%s+(%d+)") or "?"
     return nomeModulo .. ".lua", linha, errMsg:sub(1, 300)
 end
 
--- Funcao segura de load com retry (CORRIGE O ERRO Load_yb)
 local function _SafeLoad(url, nome, retries)
     retries = retries or 5
-    task.wait(0.1) -- pequena espera para garantir contexto Roblox pronto
+    task.wait(0.1)
     local lastErr = "Erro desconhecido"
     for i = 1, retries do
         local ok, result = pcall(function()
@@ -729,16 +674,12 @@ local function _SafeLoad(url, nome, retries)
             if not code or code == "" or #code < 10 then
                 error("HttpGet retornou vazio/invalido para: " .. nome)
             end
-            -- Usa "@Nome.lua" como chunk name para que erros de runtime
-            -- incluam o arquivo correto: "Functions.lua:492: ..."
             local fn, compErr = loadstring(code, "@" .. nome .. ".lua")
             if not fn then
                 error("Erro de compilacao em " .. nome .. ": " .. tostring(compErr))
             end
             local runOk, runResult = pcall(fn)
             if not runOk then
-                -- Propaga a mensagem RAW (inclui "Functions.lua:492: ...")
-                -- para o Main.lua conseguir extrair arquivo e linha corretamente
                 error(tostring(runResult), 0)
             end
             return runResult
@@ -758,7 +699,6 @@ local function _SafeLoad(url, nome, retries)
             end
         end
     end
-    -- Se falhou tudo, mostra erro critico e retorna tabela vazia
     _ConsoleLog("[CRITICO] " .. nome .. " NAO carregou apos " .. retries .. " tentativas!")
     warn("[LotuxHub] ERRO CRITICO: " .. nome .. " nao carregou! Algumas funcoes podem estar indisponiveis.")
 
@@ -775,18 +715,10 @@ local function _SafeLoad(url, nome, retries)
         end
     })
 end
-
--- =====================================================
--- CARREGA MODULOS (COM PAINEL + PCALL + RETRY)
--- =====================================================
 local redzlib   = _SafeLoad("https://raw.githubusercontent.com/LotuxHub/LotuxHub/refs/heads/main/Library/LotuxLibrary.lua",  "LotuxLibrary", 3)
 local QuestData = _SafeLoad("https://raw.githubusercontent.com/LotuxHub/LotuxHub/refs/heads/main/DevCopy/BloxFruits/Quests.lua",   "Quests",        3)
 local Config    = _SafeLoad("https://raw.githubusercontent.com/LotuxHub/LotuxHub/refs/heads/main/DevCopy/BloxFruits/Config.lua",    "Config",        3)
 local Functions = _SafeLoad("https://raw.githubusercontent.com/LotuxHub/LotuxHub/refs/heads/main/DevCopy/BloxFruits/Functions.lua", "Functions",     3)
-
--- =====================================================
--- SERVICES
--- =====================================================
 local Players           = game:GetService("Players")
 local RunService        = game:GetService("RunService")
 local TweenService      = game:GetService("TweenService")
@@ -795,12 +727,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local HttpService       = game:GetService("HttpService")
 local Lighting          = game:GetService("Lighting")
 local UserInputService  = game:GetService("UserInputService")
-
 local Player = Players.LocalPlayer
-
--- =====================================================
--- REFERENCIAS INTERNAS
--- =====================================================
 local isTeleporting = { value = false }
 local NoClip        = { value = false }
 local NotAutoEquip  = { value = false }
@@ -818,38 +745,19 @@ Player.CharacterAdded:Connect(function(c)
     isTeleporting.value = false
     NoClip.value        = false
 end)
-
 local Camera = workspace.CurrentCamera
-
--- =====================================================
--- REMOTES
--- =====================================================
 local CommF_
 pcall(function()
     CommF_ = ReplicatedStorage:WaitForChild("Remotes", 5)
                               :WaitForChild("CommF_", 5)
 end)
-
--- =====================================================
--- DADOS DAS QUESTS
--- =====================================================
 local QuestList = QuestData.QuestList
 local Islands   = QuestData.Islands
 local Materials = QuestData.Materials
 local Bosses    = QuestData.Bosses
-
--- =====================================================
--- LANGUAGE SYSTEM
--- =====================================================
 local LangData    = {}
 local CurrentLang = "English"
-
 local LANG_URL = "https://raw.githubusercontent.com/LotuxHub/LotuxHub/refs/heads/main/DevCopy/BloxFruits/Language.json"
-
--- =====================================================
--- SAVE SYSTEM (por conta de jogador)
--- Estrutura: Lotux Hub\<PlayerName>\*
--- =====================================================
 local SaveSystem = (function()
     local Hs  = game:GetService("HttpService")
     local Pl  = game:GetService("Players").LocalPlayer
@@ -870,7 +778,6 @@ local SaveSystem = (function()
     end
 
     local function Enc(t)
-        -- Serializa apenas primitivos para evitar "table: 0x..."
         local parts = {}
         for k,v in pairs(t) do
             local vt = type(v)
@@ -891,7 +798,6 @@ local SaveSystem = (function()
         if type(s) ~= "string" or s:sub(1,1) ~= "{" then return t end
         local ok, decoded = pcall(function() return Hs:JSONDecode(s) end)
         if ok and type(decoded) == "table" then return decoded end
-        -- Fallback: parse manual
         for k,v in s:gmatch('"([%w_]+)"%s*:%s*([^,}]+)') do
             v = v:match("^%s*(.-)%s*$")
             if v == "true" then t[k]=true
@@ -978,7 +884,6 @@ local SaveSystem = (function()
         }
     end
 
-    -- Inicializa: carrega config + idioma + inicia autosave
     function S.Init(cfg)
         local had = S.LoadConfig(cfg)
         local savedLang = S.LoadLanguage()
@@ -988,9 +893,9 @@ local SaveSystem = (function()
         end
         S.StartAutoSave(cfg, 30)
         if had then
-            print("[SaveSystem] ✅ Configs restauradas para: "..Pl.Name)
+            print("[SaveSystem] Configs restauradas para: "..Pl.Name)
         else
-            print("[SaveSystem] 🆕 Primeira execução para: "..Pl.Name.." — usando padrões.")
+            print("[SaveSystem] Primeira execução para: "..Pl.Name.." — usando padrões.")
         end
         return had
     end
@@ -998,17 +903,14 @@ local SaveSystem = (function()
     return S
 end)()
 
--- Expõe globalmente para uso em outros módulos
 _G.SaveSystem = SaveSystem
 
--- Carregar idioma salvo
 local function LoadSavedLanguage()
     local saved = SaveSystem.LoadLanguage()
     if saved and saved ~= "" then CurrentLang = saved end
 end
 LoadSavedLanguage()
 
--- Salvar idioma (wrapper para compatibilidade)
 local function SaveLanguage(lang)
     SaveSystem.SaveLanguage(lang)
 end
@@ -1031,9 +933,6 @@ local function T(key, vars)
     return str
 end
 
--- =====================================================
--- DETECT SEA
--- =====================================================
 local SEA_PLACE_IDS = {
     [1] = { 2753915549, 6817450498, 8903419500 },
     [2] = { 4442272183, 79091703265657, 8165217374, 9176847717 },
@@ -1092,9 +991,6 @@ World1 = (CurrentSea == 1)
 World2 = (CurrentSea == 2)
 World3 = (CurrentSea == 3)
 
--- =====================================================
--- INICIA RESOLVER DE ARMA
--- =====================================================
 local ok_wres, err_wres = pcall(function() Functions.StartWeaponResolver(Config) end)
 if not ok_wres then
     warn("[LotuxHub] StartWeaponResolver falhou: " .. tostring(err_wres))
@@ -1102,26 +998,20 @@ if not ok_wres then
 else
     end
 
--- Inicia loop de haki (substitui o ActivateBuso por frame)
 local ok_haki, err_haki = pcall(function() Functions.StartHakiLoop(Config, CommF_) end)
 if not ok_haki then
     warn("[LotuxHub] StartHakiLoop falhou: " .. tostring(err_haki))
     _ConsoleLog("[ERRO] StartHakiLoop: " .. tostring(err_haki):sub(1,60))
 end
 
--- Inicia todos os loops das funções do Tiroreal integradas
 local ok_loops, err_loops = pcall(function() Functions.StartAllLoops(Config) end)
 if not ok_loops then
     warn("[LotuxHub] StartAllLoops falhou: " .. tostring(err_loops))
     _ConsoleLog("[ERRO] StartAllLoops: " .. tostring(err_loops):sub(1,60))
 end
 
--- Inicia notificador de frutas spawnadas
 pcall(function() Functions.StartFruitSpawnNotifier(Config, Notify) end)
 
--- =====================================================
--- NOCLIP LOOP
--- =====================================================
 task.spawn(function()
     while task.wait() do
         pcall(function()
@@ -1130,12 +1020,9 @@ task.spawn(function()
     end
 end)
 
--- =====================================================
--- AUTOCLICK LOOP
--- =====================================================
 local currentTarget = nil
 
-local function _acLog(msg) end -- logs removidos
+local function _acLog(msg) end
 
 task.spawn(function()
     while task.wait(0.12) do
@@ -1220,21 +1107,12 @@ task.spawn(function()
     end
 end)
 
--- =====================================================
--- FARM LOOP PRINCIPAL (completo)
--- Nearest: só mob perto (sem submerged)
--- Level: submerged só se a quest for SubmergedQuest
--- Combate estilo Tiro: CFrame em cima + bring no chão + BodyClip
--- =====================================================
 local farmRunning = false
 
 task.spawn(function()
     while true do
         task.wait(0.05)
 
-        -- =====================================================
-        -- Nenhum farm ativo → limpa estado
-        -- =====================================================
         if not Config.AutoFarmLevel and not Config.AutoFarmNearest then
             if currentTarget ~= nil then currentTarget = nil end
             if NoClip.value or farmRunning then
@@ -1281,9 +1159,6 @@ task.spawn(function()
 
         local flyOffset = tonumber(Config.FlyOffset) or 15
 
-        -- =====================================================
-        -- AUTO FARM NEAREST (só mob perto — sem submerged)
-        -- =====================================================
         if Config.AutoFarmNearest and not Config.AutoFarmLevel then
             pcall(function()
                 if Functions.EnableFarmClip then
@@ -1358,9 +1233,6 @@ task.spawn(function()
                 currentTarget = nil
             end)
 
-        -- =====================================================
-        -- AUTO FARM LEVEL
-        -- =====================================================
         elseif Config.AutoFarmLevel then
             pcall(function()
                 local quest = Functions.GetQuestForLevel(QuestList, CurrentSea, Player)
@@ -1369,11 +1241,9 @@ task.spawn(function()
                     return
                 end
 
-                -- Quest da Submerged? (NameQuest tem "SubmergedQuest" → ~level 2600+)
                 local isSubmergedQuest = string.find(quest.NameQuest or "", "SubmergedQuest", 1, true) ~= nil
 
                 if isSubmergedQuest then
-                    -- Precisa da Submerged → entra / fica
                     local jaEstaLa = HumanoidRootPart and HumanoidRootPart.Position.Y < -500
                     if not jaEstaLa then
                         print("[AutoFarm] Quest Submerged — entrando...")
@@ -1393,7 +1263,6 @@ task.spawn(function()
                     Character = c2
                     HumanoidRootPart = c2:FindFirstChild("HumanoidRootPart") or HumanoidRootPart
                 else
-                    -- Não precisa → se estiver dentro, sai
                     if Functions.IsOnSubmergedIsland and Functions.IsOnSubmergedIsland() then
                         print("[AutoFarm] Na Submerged sem precisar — saindo...")
                         Functions.ExitSubmergedIsland(Config)
@@ -1408,7 +1277,6 @@ task.spawn(function()
                         end
                     end
 
-                    -- Portal normal
                     if quest.RequestEntrance and HumanoidRootPart then
                         if (quest.CFrameMon.Position - HumanoidRootPart.Position).Magnitude > 10000 then
                             pcall(function()
@@ -1423,12 +1291,10 @@ task.spawn(function()
                     Functions.EnableFarmClip()
                 end
 
-                -- Quest ativa na UI?
                 local questGui = Player.PlayerGui:FindFirstChild("Main")
                     and Player.PlayerGui.Main:FindFirstChild("Quest")
                 local questVisible = questGui and questGui.Visible or false
 
-                -- Quest ativa MAS é de outro lugar → abandona
                 if questVisible and not Functions.IsCorrectQuest(quest.Mob, quest.NameQuest) then
                     print("[AutoFarm] Quest errada ativa — abandonando...")
                     Functions.AbandonQuest()
@@ -1436,7 +1302,6 @@ task.spawn(function()
                     questVisible = false
                 end
 
-                -- SEM QUEST → NPC + aceitar
                 if not questVisible then
                     currentTarget = nil
 
@@ -1470,7 +1335,6 @@ task.spawn(function()
                     return
                 end
 
-                -- QUEST ATIVA → mob
                 local mob = Functions.GetNearestEnemy(Character, HumanoidRootPart, quest.Mob)
 
                 if not mob then
@@ -1508,7 +1372,6 @@ task.spawn(function()
                 Functions.EquipWeapon(Config, NotAutoEquip)
                 currentTarget = mob
 
-                -- Combate estilo Tiro
                 repeat
                     task.wait()
                     if not Config.AutoFarmLevel then break end
@@ -1563,10 +1426,6 @@ task.spawn(function()
     end
 end)
 
--- =====================================================
--- ESP MOB - CIRCULO VERDE (Drawing API)
--- Raio de deteccao: 5000 studs, circulo pequeno
--- =====================================================
 local _mobESP   = {}
 local _espConns = {}
 
@@ -1602,7 +1461,6 @@ local function _clearAllMobCircles()
     end
 end
 
--- Loop de update dos circulos
 local _espCircleConn = nil
 local function _startMobCircleLoop()
     if _espCircleConn then return end
@@ -1643,7 +1501,6 @@ local function _stopMobCircleLoop()
     end
 end
 
--- Registra mobs ja existentes e novos
 local function _initMobCircleESP()
     local ef = workspace:FindFirstChild("Enemies")
     if ef then
@@ -1655,9 +1512,6 @@ local function _initMobCircleESP()
     end
 end
 
--- =====================================================
--- ESP LOOP - SelectionBox (existente)
--- =====================================================
 RunService.Heartbeat:Connect(function()
     if not Config.ESPEnabled then return end
     local ef = workspace:FindFirstChild("Enemies")
@@ -1677,18 +1531,12 @@ RunService.Heartbeat:Connect(function()
     end
 end)
 
--- =====================================================
--- INFINITE JUMP
--- =====================================================
 UserInputService.JumpRequest:Connect(function()
     if Config.InfiniteJump and Humanoid then
         Humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
     end
 end)
 
--- =====================================================
--- NOTIFICACOES
--- =====================================================
 local IMG     = "rbxassetid://111672166073808" -- Icone padrao das notificacoes (pode ser trocado por outro link de imagem)
 local uiReady = false
 local function Notify(cfg)
@@ -1696,9 +1544,6 @@ local function Notify(cfg)
     pcall(function() redzlib:Notify(cfg) end)
 end
 
--- =====================================================
--- CARREGAMENTO COM PORCENTAGEM
--- =====================================================
 local function LoadingBar(percent)
     _SetProgress(percent)
 end
@@ -1710,12 +1555,9 @@ task.spawn(function()
     end
 end)
 
--- =====================================================
--- WINDOW
--- =====================================================
 local Window = redzlib:MakeWindow({
     Title      = "Lotux Hub",
-    SubTitle   = "by LoadFlint/lucas v3.0",
+    SubTitle   = "by LoadFlint",
     SaveFolder = "Lotux Hub\\" .. Player.Name,
 })
 
@@ -1724,9 +1566,6 @@ Window:AddMinimizeButton({
     Corner = { CornerRadius = UDim.new(1, 0) },
 })
 
--- =====================================================
--- TAB: HOME
--- =====================================================
 local Home = Window:MakeTab({ Title = T("tab_home"), Icon = "home" })
 Home:AddSection(T("sec_discord"))
 Home:AddDiscordInvite({ Title = "Lotux Hub", Logo = IMG, Link = "https://discord.gg/HkB97N772p" })
@@ -1794,27 +1633,20 @@ task.spawn(function()
     end
 end)
 
--- =====================================================
--- TAB: MAIN (FARM)
--- =====================================================
 local Main = Window:MakeTab({ Title = T("tab_main"), Icon = "menu" })
 
--- Variavel separada para FarmWeapon (evita bug da redzlib que sobrescreve Config com tabela)
 _G._FarmWeapon = "Melee"
 Main:AddDropdown({
     Title    = T("ui_farm_weapon"),
     Options  = { "Melee", "Sword", "Gun", "BloxFruits" },
     Default  = "Melee",
     Callback = function(v)
-        -- Extrai string do valor (a redzlib pode passar tabela ou string)
         local weaponStr = type(v) == "table" and (v.Value or v[1] or v.Name or v.Text) or tostring(v)
-        -- Valida e seta _G._FarmWeapon
         local validos = { Melee=true, Sword=true, Gun=true, BloxFruits=true }
         if validos[weaponStr] then
             _G._FarmWeapon = weaponStr
         end
         Config.SelectedWeaponName = ""
-        -- Equipa a nova arma imediatamente
         task.spawn(function()
             task.wait(0.1)
             Functions.EquipWeapon(Config, NotAutoEquip)
@@ -1878,6 +1710,16 @@ Main:AddDropdown({ Title = T("ui_select_boss"), Options = Bosses[CurrentSea], De
 Main:AddToggle({ Title = T("ui_auto_farm_boss"),      Default = false, Flag = "AutoFarmBoss", Callback = function(v) Config.AutoFarmBoss     = v end })
 Main:AddToggle({ Title = T("ui_auto_farm_all_boss"),  Default = false, Flag = "AutoFarmAllBoss", Callback = function(v) Config.AutoFarmAllBoss  = v end })
 Main:AddToggle({ Title = T("ui_auto_farm_raid_boss"), Default = false, Flag = "AutoFarmRaidBoss", Callback = function(v) Config.AutoFarmRaidBoss = v end })
+Main:AddSection("Sea Creatures")
+Main:AddToggle({ Title = "Auto Kill Shark",          Default = false, Flag = "AutoKillShark",    Callback = function(v) Config.AutoKillShark    = v end })
+Main:AddToggle({ Title = "Auto Kill Terrorshark",    Default = false, Flag = "AutoTerrorshark",  Callback = function(v) Config.AutoTerrorshark  = v end })
+Main:AddToggle({ Title = "Auto Kill Piranha",        Default = false, Flag = "AutoKillPiranha",  Callback = function(v) Config.AutoKillPiranha  = v end })
+Main:AddToggle({ Title = "Auto Kill Fish Crew",      Default = false, Flag = "AutoKillFishCrew", Callback = function(v) Config.AutoKillFishCrew = v end })
+Main:AddToggle({ Title = "Auto Kill Golem",          Default = false, Flag = "AutoKillGolem",    Callback = function(v) Config.AutoKillGolem    = v end })
+
+Main:AddSection("Dungeon")
+Main:AddToggle({ Title = "Auto Dungeon",             Default = false, Flag = "AutoDungeon",      Callback = function(v) Config.AutoDungeon      = v end })
+
 
 Main:AddSection(T("sec_material"))
 Main:AddDropdown({ Title = T("ui_select_material"), Options = Materials[CurrentSea], Default = Materials[CurrentSea][1],
@@ -1972,9 +1814,6 @@ Main:AddToggle({ Title = "Auto Trade Bone (DinoBone)", Default = false,
         if v then task.spawn(function() Functions.StartAutoTradeBone(Config) end) end
     end })
 
--- =====================================================
--- TAB: SETTINGS
--- =====================================================
 local Settings = Window:MakeTab({ Title = T("tab_settings"), Icon = "settings" })
 
 Settings:AddSection("Farm Settings")
@@ -2039,6 +1878,21 @@ Settings:AddToggle({ Title = "Auto Use V4 (tecla Y)", Default = false,
     end })
 
 Settings:AddSection(T("sec_extras"))
+Settings:AddToggle({ Title = "Infinite Stamina (Energy)", Default = false,
+    Flag = "InfiniteStamina", Callback = function(v)
+        Config.InfiniteStamina = v
+        Notify({ Title = v and "Infinite Stamina ON" or "OFF", Image = IMG, Type = v and "Success" or "Info", Duration = 2 })
+    end })
+Settings:AddToggle({ Title = "Infinite Observation Range", Default = false,
+    Flag = "InfiniteObsRange", Callback = function(v)
+        Config.InfiniteObsRange = v
+        Notify({ Title = v and "Infinite Obs Range ON" or "OFF", Image = IMG, Type = v and "Success" or "Info", Duration = 2 })
+    end })
+Settings:AddToggle({ Title = "Infinite Ability (sem cooldown)", Default = false,
+    Flag = "InfiniteAbility", Callback = function(v)
+        Config.InfiniteAbility = v
+        Notify({ Title = v and "Infinite Ability ON" or "OFF", Image = IMG, Type = v and "Success" or "Info", Duration = 2 })
+    end })
 Settings:AddToggle({ Title = T("ui_auto_speed"), Default = true, Flag = "AutoSpeed", Callback = function(v) Config.AutoSpeed = v end })
 Settings:AddSlider({ Title = T("ui_speed"), Min = 20, Max = 100, Default = 20,
     Flag = "Speed", Callback = function(v) Config.Speed = v; if Humanoid then Humanoid.WalkSpeed = v end end })
@@ -2136,9 +1990,6 @@ Settings:AddToggle({
     end,
 })
 
--- =====================================================
--- TAB: ITEMS / QUEST
--- =====================================================
 local ItemsQuest = Window:MakeTab({ Title = T("tab_itemquest"), Icon = "swords" })
 
 ItemsQuest:AddSection("Items Sea 3")
@@ -2227,31 +2078,15 @@ ItemsQuest:AddButton({ Title = "Buy Buso Colors",  Callback = function()
 end })
 
 ItemsQuest:AddSection("Instinct / Observation")
-ItemsQuest:AddToggle({ Title = T("ui_auto_obs_haki"),   Default = false, Flag = "AutoFarmObsHaki", Callback = function(v) Config.AutoFarmObsHaki  = v end })
-ItemsQuest:AddToggle({ Title = T("ui_auto_haki_v2"),                 Default = false, Flag = "AutoHakiV2", Callback = function(v) Config.AutoHakiV2       = v end })
-ItemsQuest:AddToggle({ Title = T("ui_auto_temple"),           Default = false, Flag = "AutoUnlockTemple", Callback = function(v) Config.AutoUnlockTemple = v end })
+ItemsQuest:AddToggle({ Title = T("ui_auto_obs_haki"),   Default = false, Flag = "AutoFarmObsHaki",  Callback = function(v) Config.AutoFarmObsHaki  = v end })
+ItemsQuest:AddToggle({ Title = T("ui_auto_haki_v2"),    Default = false, Flag = "AutoHakiV2",       Callback = function(v) Config.AutoHakiV2       = v end })
+ItemsQuest:AddToggle({ Title = T("ui_auto_temple"),     Default = false, Flag = "AutoUnlockTemple", Callback = function(v) Config.AutoUnlockTemple = v end })
+ItemsQuest:AddToggle({ Title = "Infinite Obs Range (Ken ∞)", Default = false,
+    Flag = "InfiniteObsRange", Callback = function(v)
+        Config.InfiniteObsRange = v
+        Notify({ Title = v and "Obs Range Infinito ON" or "OFF", Image = IMG, Type = v and "Success" or "Info", Duration = 2 })
+    end })
 
--- =====================================================
--- TAB: FISHING
--- =====================================================
-local FishingTab = Window:MakeTab({ Title = T("tab_fishing"), Icon = "fish" })
-FishingTab:AddSection("Auto Fishing")
-FishingTab:AddToggle({ Title = "Auto Quest Fishing",   Default = false, Flag = "G_AutoQuestFishing", Callback = function(v)
-    _G.AutoQuestFishing = v
-end })
-FishingTab:AddToggle({ Title = "Auto Complete Quest",  Default = false, Flag = "G_AutoCompleteQuestFishing", Callback = function(v)
-    _G.AutoCompleteQuestFishing = v
-end })
-FishingTab:AddToggle({ Title = "Auto Sell Fish",       Default = false, Flag = "G_AutoSellFish", Callback = function(v)
-    _G.AutoSellFish = v
-end })
-FishingTab:AddToggle({ Title = "Auto Spam Skill Z",    Default = false, Flag = "AutoSkillZ", Callback = function(v)
-    Config.AutoSkillZ = v
-end })
-
--- =====================================================
--- TAB: SEA EVENT
--- =====================================================
 local SeaEventTab = Window:MakeTab({ Title = T("tab_seaevent"), Icon = "waves" })
 
 SeaEventTab:AddSection("Boat")
@@ -2425,9 +2260,6 @@ SeaEventTab:AddToggle({ Title = "Auto Tween M-Gear (Mystic Island)", Default = f
         end
     end })
 
--- =====================================================
--- TAB: RACE
--- =====================================================
 local RaceTab = Window:MakeTab({ Title = T("tab_race"), Icon = "flag" })
 
 RaceTab:AddSection("Mirage")
@@ -2494,9 +2326,6 @@ RaceTab:AddButton({ Title = "Comprar Ancient One Quest", Callback = function()
     Notify({ Title = "Comprando Ancient One Quest", Image = IMG, Type = "Success", Duration = 3 })
 end })
 
--- =====================================================
--- TAB: VOLCANO EVENT
--- =====================================================
 local VulcaoTab = Window:MakeTab({ Title = T("tab_vulcano"), Icon = "flame" })
 
 VulcaoTab:AddSection("Dojo")
@@ -2517,6 +2346,12 @@ VulcaoTab:AddButton({ Title = "Craft Dino Hood",    Callback = function() pcall(
 VulcaoTab:AddButton({ Title = "Craft T-Rex Skull",  Callback = function() pcall(function() (CommF_ or {}):InvokeServer("CraftItem","TRexSkull") end); Notify({ Title = "Crafting T-Rex Skull!", Image = IMG, Type = "Success", Duration = 2 }) end })
 
 VulcaoTab:AddSection("Prehistoric Island")
+VulcaoTab:AddToggle({ Title = "ESP Ossos + Ovos (Prehistoric)", Default = false,
+    Flag = "ESPPrehistoric", Callback = function(v)
+        Config.ESPPrehistoric = v
+        Functions.UpdatePrehistoricIslandESP(v)
+        Notify({ Title = v and "ESP Prehistoric ON" or "OFF", Image = IMG, Type = v and "Success" or "Info", Duration = 2 })
+    end })
 VulcaoTab:AddButton({ Title = "Craft Volcanic Magnet",  Callback = function() pcall(function() (CommF_ or {}):InvokeServer("CraftItem","VolcanicMagnet") end); Notify({ Title = "Crafting Volcanic Magnet!", Image = IMG, Type = "Success", Duration = 2 }) end })
 VulcaoTab:AddToggle({ Title = "Auto Craft Volcanic Magnet", Default = false, Flag = "G_AutoCraftVolcanicMagnet", Callback = function(v) _G.AutoCraftVolcanicMagnet = v end })
 VulcaoTab:AddToggle({ Title = "Auto Find Prehistoric Island", Default = false,
@@ -2606,9 +2441,6 @@ VulcaoTab:AddToggle({ Title = "Auto Kill Lava Golem",         Default = false,
 VulcaoTab:AddToggle({ Title = "Auto Farm Mob Dragon (Floating Turtle)", Default = false,
     Flag = "AutoMobDragon", Callback = function(v) Config.AutoMobDragon = v end })
 
--- =====================================================
--- TAB: STATS / ESP
--- =====================================================
 local StatsEspTab = Window:MakeTab({ Title = "Stats/ESP", Icon = "eye" })
 
 StatsEspTab:AddSection("Status")
@@ -2694,7 +2526,19 @@ StatsEspTab:AddToggle({ Title = "ESP Mirage Island",          Default = false,
         Notify({ Title = v and "ESP Mirage ON" or "OFF", Image = IMG, Type = v and "Success" or "Info", Duration = 2 })
     end })
 
--- Loop de update de todos os ESPs (Heartbeat)
+StatsEspTab:AddToggle({ Title = "ESP Prehistoric (Ossos + Ovos)", Default = false,
+    Flag = "ESPPrehistoric", Callback = function(v)
+        Config.ESPPrehistoric = v
+        Functions.UpdatePrehistoricIslandESP(v)
+        Notify({ Title = v and "ESP Prehistoric ON" or "OFF", Image = IMG, Type = v and "Success" or "Info", Duration = 2 })
+    end })
+StatsEspTab:AddToggle({ Title = "ESP Aura (Master of Enhancement)", Default = false,
+    Flag = "ESPAura", Callback = function(v)
+        Config.ESPAura = v
+        Functions.UpdateAuraESP(v)
+        Notify({ Title = v and "ESP Aura ON" or "OFF", Image = IMG, Type = v and "Success" or "Info", Duration = 2 })
+    end })
+
 RunService.Heartbeat:Connect(function()
     pcall(function() Functions.UpdatePlayerESP(Config.ESPTeammates, false) end)
     pcall(function() Functions.UpdateSeaBeastESP(Config.ESPSeaBeasts) end)
@@ -2706,9 +2550,6 @@ RunService.Heartbeat:Connect(function()
     pcall(function() Functions.UpdateMirageESP(Config.ESPMirage) end)
 end)
 
--- =====================================================
--- TAB: FRUIT / RAID
--- =====================================================
 local FruitRaidTab = Window:MakeTab({ Title = T("tab_fruitraid"), Icon = "apple" })
 
 FruitRaidTab:AddSection("Fruit")
@@ -2774,14 +2615,10 @@ FruitRaidTab:AddToggle({ Title = "Auto Buy Microchip",        Default = false, F
 FruitRaidTab:AddToggle({ Title = "Auto Start Law Raids",      Default = false, Flag = "AutoStartRaidLaw", Callback = function(v) Config.AutoStartRaidLaw   = v end })
 FruitRaidTab:AddToggle({ Title = "Auto Attack Law",           Default = false, Flag = "AutoRaidLaw", Callback = function(v) Config.AutoRaidLaw        = v end })
 
--- =====================================================
--- TAB: LOCAL PLAYER
--- =====================================================
 local LPTab = Window:MakeTab({ Title = T("tab_localplayer"), Icon = "users" })
 
 LPTab:AddSection("Aimbot")
 
--- Dropdown: lista todos os players + opção "Nearest Player"
 LPTab:AddDropdown({ Title = "Select Player",
     Options = (function()
         local names = { "Nearest Player" }
@@ -2796,7 +2633,6 @@ LPTab:AddDropdown({ Title = "Select Player",
         Config.SelectedPlayer = sel == "Nearest Player" and "" or sel
     end })
 
--- Dropdown: modo do aimbot
 LPTab:AddDropdown({ Title = "Select Mode Aimbot",
     Options = { "Nearest Player Aimbot", "Selected Player Aimbot" },
     Default = "Nearest Player Aimbot",
@@ -2805,7 +2641,6 @@ LPTab:AddDropdown({ Title = "Select Mode Aimbot",
         Config.AimbotMode = sel
     end })
 
--- Toggle: expande a hitbox dos players alvejados
 LPTab:AddToggle({ Title = "Expansion HitBox",
     Default = false,
     Flag = "AimbotHitBox",
@@ -2820,7 +2655,6 @@ LPTab:AddToggle({ Title = "Expansion HitBox",
                  Type = v and "Success" or "Info", Duration = 2 })
     end })
 
--- Toggle: ativa o aimbot (só mira quando o player vai usar uma skill Z/X/C)
 LPTab:AddToggle({ Title = "Enable Aimbot",
     Default = false,
     Flag = "AimbotSkill",
@@ -2902,6 +2736,7 @@ LPTab:AddToggle({ Title = T("ui_infinite_jump"),      Default = false,
 LPTab:AddToggle({ Title = T("ui_anti_afk"),           Default = false,
     Flag = "AntiAFK", Callback = function(v)
         Config.AntiAFK = v
+        if v then task.spawn(function() Functions.StartAntiAFK() end) end
         if v then
             task.spawn(function()
                 while Config.AntiAFK do
@@ -2940,14 +2775,8 @@ LPTab:AddButton({ Title = T("ui_copy_pos"),
         end
     end })
 
--- =====================================================
--- TAB: TELEPORT
--- =====================================================
 local Teleport = Window:MakeTab({ Title = T("tab_teleport"), Icon = "mouse" })
 
--- =====================================================
--- TELEPORT POR SEA (Sea 1 / Sea 2 / Sea 3)
--- =====================================================
 Teleport:AddSection("Teleport for Sea")
 
 local SEA_SPAWN = {
@@ -2990,7 +2819,6 @@ Teleport:AddButton({ Title = "Teleport to Sea 3",
 
 Teleport:AddSection("Fly to Island")
 
--- Dropdown: escolhe a ilha de destino
 Teleport:AddDropdown({
     Title    = "Select Island",
     Options  = Islands[CurrentSea],
@@ -3000,9 +2828,6 @@ Teleport:AddDropdown({
     end,
 })
 
--- Toggle: ativa/desativa o voo para a ilha selecionada
--- Igual ao AutoFarmLevel: usa FlyToPosition + StartFloat + EnableFarmClip
--- O player fica flutuando ao chegar e não cai
 Teleport:AddToggle({
     Title       = "Fly to Island",
     Description = "Voa para a ilha selecionada usando o mesmo voo do Auto Farm",
@@ -3014,7 +2839,6 @@ Teleport:AddToggle({
         end
 
         if v then
-            -- Ativa o toggle de voo
             Notify({
                 Title       = "Voando para: " .. islandName,
                 Description = "FlySpeed: " .. tostring(Config.FlySpeed) .. " studs/s",
@@ -3026,7 +2850,6 @@ Teleport:AddToggle({
                 Functions.StartFlyIslandToggle(islandName, Config)
             end)
         else
-            -- Desativa
             Functions.StopFlyIslandToggle(Config)
             Notify({
                 Title       = "Voo cancelado",
@@ -3115,9 +2938,78 @@ Teleport:AddTextBox({
     end,
 })
 
--- =====================================================
--- TAB: SHOP
--- =====================================================
+local FishingTab = Window:MakeTab({ Title = "Fishing", Icon = "fish" })
+
+FishingTab:AddSection("Auto Fishing")
+
+FishingTab:AddDropdown({
+    Title   = " Fish Rod",
+    Options = { "Fishing Rod", "Gold Rod", "Shark Rod", "Shell Rod", "Treasure Rod" },
+    Default = "Fishing Rod",
+    Flag    = "SelectedFishingRod",
+    Callback = function(v)
+        Config.SelectedFishingRod = v
+    end
+})
+
+FishingTab:AddDropdown({
+    Title   = "Bait",
+    Options = { "", "Basic Bait", "Kelp Bait", "Good Bait", "Abyssal Bait", "Frozen Bait", "Epic Bait", "Carnivore Bait" },
+    Default = "",
+    Flag    = "SelectedFishingBait",
+    Callback = function(v)
+        Config.SelectedFishingBait = v
+        if v and v ~= "" then
+            pcall(function()
+                local fr = game:GetService("ReplicatedStorage"):FindFirstChild("FishReplicated")
+                if fr then
+                    local req = fr:FindFirstChild("FishingRequest")
+                    if req then req:InvokeServer("SelectBait", v) end
+                end
+            end)
+        end
+    end
+})
+
+FishingTab:AddToggle({
+    Title   = "Auto Fishing",
+    Default = false,
+    Flag    = "AutoFishing",
+    Callback = function(v)
+        Config.AutoFishing = v
+        if v then
+            task.spawn(function() Functions.StartAutoFishing(Config) end)
+        end
+        Notify({ Title = v and "Auto Fishing ON" or "OFF", Image = IMG, Type = v and "Success" or "Info", Duration = 2 })
+    end
+})
+FishingTab:AddToggle({ Title = "Auto Quest Fishing", Default = false,
+    Flag = "G_AutoQuestFishing", Callback = function(v) _G.AutoQuestFishing = v end })
+FishingTab:AddToggle({ Title = "Auto Complete Quest Pesca", Default = false,
+    Flag = "G_AutoCompleteQuestFishing", Callback = function(v) _G.AutoCompleteQuestFishing = v end })
+FishingTab:AddToggle({ Title = "Auto Sell Fish", Default = false,
+    Flag = "G_AutoSellFish", Callback = function(v) _G.AutoSellFish = v end })
+
+FishingTab:AddSection("Localização de Pesca")
+local FISH_SPOTS = {
+    { name = "Underwater City (Sea 1)",  cf = CFrame.new(61350, 10, 1550)  },
+    { name = "Fishman Island (Sea 1)",   cf = CFrame.new(61529, 10, -4835) },
+    { name = "Forgotten Island (Sea 2)", cf = CFrame.new(4800, 10, 4000)   },
+    { name = "Sea of Treats (Sea 3)",    cf = CFrame.new(-1004, 10, 7009)  },
+}
+for _, spot in ipairs(FISH_SPOTS) do
+    local s = spot
+    FishingTab:AddButton({
+        Title = "Ir para " .. s.name,
+        Callback = function()
+            task.spawn(function()
+                Functions.FlyToPosition(s.cf, TweenService, Config, isTeleporting, NotAutoEquip)
+            end)
+            Notify({ Title = "Indo para " .. s.name, Image = IMG, Type = "Info", Duration = 2 })
+        end
+    })
+end
+
 local ShopTab = Window:MakeTab({ Title = "Shop", Icon = "shoppingbag" })
 
 ShopTab:AddSection("Style")
@@ -3151,14 +3043,181 @@ ShopTab:AddButton({ Title = "Buy Ghoul Race",    Callback = function() pcall(fun
 ShopTab:AddButton({ Title = "Buy Cyborg Race (2.5k)", Callback = function() pcall(function() (CommF_ or {}):InvokeServer("BuyRace","Cyborg") end); Notify({ Title = "Comprado: Cyborg Race", Image = IMG, Type = "Success", Duration = 2 }) end })
 ShopTab:AddButton({ Title = "Buy Draco Race",    Callback = function() pcall(function() (CommF_ or {}):InvokeServer("BuyRace","Draco") end); Notify({ Title = "Comprado: Draco Race", Image = IMG, Type = "Success", Duration = 2 }) end })
 
--- =====================================================
--- TAB: MISCELLANEOUS
--- =====================================================
+local TPIslandTab = Window:MakeTab({ Title = "TP Island", Icon = "mappin" })
+
+TPIslandTab:AddSection("Teleporte para Ilhas")
+
+local ALL_ISLANDS_SEA1 = {
+    "Starter Island","Middle Town","Jungle","Pirate Village","Desert",
+    "Frozen Village","Marineford","Skylands","Prison","Colosseum",
+    "Magma Village","Underwater City","Fountain City"
+}
+local ALL_ISLANDS_SEA2 = {
+    "Kingdom of Rose","Green Zone","Graveyard","Snow Mountain","Hot and Cold",
+    "Cursed Ship","Ice Castle","Forgotten Island","Dark Arena","Factory"
+}
+local ALL_ISLANDS_SEA3 = {
+    "Port Town","Hydra Island","Great Tree","Floating Turtle","Haunted Castle",
+    "Sea of Treats","Cake Land","Tiki Outpost","Submerged Island"
+}
+
+local ALL_ISLANDS_FLAT = {}
+for _, v in ipairs(ALL_ISLANDS_SEA1) do table.insert(ALL_ISLANDS_FLAT, v) end
+for _, v in ipairs(ALL_ISLANDS_SEA2) do table.insert(ALL_ISLANDS_FLAT, v) end
+for _, v in ipairs(ALL_ISLANDS_SEA3) do table.insert(ALL_ISLANDS_FLAT, v) end
+
+local _selectedTPIsland = ALL_ISLANDS_FLAT[1]
+
+TPIslandTab:AddDropdown({
+    Title   = "Selecionar Ilha",
+    Options = ALL_ISLANDS_FLAT,
+    Default = ALL_ISLANDS_FLAT[1],
+    Flag    = "SelectedTPIsland",
+    Callback = function(v)
+        _selectedTPIsland = v
+        Config.SelectedTPIsland = v
+    end
+})
+
+TPIslandTab:AddToggle({
+    Title   = "Auto TP (vai quando toggle ativo)",
+    Default = false,
+    Flag    = "TPIsland",
+    Callback = function(v)
+        Config.TPIsland = v
+        if v and _selectedTPIsland and _selectedTPIsland ~= "" then
+            task.spawn(function()
+                while Config.TPIsland do
+                    Functions.TeleportToIsland(_selectedTPIsland, Config, isTeleporting, NotAutoEquip)
+                    task.wait(2)
+                    if Config.TPIsland then break end -- só vai uma vez se toggle
+                    break
+                end
+                Config.TPIsland = false
+            end)
+        end
+    end
+})
+
+TPIslandTab:AddButton({
+    Title = "Ir Agora",
+    Callback = function()
+        if not _selectedTPIsland or _selectedTPIsland == "" then
+            Notify({ Title = "Selecione uma ilha primeiro!", Image = IMG, Type = "Warning", Duration = 2 })
+            return
+        end
+        Notify({ Title = "Voando para: " .. _selectedTPIsland, Image = IMG, Type = "Info", Duration = 2 })
+        task.spawn(function()
+            Functions.TeleportToIsland(_selectedTPIsland, Config, isTeleporting, NotAutoEquip)
+        end)
+    end
+})
+
+TPIslandTab:AddSection("Mar 1 — Atalhos")
+local SEA1_QUICK = { "Marineford", "Skylands", "Prison", "Colosseum", "Magma Village" }
+for _, name in ipairs(SEA1_QUICK) do
+    local n = name
+    TPIslandTab:AddButton({
+        Title = "→ " .. n,
+        Callback = function()
+            task.spawn(function()
+                Functions.TeleportToIsland(n, Config, isTeleporting, NotAutoEquip)
+            end)
+            Notify({ Title = "Voando: " .. n, Image = IMG, Type = "Info", Duration = 2 })
+        end
+    })
+end
+
+TPIslandTab:AddSection("Mar 2 — Atalhos")
+local SEA2_QUICK = { "Kingdom of Rose", "Hot and Cold", "Ice Castle", "Factory" }
+for _, name in ipairs(SEA2_QUICK) do
+    local n = name
+    TPIslandTab:AddButton({
+        Title = "→ " .. n,
+        Callback = function()
+            task.spawn(function()
+                Functions.TeleportToIsland(n, Config, isTeleporting, NotAutoEquip)
+            end)
+            Notify({ Title = "Voando: " .. n, Image = IMG, Type = "Info", Duration = 2 })
+        end
+    })
+end
+
+TPIslandTab:AddSection("Mar 3 — Atalhos")
+local SEA3_QUICK = { "Port Town", "Hydra Island", "Great Tree", "Floating Turtle", "Haunted Castle", "Cake Land", "Tiki Outpost", "Submerged Island" }
+for _, name in ipairs(SEA3_QUICK) do
+    local n = name
+    TPIslandTab:AddButton({
+        Title = "→ " .. n,
+        Callback = function()
+            task.spawn(function()
+                Functions.TeleportToIsland(n, Config, isTeleporting, NotAutoEquip)
+            end)
+            Notify({ Title = "Voando: " .. n, Image = IMG, Type = "Info", Duration = 2 })
+        end
+    })
+end
+
+TPIslandTab:AddSection("Utilidades")
+TPIslandTab:AddButton({ Title = "Copiar Posição Atual", Callback = function()
+    Functions.CopyPosition()
+    Notify({ Title = "Posição copiada!", Image = IMG, Type = "Success", Duration = 2 })
+end })
+TPIslandTab:AddButton({ Title = "Rejoin Server", Callback = function()
+    Notify({ Title = "Rejoinando...", Image = IMG, Type = "Info", Duration = 2 })
+    task.delay(1, function() Functions.Rejoin() end)
+end })
+TPIslandTab:AddButton({ Title = "Server Hop", Callback = function()
+    Notify({ Title = "Procurando server...", Image = IMG, Type = "Info", Duration = 2 })
+    task.spawn(function() Functions.ServerHop() end)
+end })
+
 local Misc = Window:MakeTab({ Title = T("tab_misc"), Icon = "calendarsearch" })
 
--- =====================================================
--- TAB: DEBUG CONFIG
--- =====================================================
+Misc:AddSection("Anti-Lag")
+Misc:AddButton({ Title = "Desativar Partículas/Trails", Callback = function()
+    Functions.AntiLag()
+    Notify({ Title = "Anti-Lag aplicado!", Image = IMG, Type = "Success", Duration = 2 })
+end })
+
+Misc:AddSection("Tempo")
+Misc:AddSlider({ Title = "Hora do Dia (0-24)", Min = 0, Max = 24, Default = 12,
+    Callback = function(v)
+        Config.TimeOfDay = v
+        Functions.SetTimeOfDay(v)
+    end
+})
+
+Misc:AddSection("Fog")
+Misc:AddToggle({ Title = "Remove Fog (local)", Default = false, Flag = "NoFogLocal",
+    Callback = function(v)
+        Config.NoFogLocal = v
+        _G._noFogActive = v
+        if v then Functions.RemoveFogLocal() end
+    end
+})
+
+Misc:AddSection("Stats")
+Misc:AddButton({ Title = "Full Melee Stats",    Callback = function() task.spawn(function() Functions.AutoFullStats("Melee") end) end })
+Misc:AddButton({ Title = "Full Defense Stats",  Callback = function() task.spawn(function() Functions.AutoFullStats("Defense") end) end })
+Misc:AddButton({ Title = "Full Sword Stats",    Callback = function() task.spawn(function() Functions.AutoFullStats("Sword") end) end })
+Misc:AddButton({ Title = "Full Gun Stats",      Callback = function() task.spawn(function() Functions.AutoFullStats("Gun") end) end })
+Misc:AddButton({ Title = "Full BloxFruit Stats",Callback = function() task.spawn(function() Functions.AutoFullStats("BloxFruit") end) end })
+
+Misc:AddSection("Player")
+Misc:AddButton({ Title = "Copiar Posição", Callback = function()
+    Functions.CopyPosition()
+    Notify({ Title = "CFrame copiado!", Image = IMG, Type = "Success", Duration = 2 })
+end })
+Misc:AddButton({ Title = "Rejoin", Callback = function()
+    task.delay(1, function() Functions.Rejoin() end)
+    Notify({ Title = "Rejoinando...", Image = IMG, Type = "Info", Duration = 2 })
+end })
+Misc:AddButton({ Title = "Server Hop", Callback = function()
+    task.spawn(function() Functions.ServerHop() end)
+    Notify({ Title = "Procurando server...", Image = IMG, Type = "Info", Duration = 2 })
+end })
+
 local DebugCfg = Window:MakeTab({ Title = "Debug Config", Icon = "settings" })
 
 DebugCfg:AddSection("Painel de Debug")
@@ -3214,9 +3273,6 @@ for _, entry in ipairs(_lineNames) do
         end })
 end
 
--- =====================================================
--- BOTÃO TWEEN FLY STOP + TOGGLE
--- =====================================================
 DebugCfg:AddSection("Tween Fly")
 DebugCfg:AddToggle({ Title = "Mostrar Botão Stop Fly", Default = true,
     Callback = function(v)
@@ -3324,30 +3380,20 @@ end })
 Misc:AddSection(T("sec_script_info"))
 Misc:AddParagraph({ Title = "Lotux Hub v3.0", Text =
     "by LoadFlint/lucas\n" ..
-    "[>] Auto Farm Level + Quest Fix\n" ..
-    "[>] ESP completo (mobs, players, ilhas, frutas, baus)\n" ..
-    "[>] Race V4, Items Quest, Sea Events\n" ..
-    "[>] Volcano, Fishing, Kitsune, Mirage\n" ..
-    "[>] Sea 1/2/3 detectado automaticamente"
+    "[>] Fixed Auto Farm Level\n" ..
+    "[>] Fixed Auto Farm Chest\n" ..
+    "[+] Add Auto Farm Raid\n" ..
+    "[+] Add Auto Farm Maestry\n" ..
+    "[>] Fixed Doble UI"
 })
 Misc:AddButton({ Title = T("ui_close_ui"), Callback = function() Window:CloseBtn() end })
--- =====================================================
--- INICIA FEATURES ATIVAS POR PADRAO
--- =====================================================
 
--- Sem neblina por padrao
 Lighting.FogEnd = Config.NoFog and 100000 or 1000
 
--- =====================================================
--- PAINEL DE DEBUG (STATUS DO SCRIPT)
--- Estilo Hoho Hub - mostra o que o script está fazendo
--- Arrastável, minimizável, atualiza a cada 0.5s
--- =====================================================
 task.spawn(function()
     local PGui      = Player:WaitForChild("PlayerGui")
     local TS        = game:GetService("TweenService")
 
-    -- ── Save/Load do painel via SaveSystem ────────
     local debugSave = {
         x=14, y=14, minimized=false, visible=true,
         show_mode=true, show_status=true, show_target=true,
@@ -3356,24 +3402,22 @@ task.spawn(function()
         show_uptime=true, show_moon=true, show_chalice=true,
         show_server=true, w=240, h=285,
     }
-    -- Carrega dados salvos por conta de jogador
+
     local savedDebug = SaveSystem.LoadDebug()
     for k,v in pairs(savedDebug) do debugSave[k] = v end
 
     local function SaveDebugPanel()
         SaveSystem.SaveDebug(debugSave)
     end
-    -- Expõe para a tab Debug Config poder ler/escrever
+
     _G._debugSave      = debugSave
     _G._saveDebugPanel = SaveDebugPanel
 
-    -- ── Fecha painel anterior se existir (re-execução) ──
     pcall(function()
         local old = PGui:FindFirstChild("LotuxDebugPanel")
         if old then old:Destroy() end
     end)
 
-    -- ── GUI container ──────────────────────────────
     local DebugGui  = Instance.new("ScreenGui")
     DebugGui.Name              = "LotuxDebugPanel"
     DebugGui.ResetOnSpawn      = false
@@ -3382,7 +3426,6 @@ task.spawn(function()
     DebugGui.IgnoreGuiInset    = true
     DebugGui.Parent            = PGui
 
-    -- ── Frame principal ────────────────────────────
     local Main = Instance.new("Frame")
     Main.Name                  = "Main"
     Main.Size = UDim2.fromOffset(debugSave.w or 240, debugSave.h or 285)
@@ -3395,13 +3438,11 @@ task.spawn(function()
     Main.Parent                = DebugGui
     Instance.new("UICorner", Main).CornerRadius = UDim.new(0, 10)
 
-    -- borda roxa
     local Stroke = Instance.new("UIStroke", Main)
     Stroke.Color     = Color3.fromRGB(100, 50, 220)
     Stroke.Thickness = 1.5
     Stroke.Transparency = 0.3
 
-    -- ── Barra de título (drag handle) ──────────────
     local TitleBar = Instance.new("Frame")
     TitleBar.Name              = "TitleBar"
     TitleBar.Size              = UDim2.new(1, 0, 0, 28)
@@ -3409,7 +3450,7 @@ task.spawn(function()
     TitleBar.BorderSizePixel   = 0
     TitleBar.Parent            = Main
     Instance.new("UICorner", TitleBar).CornerRadius = UDim.new(0, 10)
-    -- fixa só o topo
+
     local TitleFix = Instance.new("Frame")
     TitleFix.Size = UDim2.new(1, 0, 0.5, 0)
     TitleFix.Position = UDim2.new(0, 0, 0.5, 0)
@@ -3428,7 +3469,6 @@ task.spawn(function()
     TitleLbl.TextXAlignment    = Enum.TextXAlignment.Left
     TitleLbl.Parent            = TitleBar
 
-    -- botão minimizar
     local MinBtn = Instance.new("TextButton")
     MinBtn.Text                = "—"
     MinBtn.Font                = Enum.Font.GothamBold
@@ -3441,7 +3481,6 @@ task.spawn(function()
     MinBtn.Parent              = TitleBar
     Instance.new("UICorner", MinBtn).CornerRadius = UDim.new(0, 4)
 
-    -- botão fechar
     local CloseBtn = Instance.new("TextButton")
     CloseBtn.Text              = "X"
     CloseBtn.Font              = Enum.Font.GothamBold
@@ -3454,7 +3493,6 @@ task.spawn(function()
     CloseBtn.Parent            = TitleBar
     Instance.new("UICorner", CloseBtn).CornerRadius = UDim.new(0, 4)
 
-    -- ── Área de linhas de status ───────────────────
     local Body = Instance.new("Frame")
     Body.Name                  = "Body"
     Body.Size                  = UDim2.new(1, -12, 1, -36)
@@ -3466,7 +3504,6 @@ task.spawn(function()
     BodyLayout.SortOrder       = Enum.SortOrder.LayoutOrder
     BodyLayout.Padding         = UDim.new(0, 3)
 
-    -- helper: cria uma linha "Label: Valor"
     local function MakeLine(label, order)
         local row = Instance.new("Frame")
         row.Size               = UDim2.new(1, 0, 0, 18)
@@ -3513,7 +3550,6 @@ task.spawn(function()
     local V_Chalice  = MakeLine("Cálice",  12)
     local V_Server   = MakeLine("Server",  13)
 
-    -- linha de log (última ação)
     local LogRow = Instance.new("TextLabel")
     LogRow.Name                = "LastLog"
     LogRow.Size                = UDim2.new(1, 0, 0, 18)
@@ -3526,7 +3562,6 @@ task.spawn(function()
     LogRow.LayoutOrder         = 14
     LogRow.Parent              = Body
 
-    -- ── Log global: qualquer print("[AutoRaid]") aparece aqui ──
     _G.LotuxDebugLog = function(msg)
         if LogRow and LogRow.Parent then
             LogRow.Text = "› " .. tostring(msg):sub(1, 38)
@@ -3547,7 +3582,6 @@ task.spawn(function()
         pcall(function() _G.LotuxDebugLog(msg) end)
     end
 
-    -- ── Drag (salva posição ao soltar) ────────────
     local dragging, dragStart, startPos
     TitleBar.InputBegan:Connect(function(inp)
         if inp.UserInputType == Enum.UserInputType.MouseButton1
@@ -3579,7 +3613,6 @@ task.spawn(function()
         end
     end)
 
-    -- ── Resize handle (canto inferior direito) ────────
     local MIN_W, MIN_H = 200, 120
     local ResizeHandle = Instance.new("TextButton")
     ResizeHandle.Text              = ""
@@ -3632,9 +3665,7 @@ task.spawn(function()
         end
     end)
 
-    -- ── Minimizar (salva estado) ───────────────────
     local minimized = debugSave.minimized or false
-    -- Aplica estado salvo imediatamente
     if minimized then
         Main.Size    = UDim2.fromOffset(debugSave.w or 240, 28)
         Body.Visible = false
@@ -3653,18 +3684,15 @@ task.spawn(function()
         SaveDebugPanel()
     end)
 
-    -- ── Fechar (salva estado) ─────────────────────
     CloseBtn.MouseButton1Click:Connect(function()
         debugSave.visible = false
         SaveDebugPanel()
         DebugGui:Destroy()
     end)
 
-    -- Expõe referências para a tab Debug Config
     _G._debugGuiMain  = Main
     _G._debugGui      = DebugGui
-
-    -- Mapa linha -> chave do save (para a tab Debug Config ocultar/mostrar)
+    
     local _lineRefs = {
         { ref = V_Mode,    key = "show_mode"    },
         { ref = V_Status,  key = "show_status"  },
@@ -3680,7 +3708,6 @@ task.spawn(function()
         { ref = V_Chalice, key = "show_chalice" },
         { ref = V_Server,  key = "show_server"  },
     }
-    -- Aplica visibilidade salva em cada linha (a row é o pai do val)
     local function ApplyLineVisibility()
         for _, entry in ipairs(_lineRefs) do
             local row = entry.ref and entry.ref.Parent
@@ -3691,7 +3718,6 @@ task.spawn(function()
     _G._applyDebugLineVisibility = ApplyLineVisibility
     _G._debugLineRefs = _lineRefs
 
-    -- ── Update loop ───────────────────────────────
     local function ColorStatus(lbl, ok)
         lbl.TextColor3 = ok
             and Color3.fromRGB(100, 255, 150)
@@ -3708,51 +3734,41 @@ task.spawn(function()
             V_Uptime.Text = string.format("%02d:%02d:%02d", h, m, s)
 
             V_Sea.Text    = "Sea " .. tostring(CurrentSea or "?")
-            -- Kills com kills/min
             local kTotal = Config.KillCount or 0
             local kElapsed = math.max(1, os.time() - (Config.ScriptStartTime or os.time()))
             local kpm = math.floor((kTotal / kElapsed) * 60)
             V_Kills.Text  = tostring(kTotal) .. "  (" .. kpm .. "/min)"
 
-            -- ── Lua: detecta lua cheia pelo atributo real do BF ────────
             pcall(function()
                 local Lighting = game:GetService("Lighting")
 
-                -- Tenta ler o atributo MoonPhase que o BF seta diretamente
                 local phase = workspace:GetAttribute("MoonPhase")
                     or Lighting:GetAttribute("MoonPhase")
                     or nil
 
-                local BF_DAY_SECS  = 1200  -- 20 min por ciclo
-                local FULL_MOON_EVERY = 3  -- lua cheia a cada 3 noites
+                local BF_DAY_SECS  = 1200
+                local FULL_MOON_EVERY = 3
                 local halfDay = BF_DAY_SECS / 2
 
-                -- Usa DistributedGameTime (tempo do servidor desde start) para calcular
-                -- o numero de noites reais que passaram neste servidor
                 local serverAge    = math.floor(workspace.DistributedGameTime)
                 local cyclePos     = serverAge % BF_DAY_SECS
                 local isNight      = cyclePos >= halfDay
                 local secInPhase   = cyclePos - (isNight and halfDay or 0)
                 local secsLeftPhase = halfDay - secInPhase
 
-                -- Numero de meios-ciclos (dias ou noites) desde o start
                 local halfCycles   = math.floor(serverAge / halfDay)
-                -- Noites: meios-ciclos impares
                 local totalNights  = math.floor(halfCycles / 2)
                 local nightInCycle = totalNights % FULL_MOON_EVERY
                 local nightsLeft   = FULL_MOON_EVERY - nightInCycle
 
-                -- Se o BF exporta o atributo, usa ele como override
                 local isFullMoon = false
                 if phase ~= nil then
-                    -- Atributo pode ser numero (0=nova, 1=cheia) ou string "Full"
                     if type(phase) == "number" then
                         isFullMoon = (phase >= 0.9)
                     elseif type(phase) == "string" then
                         isFullMoon = phase:lower():find("full") ~= nil
                     end
                 else
-                    -- Fallback: considera lua cheia quando nightsLeft == 3 E e noite
                     isFullMoon = (nightsLeft == FULL_MOON_EVERY and isNight)
                 end
 
@@ -3779,12 +3795,8 @@ task.spawn(function()
                 end
             end)
 
-            -- ── Cálice: tempo até o próximo cálice no baú ─────────
-            -- No BF o God's Chalice aparece no baú especial a cada 4h de server.
-            -- O timer reseta quando o server inicia.
-            -- DistributedGameTime = segundos desde que o server iniciou (correto)
             pcall(function()
-                local CHALICE_INTERVAL = 4 * 3600  -- 4 horas em segundos
+                local CHALICE_INTERVAL = 4 * 3600
                 local serverAge = math.floor(workspace.DistributedGameTime)
                 local secSinceLast = serverAge % CHALICE_INTERVAL
                 local secsLeft     = CHALICE_INTERVAL - secSinceLast
@@ -3803,8 +3815,6 @@ task.spawn(function()
                 end
             end)
 
-            -- ── Tempo do server (idade real desde o início) ────────
-            -- DistributedGameTime = segundos reais desde que o server iniciou
             pcall(function()
                 local secs = math.floor(workspace.DistributedGameTime)
                 local h = math.floor(secs / 3600)
@@ -3815,7 +3825,6 @@ task.spawn(function()
                 else
                     V_Server.Text = string.format("%dm %02ds", m, s)
                 end
-                -- Destaca servidores velhos (>2h) em amarelo, >4h em vermelho
                 if h >= 4 then
                     V_Server.TextColor3 = Color3.fromRGB(255, 100, 100)
                 elseif h >= 2 then
@@ -3827,23 +3836,19 @@ task.spawn(function()
             V_Bring.Text  = Config.BringMob and ("ON  " .. tostring(Config.BringDistance) .. "st") or "OFF"
             ColorStatus(V_Bring, Config.BringMob)
 
-            -- Arma
             local wName = Config.SelectedWeaponName ~= "" and Config.SelectedWeaponName or Config.FarmWeapon
             V_Weapon.Text = tostring(wName):sub(1, 18) or "—"
 
-            -- Skills
             local sk = {}
             if Config.AutoSkillZ then sk[#sk+1] = "Z" end
             if Config.AutoSkillX then sk[#sk+1] = "X" end
             if Config.AutoSkillC then sk[#sk+1] = "C" end
             V_Skills.Text = #sk > 0 and table.concat(sk, "+") or "OFF"
 
-            -- Modo principal
             if Config.AutoRaid then
                 V_Mode.Text = "Auto Raid"
                 V_Mode.TextColor3 = Color3.fromRGB(255, 200, 80)
 
-                -- Status da raid
                 local map     = workspace:FindFirstChild("Map")
                 local raidMap = map and map:FindFirstChild("RaidMap")
                 local islandNum = 0
@@ -3866,7 +3871,6 @@ task.spawn(function()
                     V_Status.TextColor3 = Color3.fromRGB(255, 200, 80)
                 end
 
-                -- Alvo (boss ou mob)
                 local enemies = workspace:FindFirstChild("Enemies")
                 local targetName = "—"
                 if enemies then
@@ -3893,12 +3897,10 @@ task.spawn(function()
                 V_Mode.Text = "Farm Level"
                 V_Mode.TextColor3 = Color3.fromRGB(100, 200, 255)
 
-                -- Pega o nome da ilha da quest atual (não o Config.FarmIsland que pode ser tabela)
                 local islandText = "—"
                 pcall(function()
                     local q = Functions.GetQuestForLevel(QuestList, CurrentSea, Player)
                     if q and q.NameQuest then
-                        -- NameQuest é algo como "DeepForestIsland3", formata bonito
                         islandText = q.NameQuest:gsub("Quest%d*$", ""):gsub("Island%d*$", ""):gsub("(%l)(%u)", "%1 %2"):sub(1, 18)
                     end
                 end)
@@ -3931,15 +3933,13 @@ end)
 -- HELPER: botão flutuante draggable com save de posição
 -- =====================================================
 local function MakeDraggableFloatBtn(opts)
-    -- opts: { GuiName, SaveKey, DefaultX, DefaultY, BtnText, BtnColor, StrokeColor, OnClick }
     local PGuiF = Player:WaitForChild("PlayerGui")
-    -- Destroi instância anterior (re-execução)
+
     pcall(function()
         local old = PGuiF:FindFirstChild(opts.GuiName)
         if old then old:Destroy() end
     end)
 
-    -- Carrega posição salva
     local savedX, savedY = opts.DefaultX, opts.DefaultY
     pcall(function()
         if readfile and isfile and isfile(opts.SaveKey) then
@@ -3979,7 +3979,6 @@ local function MakeDraggableFloatBtn(opts)
     Stroke.Thickness    = 1.2
     Stroke.Transparency = 0.4
 
-    -- Drag logic
     local UIS        = game:GetService("UserInputService")
     local dragging   = false
     local dragStart  = Vector3.new()
@@ -4014,7 +4013,6 @@ local function MakeDraggableFloatBtn(opts)
         if inp.UserInputType == Enum.UserInputType.MouseButton1
         or inp.UserInputType == Enum.UserInputType.Touch then
             if dragging then
-                -- Salva posição nova
                 pcall(function()
                     if writefile then
                         writefile(opts.SaveKey, HttpService:JSONEncode({
@@ -4028,7 +4026,6 @@ local function MakeDraggableFloatBtn(opts)
         end
     end)
 
-    -- Click só dispara se NÃO arrastou
     Btn.MouseButton1Click:Connect(function()
         if didDrag then didDrag = false return end
         opts.OnClick(Btn)
@@ -4037,9 +4034,6 @@ local function MakeDraggableFloatBtn(opts)
     return Btn, Gui
 end
 
--- =====================================================
--- BOTÃO FLUTUANTE: RESET UI  (draggable)
--- =====================================================
 task.spawn(function()
     local ResetBtn = MakeDraggableFloatBtn({
         GuiName      = "LotuxResetUIBtn",
@@ -4060,7 +4054,7 @@ task.spawn(function()
                 end
             end)
             btn.BackgroundColor3 = Color3.fromRGB(40, 160, 80)
-            btn.Text = "Resetado!"
+            btn.Text = "Resetado"
             task.delay(0.8, function()
                 if btn and btn.Parent then
                     btn.BackgroundColor3 = Color3.fromRGB(55, 35, 120)
@@ -4083,10 +4077,10 @@ task.spawn(function()
         StrokeColor  = Color3.fromRGB(220, 60, 60),
         OnClick = function(btn)
             pcall(function()
-                -- Para o voo
+
                 isTeleporting.value = false
                 Functions.StopTeleport()
-                -- Desativa todos os loops de farm/teleporte para não reinicar o fly
+
                 Config.AutoFarmLevel    = false
                 Config.AutoFarmNearest  = false
                 Config.AutoFarmMastery  = false
@@ -4094,7 +4088,7 @@ task.spawn(function()
                 Config.AutoRaid         = false
                 Config.AutoRaidLaw      = false
                 Config.AutoDungeon      = false
-                -- Atualiza os toggles da UI (se a library expõe Flags)
+
                 pcall(function()
                     if Flags then
                         if Flags["AutoFarmLevel"]   then Flags["AutoFarmLevel"]:Set(false)   end
@@ -4106,7 +4100,7 @@ task.spawn(function()
                         if Flags["AutoDungeon"]     then Flags["AutoDungeon"]:Set(false)     end
                     end
                 end)
-                -- Remove BodyMovers do HRP
+
                 local char = Player.Character
                 local hrp  = char and char:FindFirstChild("HumanoidRootPart")
                 if hrp then
@@ -4130,7 +4124,6 @@ task.spawn(function()
         end,
     })
 
-    -- Keybind E para parar o fly rapidamente
     UserInputService.InputBegan:Connect(function(inp, gameProcessed)
         if gameProcessed then return end
         if inp.KeyCode == Enum.KeyCode.E then
@@ -4144,7 +4137,6 @@ pcall(function() SaveSystem.Init(Config) end)
 
 uiReady = true
 
--- Fecha o painel de loading com animacao suave
 task.spawn(function()
     task.wait(0.3)
     pcall(function()
@@ -4153,7 +4145,6 @@ task.spawn(function()
         _StatusMsg.TextColor3 = Color3.fromRGB(100, 255, 150)
         _ConsoleLog("[OK] Script pronto! Sea " .. tostring(CurrentSea))
         task.wait(1.2)
-        -- Fade out
         local tweenInfo = TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
         local tween = game:GetService("TweenService"):Create(_BG, tweenInfo, {BackgroundTransparency = 1})
         local tween2 = game:GetService("TweenService"):Create(_Panel, tweenInfo, {BackgroundTransparency = 1})
@@ -4167,7 +4158,7 @@ end)
 print("[LotuxHub] " .. tostring(Config.ScriptVersion) .. " | Sea " .. CurrentSea .. " | by LoadFlint/lucas")
 
 Notify({
-    Title       = "Lotux Hub Carregado!",
+    Title       = "Lotux Hub",
     Description = "Sea " .. CurrentSea .. " | PlaceId: " .. game.PlaceId,
     Image       = IMG,
     Duration    = 5,
