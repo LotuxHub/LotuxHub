@@ -8985,3 +8985,4 @@ _G.UPERSP = Functions.UpdatePrehistoricIslandESP -- UpdatePrehistoricIslandESP
 _G.SAUESP = Functions.StartAuraESP            -- StartAuraESP
 _G.UAESP  = Functions.UpdateAuraESP           -- UpdateAuraESP
 _G.CCClick = Functions.CircleClick            -- CircleClick
+return Functions
