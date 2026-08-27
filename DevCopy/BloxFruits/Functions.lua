@@ -8580,7 +8580,7 @@ function Functions.StartAutoFarmMastery(config)
 
             farmRunning = false
         end
-    end)
+    end
 end
 
 -- =====================================================================
