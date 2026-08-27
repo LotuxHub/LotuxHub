@@ -8451,6 +8451,16 @@ function Functions.StartAutoFarmMastery(config)
 
         local function EquipFarmWeapon()
             pcall(function() Functions.ResolveWeaponNow(config) end)
+            return Functions.EquipWeapon(config, NotAutoEquip)
+        end
+
+        -- LOOP RESTAURADO AQUI
+        while task.wait() do
+            if not config.AutoFarmMastery then break end
+            farmRunning = true
+
+            pcall(function()
+                if Functions.EnsureNotOnSubmerged then
                     Functions.EnsureNotOnSubmerged(config)
                 elseif Functions.IsOnSubmergedIsland and Functions.IsOnSubmergedIsland() then
                     Functions.ExitSubmergedIsland(config)
@@ -8556,8 +8566,6 @@ function Functions.StartAutoFarmMastery(config)
                         for _, sk in ipairs(skills) do
                             if not config.AutoFarmMastery then break end
                             if not mob.Parent then break end
-                            -- Heartbeat te segura no ar
-                            -- Remote manda CFrame do NPC
                             Functions.CastSkillAtMob(sk, mob)
                             task.wait(0.18)
                         end
@@ -8576,12 +8584,12 @@ function Functions.StartAutoFarmMastery(config)
                 then
                     config.KillCount = (config.KillCount or 0) + 1
                 end
-            end)
+            end) -- FECHA O PCALL DA ROTINA DE FARM
 
             farmRunning = false
-        end
-    end
-end
+        end -- FECHA O LOOP WHILE
+    end) -- FECHA O SAFESPAWN
+end -- FECHA A FUNÇÃO
 
 -- =====================================================================
 -- INFINITE STAMINA / ENERGY
