@@ -13,6 +13,7 @@ local PlaceIds = {
     Rivals       = 117398147513099,
     DOORS        = 6516141723,
     Arsenal      = 286090429,
+    MM2        = 142823291,
     TheStrongestBattlegrounds = 10449761463,
 }
 
@@ -58,6 +59,9 @@ local function getGameInfo()
     end
     if PlaceIds.Arsenal ~= 0 and id == PlaceIds.Arsenal then
         return { url = BASE_URL .. "Arsenal/Loader.lua", status = BASE_URL .. "Arsenal/status.json" }
+    end
+    if id == PlaceIds.MM2 then
+        return { url = BASE_URL .. "MM2/Loader.lua", status = BASE_URL .. "MM2/status.json" }
     end
     if id == PlaceIds.MM2 then
         return { url = BASE_URL .. "MM2/Loader.lua", status = BASE_URL .. "MM2/status.json" }

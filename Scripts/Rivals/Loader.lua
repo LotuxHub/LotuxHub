@@ -6,6 +6,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Lighting = game:GetService("Lighting")
 local CoreGui = game:GetService("CoreGui")
 local VirtualUser = game:GetService("VirtualUser")
+local GuiService = game:GetService("GuiService")
 local Workspace = workspace
 local LocalPlayer = Players.LocalPlayer
 local Camera = Workspace.CurrentCamera
@@ -39,7 +40,7 @@ local function buildESP(player)
         local hl = Instance.new("Highlight")
         hl.Adornee = char
         hl.FillColor = Color3.fromRGB(255, 60, 60)
-        hl.OutlineColor = Color3.new(1,1,1)
+        hl.OutlineColor = Color3.new(1, 1, 1)
         hl.FillTransparency = 0.65
         hl.OutlineTransparency = 0.15
         hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
@@ -52,9 +53,9 @@ local function buildESP(player)
         bb.AlwaysOnTop = true
         bb.Parent = CoreGui
         local label = Instance.new("TextLabel")
-        label.Size = UDim2.new(1,0,1,0)
+        label.Size = UDim2.new(1, 0, 1, 0)
         label.BackgroundTransparency = 1
-        label.TextColor3 = Color3.new(1,1,1)
+        label.TextColor3 = Color3.new(1, 1, 1)
         label.TextStrokeTransparency = 0
         label.TextScaled = true
         label.Font = Enum.Font.GothamBold
@@ -112,21 +113,18 @@ local AimbotState = {
     enabled = false,
     mode = "Nearest",
     targetPart = "Head",
-    fov = 200,
     maxDistance = 500,
     smoothness = 0.6,
     visibleCheck = false,
     teamCheck = true,
-    useCameraLock = true,
-    keepTargetBehind = true,
     target = nil,
     bindName = "LotuxAimbotNearest",
+    flickDuration = 0.04,
+    flickHits = 0,
+    flickActive = false,
+    savedCF = nil,
     hookInstalled = false,
-    silentModifications = 0,
-    debugLog = {},
 }
-
-getgenv().AimbotState = AimbotState
 
 local function isEnemy(player)
     if not AimbotState.teamCheck then return true end
@@ -166,12 +164,10 @@ local function getNearestTarget()
                     rp.FilterType = Enum.RaycastFilterType.Exclude
                     local result = Workspace:Raycast(origin, dir, rp)
                     if not result or result.Instance:IsDescendantOf(t.character) then
-                        bestDist = d
-                        best = t
+                        bestDist = d; best = t
                     end
                 else
-                    bestDist = d
-                    best = t
+                    bestDist = d; best = t
                 end
             end
         end
@@ -179,77 +175,106 @@ local function getNearestTarget()
     return best
 end
 
-local function aimLoopNearest(dt)
+local function worldToScreen(position)
+    local screenPos, onScreen = Camera:WorldToScreenPoint(position)
+    return Vector2.new(screenPos.X, screenPos.Y), onScreen
+end
+
+local _aimLastTime = 0
+
+local function getGuiInset()
+    local ok, inset = pcall(function()
+        return game:GetService("GuiService"):GetGuiInset()
+    end)
+    if ok then return inset.Y else return 36 end
+end
+
+local function aimLoopNearest()
     if not AimbotState.enabled or AimbotState.mode ~= "Nearest" then return end
+    if AimbotState.flickActive then return end
+    if GuiService.MenuIsOpen then return end
+    if UIS.ModalEnabled then return end
+
     local target = getNearestTarget()
     AimbotState.target = target
     if not target then return end
+
     local targetPart = target.character:FindFirstChild(AimbotState.targetPart)
     if not targetPart then return end
-    if AimbotState.useCameraLock and Camera.CameraType ~= Enum.CameraType.Scriptable then
-        Camera.CameraType = Enum.CameraType.Scriptable
-    end
+
+    if (targetPart.Position - Camera.CFrame.Position).Magnitude < 0.5 then return end
+
     local camPos = Camera.CFrame.Position
-    local newCF = CFrame.new(camPos, targetPart.Position)
+    local targetCF = CFrame.new(camPos, targetPart.Position)
     local alpha = math.clamp(AimbotState.smoothness, 0.05, 1)
-    Camera.CFrame = Camera.CFrame:Lerp(newCF, alpha)
+    Camera.CFrame = Camera.CFrame:Lerp(targetCF, alpha)
+
+    local insetY = getGuiInset()
+    local screenPos = Camera:WorldToScreenPoint(targetPart.Position)
+    local correctedX = screenPos.X
+    local correctedY = screenPos.Y + insetY
+    local currentMouse = UIS:GetMouseLocation()
+    local dx = correctedX - currentMouse.X
+    local dy = correctedY - currentMouse.Y
+    if math.abs(dx) > 1 or math.abs(dy) > 1 then
+        if mousemoverel then
+            pcall(mousemoverel, dx * alpha, dy * alpha)
+        elseif mousemoveabs then
+            pcall(mousemoveabs, currentMouse.X + dx * alpha, currentMouse.Y + dy * alpha)
+        end
+    end
 end
 
 local function startNearestAimbot()
     pcall(function() RunService:UnbindFromRenderStep(AimbotState.bindName) end)
-    RunService:BindToRenderStep(AimbotState.bindName, Enum.RenderPriority.Camera.Value + 1, aimLoopNearest)
+    RunService:BindToRenderStep(
+        AimbotState.bindName,
+        Enum.RenderPriority.Camera.Value + 1,
+        aimLoopNearest
+    )
 end
 
 local function stopNearestAimbot()
     pcall(function() RunService:UnbindFromRenderStep(AimbotState.bindName) end)
-    if AimbotState.useCameraLock then
-        pcall(function() Camera.CameraType = Enum.CameraType.Custom end)
-    end
 end
 
-local function installSilentHook()
+local function doFlick()
+    local target = AimbotState.target
+    if not target or not target.character or not LocalPlayer.Character then return end
+    local targetPart = target.character:FindFirstChild(AimbotState.targetPart)
+    if not targetPart then return end
+    AimbotState.flickActive = true
+    AimbotState.savedCF = Camera.CFrame
+    local camPos = Camera.CFrame.Position
+    Camera.CFrame = CFrame.new(camPos, targetPart.Position)
+    AimbotState.flickHits += 1
+    task.delay(AimbotState.flickDuration, function()
+        if AimbotState.savedCF then
+            Camera.CFrame = AimbotState.savedCF
+            AimbotState.savedCF = nil
+        end
+        AimbotState.flickActive = false
+    end)
+end
+
+local flickConn = nil
+
+local function silentTargetLoop()
+    if not AimbotState.enabled or AimbotState.mode ~= "Silent" then return end
+    AimbotState.target = getNearestTarget()
+end
+
+local function installFlickHook()
     if AimbotState.hookInstalled then return true end
     if type(hookmetamethod) ~= "function" then return false end
     local oldNamecall
     oldNamecall = hookmetamethod(game, "__namecall", newcclosure(function(self, ...)
         local method = getnamecallmethod()
-        if (method == "FireServer" or method == "InvokeServer") and AimbotState.enabled and AimbotState.mode == "Silent" then
-            local target = AimbotState.target
-            if target and target.character and LocalPlayer.Character then
-                local targetPart = target.character:FindFirstChild(AimbotState.targetPart)
-                local myHrp = LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-                if targetPart and myHrp then
-                    local args = {...}
-                    local aimDir = (targetPart.Position - myHrp.Position).Unit
-                    local aimPos = targetPart.Position
-                    local modified = false
-                    for i = 1, #args do
-                        local a = args[i]
-                        local t = typeof(a)
-                        if t == "Vector3" then
-                            local mag = a.Magnitude
-                            if mag > 0.01 and mag < 10 then
-                                args[i] = aimDir * mag
-                                modified = true
-                            elseif mag >= 10 and mag < 10000 then
-                                args[i] = aimPos
-                                modified = true
-                            end
-                        elseif t == "CFrame" then
-                            args[i] = CFrame.new(a.Position, aimPos)
-                            modified = true
-                        end
-                    end
-                    if modified then
-                        AimbotState.silentModifications = AimbotState.silentModifications + 1
-                        if #AimbotState.debugLog < 30 then
-                            local line = "[Silent] " .. tostring(self.Name) .. " modded"
-                            table.insert(AimbotState.debugLog, line)
-                            print(line)
-                        end
-                        return oldNamecall(self, table.unpack(args))
-                    end
-                end
+        if method == "FireServer" and typeof(self) == "Instance"
+            and AimbotState.enabled and AimbotState.mode == "Silent" then
+            local path = self:GetFullName()
+            if path:find("Fighter", 1, true) or self.Name == "UpdateCameraRotation" then
+                if not AimbotState.flickActive then task.spawn(doFlick) end
             end
         end
         return oldNamecall(self, ...)
@@ -258,51 +283,20 @@ local function installSilentHook()
     return true
 end
 
-local silentConn = nil
-
-local function silentTargetLoop()
-    if not AimbotState.enabled or AimbotState.mode ~= "Silent" then return end
-    AimbotState.target = getNearestTarget()
-end
-
 local function startSilentAimbot()
-    if not installSilentHook() then
-        notify("Silent Aim", "Executor does not support hookmetamethod", 3, "Error")
+    if not installFlickHook() then
+        notify("Flick Silent", "Executor does not support hookmetamethod", 3, "Error")
         return false
     end
-    if silentConn then silentConn:Disconnect() end
-    silentConn = RunService.RenderStepped:Connect(silentTargetLoop)
+    if flickConn then flickConn:Disconnect() end
+    flickConn = RunService.RenderStepped:Connect(silentTargetLoop)
     return true
 end
 
 local function stopAimbot()
     stopNearestAimbot()
-    if silentConn then silentConn:Disconnect(); silentConn = nil end
+    if flickConn then flickConn:Disconnect(); flickConn = nil end
     AimbotState.target = nil
-end
-
-local function logRemotes()
-    if type(hookmetamethod) ~= "function" then
-        notify("Debug", "No hookmetamethod in executor", 3, "Error")
-        return
-    end
-    local oldNamecall
-    oldNamecall = hookmetamethod(game, "__namecall", newcclosure(function(self, ...)
-        local method = getnamecallmethod()
-        if (method == "FireServer" or method == "InvokeServer") and typeof(self) == "Instance" and self:IsA("RemoteEvent") then
-            local args = {...}
-            local line = "[Remote] " .. self.Name .. " | args:"
-            for i = 1, math.min(#args, 6) do
-                local a = args[i]
-                line = line .. " [" .. i .. "]=" .. typeof(a) .. ":" .. tostring(a):sub(1, 40)
-            end
-            print(line)
-            table.insert(AimbotState.debugLog, line)
-            if #AimbotState.debugLog > 60 then table.remove(AimbotState.debugLog, 1) end
-        end
-        return oldNamecall(self, ...)
-    end))
-    notify("Debug", "Check F9 console (attack someone)", 4, "Info")
 end
 
 local FOVCircle = {gui = nil, frame = nil, enabled = false, conn = nil}
@@ -310,31 +304,22 @@ local FOVCircle = {gui = nil, frame = nil, enabled = false, conn = nil}
 local function startFOVCircle()
     if not FOVCircle.gui then
         local g = Instance.new("ScreenGui")
-        g.Name = "LotuxFOV"
-        g.ResetOnSpawn = false
-        g.IgnoreGuiInset = true
-        g.DisplayOrder = 5
-        g.Parent = CoreGui
+        g.Name = "LotuxFOV"; g.ResetOnSpawn = false; g.IgnoreGuiInset = true; g.DisplayOrder = 5; g.Parent = CoreGui
         local frame = Instance.new("Frame")
-        frame.AnchorPoint = Vector2.new(0.5, 0.5)
-        frame.Position = UDim2.new(0.5, 0, 0.5, 0)
-        frame.BackgroundTransparency = 1
-        frame.Parent = g
+        frame.AnchorPoint = Vector2.new(0.5, 0.5); frame.Position = UDim2.new(0.5, 0, 0.5, 0)
+        frame.BackgroundTransparency = 1; frame.Parent = g
         local circle = Instance.new("ImageLabel")
-        circle.Size = UDim2.fromScale(1, 1)
-        circle.BackgroundTransparency = 1
-        circle.Image = "rbxassetid://3570695787"
-        circle.ImageColor3 = Color3.fromRGB(255, 60, 60)
-        circle.ImageTransparency = 0.4
-        circle.ScaleType = Enum.ScaleType.Fit
-        circle.Parent = frame
-        FOVCircle.gui = g
-        FOVCircle.frame = frame
+        circle.Size = UDim2.fromScale(1, 1); circle.BackgroundTransparency = 1
+        circle.Image = "rbxassetid://3570695787"; circle.ImageColor3 = Color3.fromRGB(255, 60, 60)
+        circle.ImageTransparency = 0.4; circle.ScaleType = Enum.ScaleType.Fit; circle.Parent = frame
+        FOVCircle.gui = g; FOVCircle.frame = frame
     end
     FOVCircle.gui.Enabled = true
+    if FOVCircle.conn then FOVCircle.conn:Disconnect() end
     FOVCircle.conn = RunService.RenderStepped:Connect(function()
-        if not FOVCircle.enabled then return end
-        FOVCircle.frame.Size = UDim2.fromOffset(AimbotState.fov * 2, AimbotState.fov * 2)
+        if not FOVCircle.enabled or not FOVCircle.frame then return end
+        local fov = AimbotState.maxDistance
+        FOVCircle.frame.Size = UDim2.fromOffset(fov * 0.5, fov * 0.5)
     end)
 end
 
@@ -381,9 +366,9 @@ local function startFly()
     local hrp = char:WaitForChild("HumanoidRootPart")
     local hum = char:WaitForChild("Humanoid")
     local gyro = Instance.new("BodyGyro")
-    gyro.P = 90000; gyro.MaxTorque = Vector3.new(9e9,9e9,9e9); gyro.Parent = hrp
+    gyro.P = 90000; gyro.MaxTorque = Vector3.new(9e9, 9e9, 9e9); gyro.Parent = hrp
     local vel = Instance.new("BodyVelocity")
-    vel.Velocity = Vector3.zero; vel.MaxForce = Vector3.new(9e9,9e9,9e9); vel.Parent = hrp
+    vel.Velocity = Vector3.zero; vel.MaxForce = Vector3.new(9e9, 9e9, 9e9); vel.Parent = hrp
     hum.PlatformStand = true
     FlyState.gyro = gyro; FlyState.vel = vel
     FlyState.conn = RunService.RenderStepped:Connect(function()
@@ -416,10 +401,7 @@ local FullbrightState = {enabled = false, old = {}}
 
 local function startFullbright()
     FullbrightState.old = {FogEnd = Lighting.FogEnd, FogStart = Lighting.FogStart, Ambient = Lighting.Ambient, Brightness = Lighting.Brightness}
-    Lighting.FogEnd = 1e9
-    Lighting.FogStart = 1e9
-    Lighting.Ambient = Color3.new(1,1,1)
-    Lighting.Brightness = 2.5
+    Lighting.FogEnd = 1e9; Lighting.FogStart = 1e9; Lighting.Ambient = Color3.new(1, 1, 1); Lighting.Brightness = 2.5
 end
 
 local function stopFullbright()
@@ -456,7 +438,7 @@ AimTab:AddToggle({Title = "Enable Aimbot", Default = false, Flag = "riv_aim",
         AimbotState.enabled = state
         if state then
             if AimbotState.mode == "Silent" then
-                if startSilentAimbot() then notify("Silent Aim", "ON", 2, "Success")
+                if startSilentAimbot() then notify("Flick Silent", "ON", 2, "Success")
                 else AimbotState.enabled = false end
             else
                 startNearestAimbot()
@@ -479,32 +461,28 @@ AimTab:AddDropdown({Title = "Mode", Options = {"Nearest", "Silent"}, Default = "
     end})
 AimTab:AddDropdown({Title = "Aim Part", Options = {"Head", "HumanoidRootPart", "UpperTorso"}, Default = "Head", Flag = "riv_aim_part",
     Callback = function(v) AimbotState.targetPart = (typeof(v) == "table" and v[1]) or v end})
-AimTab:AddSlider({Title = "Max Distance", Description = "Range for Nearest / Silent", Min = 50, Max = 2000, Default = 500, Flag = "riv_aim_maxd",
+AimTab:AddSlider({Title = "Max Distance", Min = 50, Max = 2000, Default = 500, Flag = "riv_aim_maxd",
     Callback = function(v) AimbotState.maxDistance = v end})
-AimTab:AddSlider({Title = "Smoothness", Description = "Nearest only - lower = smoother", Min = 0.05, Max = 1, Default = 0.6, Flag = "riv_smooth",
+AimTab:AddSlider({Title = "Smoothness", Description = "Nearest only", Min = 0.05, Max = 1, Default = 0.6, Flag = "riv_smooth",
     Callback = function(v) AimbotState.smoothness = v end})
-AimTab:AddToggle({Title = "Visible Check", Default = false, Flag = "riv_vis", Callback = function(s) AimbotState.visibleCheck = s end})
-AimTab:AddToggle({Title = "Team Check", Default = true, Flag = "riv_team", Callback = function(s) AimbotState.teamCheck = s end})
-AimTab:AddToggle({Title = "Camera Lock", Description = "Freeze camera on target", Default = true, Flag = "riv_camlock",
-    Callback = function(s) AimbotState.useCameraLock = s end})
+AimTab:AddSlider({Title = "Flick Duration", Description = "Silent only", Min = 0.02, Max = 0.15, Default = 0.04, Flag = "riv_flickdur",
+    Callback = function(v) AimbotState.flickDuration = v end})
+AimTab:AddToggle({Title = "Visible Check", Default = false, Flag = "riv_vis",
+    Callback = function(s) AimbotState.visibleCheck = s end})
+AimTab:AddToggle({Title = "Team Check", Default = true, Flag = "riv_team",
+    Callback = function(s) AimbotState.teamCheck = s end})
 AimTab:AddToggle({Title = "Show FOV Circle", Default = false, Flag = "riv_fovc",
     Callback = function(s)
         FOVCircle.enabled = s
         if s then startFOVCircle() else stopFOVCircle() end
     end})
 AimTab:AddSection("Debug")
-AimTab:AddButton({Title = "Log Remote Calls", Callback = function() logRemotes() end})
-AimTab:AddButton({Title = "Print Modifications Count",
+AimTab:AddButton({Title = "Print Flick Hits",
     Callback = function()
-        local count = AimbotState.silentModifications
-        notify("Silent Aim", "Mods: " .. tostring(count), 3, "Info")
-        print("Silent modifications:", count)
+        notify("Flick Silent", "Hits: " .. tostring(AimbotState.flickHits), 3, "Info")
     end})
-AimTab:AddButton({Title = "Print Debug Log",
-    Callback = function()
-        print("=== Lotux Debug Log ===")
-        for _, line in ipairs(AimbotState.debugLog) do print(line) end
-    end})
+AimTab:AddButton({Title = "Reset Flick Counter",
+    Callback = function() AimbotState.flickHits = 0 end})
 
 local MoveTab = windows:MakeTab({Title = "Movement", Icon = "user"})
 MoveTab:AddSection("Speed")
