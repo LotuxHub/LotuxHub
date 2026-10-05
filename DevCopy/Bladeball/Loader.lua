@@ -181,6 +181,14 @@ local System = {
     },
 }
 
+System.ball         = {}
+System.player       = {}
+System.curve        = {}
+System.parry        = {}
+System.manual_spam  = {}
+System.auto_spam    = {}
+System.autoparry    = {}
+
 local maxParryCount = 36
 local parryDelay    = 0.05
 local Closest_Entity = nil
