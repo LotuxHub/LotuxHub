@@ -15,24 +15,55 @@ local PlaceIds = {
     BloxFruits3  = 7449423635,
     BrookhavenRP = 4924922222,
     StealAnEgg   = 107778070777162,
-    Rivals       = 17625359962,
+    Rivals       = 117398147513099,   -- ← ANTES era 17625359962
 }
 
 local BASE_URL = "https://raw.githubusercontent.com/LotuxHub/LotuxHub/refs/heads/main/DevCopy/"
 
 local function getGameInfo()
-    local id = game.PlaceId
-    if id == PlaceIds.BladeBall then
-        return { url = BASE_URL .. "Bladeball/Loader.lua", status = BASE_URL .. "BladeBall/status.json" }
-    elseif id == PlaceIds.BloxFruits1 or id == PlaceIds.BloxFruits2 or id == PlaceIds.BloxFruits3 then
-        return { url = BASE_URL .. "BloxFruits/Loader.lua", status = BASE_URL .. "BloxFruits/status.json" }
-    elseif id == PlaceIds.BrookhavenRP then
-        return { url = BASE_URL .. "BrookhavenRP/Loader.lua", status = BASE_URL .. "BrookhavenRP/status.json" }
-    elseif id == PlaceIds.StealAnEgg then
-        return { url = BASE_URL .. "StealAnEgg/Loader.lua",  status = BASE_URL .. "StealAnEgg/status.json" }
-    elseif id == PlaceIds.Rivals then
-        return { url = BASE_URL .. "Rivals/Loader.lua",     status = BASE_URL .. "Rivals/status.json" }
+    local id         = game.PlaceId
+    local universeId = game.GameId   -- ← UniverseId, é o mesmo em todos os lugares do jogo
+
+    -- Rivals (coberto por UniverseId, funciona em qualquer partida/lobby)
+    if universeId == 6035872082 then
+        return {
+            url    = BASE_URL .. "Rivals/Loader.lua",
+            status = BASE_URL .. "Rivals/status.json"
+        }
     end
+
+    -- Blade Ball
+    if id == PlaceIds.BladeBall then
+        return {
+            url    = BASE_URL .. "Bladeball/Loader.lua",
+            status = BASE_URL .. "Bladeball/status.json"
+        }
+    end
+
+    -- Blox Fruits (3 lugares)
+    if id == PlaceIds.BloxFruits1 or id == PlaceIds.BloxFruits2 or id == PlaceIds.BloxFruits3 then
+        return {
+            url    = BASE_URL .. "BloxFruits/Loader.lua",
+            status = BASE_URL .. "BloxFruits/status.json"
+        }
+    end
+
+    -- Brookhaven
+    if id == PlaceIds.BrookhavenRP then
+        return {
+            url    = BASE_URL .. "BrookhavenRP/Loader.lua",
+            status = BASE_URL .. "BrookhavenRP/status.json"
+        }
+    end
+
+    -- Steal An Egg
+    if id == PlaceIds.StealAnEgg then
+        return {
+            url    = BASE_URL .. "StealAnEgg/Loader.lua",
+            status = BASE_URL .. "StealAnEgg/status.json"
+        }
+    end
+
     return nil
 end
 
