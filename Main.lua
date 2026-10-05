@@ -4,15 +4,15 @@ local LocalPlayer    = Players.LocalPlayer
 local PlayerGui      = LocalPlayer:WaitForChild("PlayerGui")
 
 local PlaceIds = {
-    BladeBall                = 13772394625,
-    BloxFruits1              = 2753915549,
-    BloxFruits2              = 4442272183,
-    BloxFruits3              = 7449423635,
-    BrookhavenRP             = 4924922222,
-    StealAnEgg               = 107778070777162,
-    Rivals                   = 117398147513099,
-    DOORS                    = 6516141723,
-    Arsenal                  = 286090429,
+    BladeBall    = 13772394625,
+    BloxFruits1  = 2753915549,
+    BloxFruits2  = 4442272183,
+    BloxFruits3  = 7449423635,
+    BrookhavenRP = 4924922222,
+    StealAnEgg   = 107778070777162,
+    Rivals       = 117398147513099,
+    DOORS        = 6516141723,
+    Arsenal      = 286090429,
     TheStrongestBattlegrounds = 10449761463,
 }
 
@@ -58,6 +58,9 @@ local function getGameInfo()
     end
     if PlaceIds.Arsenal ~= 0 and id == PlaceIds.Arsenal then
         return { url = BASE_URL .. "Arsenal/Loader.lua", status = BASE_URL .. "Arsenal/status.json" }
+    end
+    if id == PlaceIds.MM2 then
+        return { url = BASE_URL .. "MM2/Loader.lua", status = BASE_URL .. "MM2/status.json" }
     end
 
     return nil
