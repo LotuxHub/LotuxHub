@@ -594,7 +594,7 @@ local windows = redzlib:MakeWindow({
 })
 
 -- ---- HOME ----
-local HomeTab = windows:MakeTab({ Name = "Home", Icon = "home" })
+local HomeTab = windows:MakeTab({ Title = "Home", Icon = "home" })
 HomeTab:AddSection("Welcome To Lotux Hub | Brookhaven")
 HomeTab:AddSection("Discord Server")
 HomeTab:AddDiscordInvite({
@@ -605,7 +605,7 @@ HomeTab:AddDiscordInvite({
 })
 
 -- ---- FUN ----
-local FunTab = windows:MakeTab({ Name = "Fun", Icon = "zap" })
+local FunTab = windows:MakeTab({ Title = "Fun", Icon = "zap" })
 FunTab:AddSection("Lag")
 
 FunTab:AddToggle({
@@ -665,7 +665,7 @@ FunTab:AddButton({
 })
 
 -- ---- TOOLS ----
-local ToolsTab = windows:MakeTab({ Name = "Tools", Icon = "wrench" })
+local ToolsTab = windows:MakeTab({ Title = "Tools", Icon = "wrench" })
 
 ToolsTab:AddSection("Player Actions (via Stretcher)")
 ToolsTab:AddTextBox({
@@ -727,7 +727,7 @@ ToolsTab:AddButton({
 })
 
 -- ---- ADMIN ----
-local AdminTab = windows:MakeTab({ Name = "Admin", Icon = "shield" })
+local AdminTab = windows:MakeTab({ Title = "Admin", Icon = "shield" })
 
 AdminTab:AddSection("Jump")
 AdminTab:AddButton({
@@ -832,7 +832,7 @@ AdminTab:AddToggle({
 })
 
 -- ---- LOCALPLAYER ----
-local LPTab = windows:MakeTab({ Name = "Local Player", Icon = "user" })
+local LPTab = windows:MakeTab({ Title = "Local Player", Icon = "user" })
 LPTab:AddSection("Movement")
 
 LPTab:AddSlider({
@@ -895,7 +895,7 @@ LPTab:AddButton({
 })
 
 -- ---- VEHICLES ----
-local VehTab = windows:MakeTab({ Name = "Vehicles", Icon = "car" })
+local VehTab = windows:MakeTab({ Title = "Vehicles", Icon = "car" })
 VehTab:AddSection("Spawn Car")
 
 for _, carName in ipairs(CAR_LIST) do
@@ -908,7 +908,7 @@ for _, carName in ipairs(CAR_LIST) do
 end
 
 -- ---- GIVE ----
-local GiveTab = windows:MakeTab({ Name = "Give", Icon = "gift" })
+local GiveTab = windows:MakeTab({ Title = "Give", Icon = "gift" })
 
 GiveTab:AddSection("Give To Yourself")
 GiveTab:AddDropdown({
@@ -942,7 +942,7 @@ for _, item in ipairs(GIVE_TO_ALL) do
 end
 
 -- ---- TAGS ----
-local TagTab = windows:MakeTab({ Name = "Tags", Icon = "star" })
+local TagTab = windows:MakeTab({ Title = "Tags", Icon = "star" })
 TagTab:AddSection("Server-Side Tags")
 
 for _, tag in ipairs(TAG_LIST) do

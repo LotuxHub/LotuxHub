@@ -1054,7 +1054,7 @@ local windows = redzlib:MakeWindow({
 -- ================================================================
 -- [6] HOME
 -- ================================================================
-local HomeTab = windows:MakeTab({ Name = "Home", Icon = "home" })
+local HomeTab = windows:MakeTab({ Title = "Home", Icon = "home" })
 HomeTab:AddSection("Welcome To Lotux Hub | Blade Ball")
 HomeTab:AddSection("Discord Server")
 HomeTab:AddDiscordInvite({
@@ -1065,7 +1065,7 @@ HomeTab:AddDiscordInvite({
 -- ================================================================
 -- [7] MAIN
 -- ================================================================
-local MainTab = windows:MakeTab({ Name = "Main", Icon = "sword" })
+local MainTab = windows:MakeTab({ Title = "Main", Icon = "sword" })
 MainTab:AddSection("Auto Parry")
 
 MainTab:AddToggle({
@@ -1183,7 +1183,7 @@ MainTab:AddToggle({ Name = "Triggerbot Notify", Default = false, Flag = "Trigger
 -- ================================================================
 -- [8] BLATANT
 -- ================================================================
-local BlatantTab = windows:MakeTab({ Name = "Blatant", Icon = "zap" })
+local BlatantTab = windows:MakeTab({ Title = "Blatant", Icon = "zap" })
 
 BlatantTab:AddSection("Fly")
 local FlyState = {}
@@ -1353,7 +1353,7 @@ BlatantTab:AddToggle({ Name = "Thunder Dash No Cooldown", Default = false, Flag 
 -- ================================================================
 -- [9] SPAM
 -- ================================================================
-local SpamTab = windows:MakeTab({ Name = "Spam", Icon = "repeat" })
+local SpamTab = windows:MakeTab({ Title = "Spam", Icon = "repeat" })
 SpamTab:AddSection("Manual Spam")
 SpamTab:AddToggle({
     Name = "Manual Spam", Default = false, Flag = "Manual_Spam_Parry",
@@ -1390,7 +1390,7 @@ SpamTab:AddSlider({ Name = "Parry Threshold", Min = 1, Max = 3, Default = 1, Fla
 -- ================================================================
 -- [10] DETECTION
 -- ================================================================
-local DetectionTab = windows:MakeTab({ Name = "Detection", Icon = "shield" })
+local DetectionTab = windows:MakeTab({ Title = "Detection", Icon = "shield" })
 DetectionTab:AddSection("Ball Detections")
 DetectionTab:AddToggle({ Name = "Infinity Detection", Default = false, Flag = "InfinityModule",
     Callback = function(s)
@@ -1462,7 +1462,7 @@ DetectionTab:AddDropdown({ Name = "Staff Action", Options = {"Notification", "Ki
 -- ================================================================
 -- [11] PLAYER
 -- ================================================================
-local PlayerTab = windows:MakeTab({ Name = "Player", Icon = "user" })
+local PlayerTab = windows:MakeTab({ Title = "Player", Icon = "user" })
 
 PlayerTab:AddSection("Camera")
 PlayerTab:AddToggle({
@@ -1673,7 +1673,7 @@ PlayerTab:AddSlider({ Name = "Double Jump Chance", Min = 0, Max = 100, Default =
 -- ================================================================
 -- [12] VISUAL
 -- ================================================================
-local VisualTab = windows:MakeTab({ Name = "Visual", Icon = "eye" })
+local VisualTab = windows:MakeTab({ Title = "Visual", Icon = "eye" })
 
 VisualTab:AddSection("Ball Trail")
 local ballTrailState = {}; local rainbowHue = 0
@@ -2095,7 +2095,7 @@ VisualTab:AddDropdown({ Name = "Select Sound", Options = soundOptionNames, Defau
 -- ================================================================
 -- [13] MISC
 -- ================================================================
-local MiscTab = windows:MakeTab({ Name = "Misc", Icon = "settings" })
+local MiscTab = windows:MakeTab({ Title = "Misc", Icon = "settings" })
 
 MiscTab:AddSection("FPS Boost")
 local fps_boost_conn, fps_boost_enabled = nil, false
@@ -2154,7 +2154,7 @@ MiscTab:AddToggle({
 -- ================================================================
 -- [14] WORLD
 -- ================================================================
-local WorldTab = windows:MakeTab({ Name = "World", Icon = "globe" })
+local WorldTab = windows:MakeTab({ Title = "World", Icon = "globe" })
 local function ensure_color_correction()
     local cc = Lighting:FindFirstChild("LotuxColorCorrection")
     if not cc then cc = Instance.new("ColorCorrectionEffect"); cc.Name = "LotuxColorCorrection"; cc.Parent = Lighting end
@@ -2191,7 +2191,7 @@ WorldTab:AddSlider({ Name = "Hue Shift", Min = -1, Max = 1, Default = 0, Flag = 
 -- ================================================================
 -- [15] GUI (inclui Custom BG + Keybind + Config Manager)
 -- ================================================================
-local GuiTab = windows:MakeTab({ Name = "GUI", Icon = "sliders" })
+local GuiTab = windows:MakeTab({ Title = "GUI", Icon = "sliders" })
 
 GuiTab:AddSection("Interface")
 GuiTab:AddToggle({ Name = "GUI Visible", Default = false, Flag = "guilibraryvisible", Callback = function(state) getgenv().guilibraryVisible = state end })
@@ -2383,7 +2383,7 @@ GuiTab:AddButton({ Name = "Atualizar Lista", Callback = function() refresh_confi
 -- ================================================================
 -- [16] UNLOCK
 -- ================================================================
-local UnlockTab = windows:MakeTab({ Name = "Unlock", Icon = "unlock" })
+local UnlockTab = windows:MakeTab({ Title = "Unlock", Icon = "unlock" })
 
 UnlockTab:AddSection("Sword Skin Changer")
 UnlockTab:AddToggle({ Name = "Enable Sword Changer", Default = false, Flag = "SwordChangerEnable",

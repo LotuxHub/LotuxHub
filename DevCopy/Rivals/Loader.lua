@@ -269,7 +269,7 @@ local windows = redzlib:MakeWindow({
 })
 
 -- ---- HOME ----
-local HomeTab = windows:MakeTab({ Name = "Home", Icon = "home" })
+local HomeTab = windows:MakeTab({ Title = "Home", Icon = "home" })
 HomeTab:AddSection("Welcome To Lotux Hub | Rivals")
 HomeTab:AddSection("Discord Server")
 HomeTab:AddDiscordInvite({
@@ -280,7 +280,7 @@ HomeTab:AddDiscordInvite({
 })
 
 -- ---- AIMBOT ----
-local AimbotTab = windows:MakeTab({ Name = "Aimbot", Icon = "crosshair" })
+local AimbotTab = windows:MakeTab({ Title = "Aimbot", Icon = "crosshair" })
 AimbotTab:AddSection("Aimbot Settings")
 
 AimbotTab:AddToggle({
@@ -341,8 +341,6 @@ AimbotTab:AddParagraph({
     Text = "NÃO PORTEI por padrão — a URL original aponta pra um repo externo de terceiros (ThunderScriptSolutions). Se você confia nessa source, descomente o botão no Loader.lua. Do contrário, NÃO USE — pode ser token logger.",
 })
 
--- Botão Silent Aim desativado por segurança:
---[[
 AimbotTab:AddButton({
     Name = "Silent Aim (UNSAFE - audit URL first)",
     Description = "Loads external script — read the source before running",
@@ -353,10 +351,9 @@ AimbotTab:AddButton({
         -- loadstring(game:HttpGet(url))()
     end,
 })
---]]
 
 -- ---- ESP ----
-local ESPTab = windows:MakeTab({ Name = "ESP", Icon = "eye" })
+local ESPTab = windows:MakeTab({ Title = "ESP", Icon = "eye" })
 ESPTab:AddSection("ESP Settings")
 
 ESPTab:AddParagraph({
@@ -490,7 +487,7 @@ ESPTab:AddDropdown({
 })
 
 -- ---- MISC ----
-local MiscTab = windows:MakeTab({ Name = "Misc", Icon = "settings" })
+local MiscTab = windows:MakeTab({ Title = "Misc", Icon = "settings" })
 MiscTab:AddSection("Movement")
 
 MiscTab:AddToggle({
@@ -543,7 +540,7 @@ MiscTab:AddParagraph({
 })
 
 -- ---- INFO ----
-local InfoTab = windows:MakeTab({ Name = "Info", Icon = "info" })
+local InfoTab = windows:MakeTab({ Title = "Info", Icon = "info" })
 InfoTab:AddSection("Credits")
 InfoTab:AddParagraph({
     Title = "Aimbot + Infinite Jump + Speed Hack",
