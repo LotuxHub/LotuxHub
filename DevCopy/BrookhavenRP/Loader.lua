@@ -62,7 +62,6 @@ local RemoteEvents = RS:WaitForChild("RemoteEvents", 10)
 -- [1] BACKEND — Funções reutilizáveis
 -- ================================================================
 
--- Helper: fire remote com verificação
 local function fireRemote(remoteName, ...)
     if not RemoteEvents then return false end
     local remote = RemoteEvents:FindFirstChild(remoteName)
@@ -70,7 +69,10 @@ local function fireRemote(remoteName, ...)
         warn("[Lotux BH] Remote nao encontrado:", remoteName)
         return false
     end
-    local ok = pcall(function() remote:FireServer(...) end)
+    local args = table.pack(...)  -- ✅ captura o vararg
+    local ok = pcall(function()
+        remote:FireServer(table.unpack(args, 1, args.n))
+    end)
     return ok
 end
 
@@ -78,7 +80,10 @@ local function invokeRemote(remoteName, ...)
     if not RemoteEvents then return false end
     local remote = RemoteEvents:FindFirstChild(remoteName)
     if not remote then return false end
-    local ok = pcall(function() remote:InvokeServer(...) end)
+    local args = table.pack(...)  -- ✅ captura o vararg
+    local ok = pcall(function()
+        remote:InvokeServer(table.unpack(args, 1, args.n))
+    end)
     return ok
 end
 
