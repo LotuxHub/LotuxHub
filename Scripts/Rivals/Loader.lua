@@ -108,40 +108,70 @@ local function stopESP()
     ESP.tracked = {}
 end
 
-local Aimbot = {enabled = false, targetPart = "Head", fov = 200, smoothness = 0.4, visibleCheck = true, teamCheck = true, conn = nil}
+local AimbotState = {
+    enabled = false,
+    mode = "Nearest",
+    targetPart = "Head",
+    fov = 200,
+    smoothness = 0.4,
+    visibleCheck = true,
+    teamCheck = true,
+    target = nil,
+    conn = nil,
+    hookInstalled = false,
+    silentModifications = 0,
+}
 
-local function pickTarget()
-    local mouse = UIS:GetMouseLocation()
-    local myChar = LocalPlayer.Character
-    if not myChar then return nil end
-    local best, bestDist = nil, math.huge
+local function isEnemy(player)
+    if not AimbotState.teamCheck then return true end
+    if player.Team and LocalPlayer.Team then
+        return player.Team ~= LocalPlayer.Team
+    end
+    return true
+end
+
+local function getValidTargets()
+    local targets = {}
     for _, player in ipairs(Players:GetPlayers()) do
         if player ~= LocalPlayer and player.Character then
-            if Aimbot.teamCheck and player.Team and LocalPlayer.Team and player.Team == LocalPlayer.Team then continue end
-            local hum = player.Character:FindFirstChildOfClass("Humanoid")
-            if hum and hum.Health > 0 then
-                local part = player.Character:FindFirstChild(Aimbot.targetPart)
-                if part then
-                    local sp, onScreen = Camera:WorldToScreenPoint(part.Position)
-                    if onScreen then
-                        local d2d = (Vector2.new(sp.X, sp.Y) - mouse).Magnitude
-                        if d2d <= Aimbot.fov and d2d < bestDist then
-                            if Aimbot.visibleCheck then
-                                local origin = Camera.CFrame.Position
-                                local dir = part.Position - origin
-                                local rp = RaycastParams.new()
-                                rp.FilterDescendantsInstances = {myChar, Camera}
-                                rp.FilterType = Enum.RaycastFilterType.Exclude
-                                local result = Workspace:Raycast(origin, dir, rp)
-                                if not result or result.Instance:IsDescendantOf(player.Character) then
-                                    bestDist = d2d
-                                    best = part
-                                end
-                            else
-                                bestDist = d2d
-                                best = part
-                            end
+            if isEnemy(player) then
+                local hum = player.Character:FindFirstChildOfClass("Humanoid")
+                local hrp = player.Character:FindFirstChild("HumanoidRootPart")
+                if hum and hum.Health > 0 and hrp then
+                    table.insert(targets, {player = player, character = player.Character, humanoid = hum, hrp = hrp})
+                end
+            end
+        end
+    end
+    return targets
+end
+
+local function getClosestToCursor()
+    local targets = getValidTargets()
+    local best, bestDist = nil, math.huge
+    local mouse = UIS:GetMouseLocation()
+    local myChar = LocalPlayer.Character
+    for _, t in ipairs(targets) do
+        local part = t.character:FindFirstChild(AimbotState.targetPart)
+        if part then
+            local sp, onScreen = Camera:WorldToScreenPoint(part.Position)
+            if onScreen then
+                local d2d = (Vector2.new(sp.X, sp.Y) - mouse).Magnitude
+                if d2d <= AimbotState.fov and d2d < bestDist then
+                    if AimbotState.visibleCheck and myChar then
+                        local origin = Camera.CFrame.Position
+                        local dir = part.Position - origin
+                        local rp = RaycastParams.new()
+                        rp.FilterDescendantsInstances = {myChar, Camera}
+                        rp.FilterType = Enum.RaycastFilterType.Exclude
+                        local result = Workspace:Raycast(origin, dir, rp)
+                        if not result or result.Instance:IsDescendantOf(t.character) then
+                            bestDist = d2d
+                            best = t
                         end
+                    else
+                        bestDist = d2d
+                        best = t
                     end
                 end
             end
@@ -150,19 +180,108 @@ local function pickTarget()
     return best
 end
 
-local function startAimbot()
-    if Aimbot.conn then return end
-    Aimbot.conn = RunService.RenderStepped:Connect(function()
-        if not Aimbot.enabled then return end
-        local part = pickTarget()
-        if not part then return end
-        local newCF = CFrame.new(Camera.CFrame.Position, part.Position)
-        Camera.CFrame = Camera.CFrame:Lerp(newCF, math.clamp(Aimbot.smoothness, 0.05, 1))
+local function getNearestByDistance()
+    local targets = getValidTargets()
+    local myHrp = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+    if not myHrp then return nil end
+    local best, bestDist = nil, math.huge
+    for _, t in ipairs(targets) do
+        if t.character:FindFirstChild(AimbotState.targetPart) then
+            local d = (t.hrp.Position - myHrp.Position).Magnitude
+            if d < bestDist then
+                bestDist = d
+                best = t
+            end
+        end
+    end
+    return best
+end
+
+local function startNearestAimbot()
+    if AimbotState.conn then AimbotState.conn:Disconnect() end
+    AimbotState.conn = RunService.RenderStepped:Connect(function()
+        if not AimbotState.enabled or AimbotState.mode ~= "Nearest" then return end
+        local target = getClosestToCursor()
+        AimbotState.target = target
+        if not target then return end
+        local targetPart = target.character:FindFirstChild(AimbotState.targetPart)
+        if not targetPart then return end
+        local camPos = Camera.CFrame.Position
+        local newCF = CFrame.new(camPos, targetPart.Position)
+        local alpha = math.clamp(AimbotState.smoothness, 0.05, 1)
+        Camera.CFrame = Camera.CFrame:Lerp(newCF, alpha)
+        if mousemoverel then
+            local sp, onScreen = Camera:WorldToScreenPoint(targetPart.Position)
+            if onScreen then
+                local vp = Camera.ViewportSize
+                local dx = sp.X - vp.X / 2
+                local dy = sp.Y - vp.Y / 2
+                if math.abs(dx) > 2 or math.abs(dy) > 2 then
+                    pcall(mousemoverel, dx * 0.15, dy * 0.15)
+                end
+            end
+        end
     end)
 end
 
+local function installSilentHook()
+    if AimbotState.hookInstalled then return true end
+    if type(hookmetamethod) ~= "function" or type(getrawmetatable) ~= "function" then
+        return false
+    end
+    local oldNamecall
+    oldNamecall = hookmetamethod(game, "__namecall", newcclosure(function(self, ...)
+        local method = getnamecallmethod()
+        if (method == "FireServer" or method == "InvokeServer") and AimbotState.enabled and AimbotState.mode == "Silent" then
+            local target = AimbotState.target
+            if target and target.character and LocalPlayer.Character then
+                local targetPart = target.character:FindFirstChild(AimbotState.targetPart)
+                local myHrp = LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+                if targetPart and myHrp then
+                    local args = {...}
+                    local newDir = (targetPart.Position - myHrp.Position).Unit
+                    local modified = false
+                    for i = 1, #args do
+                        local a = args[i]
+                        if typeof(a) == "Vector3" then
+                            if math.abs(a.Magnitude - 1) < 0.15 then
+                                args[i] = newDir
+                                modified = true
+                            end
+                        elseif typeof(a) == "CFrame" then
+                            args[i] = CFrame.new(a.Position, a.Position + newDir)
+                            modified = true
+                        end
+                    end
+                    if modified then
+                        AimbotState.silentModifications += 1
+                        return oldNamecall(self, table.unpack(args))
+                    end
+                end
+            end
+        end
+        return oldNamecall(self, ...)
+    end))
+    AimbotState.hookInstalled = true
+    return true
+end
+
+local function startSilentAimbot()
+    if not installSilentHook() then
+        notify("Silent Aim", "Executor does not support hookmetamethod", 3, "Error")
+        return false
+    end
+    if AimbotState.conn then AimbotState.conn:Disconnect() end
+    AimbotState.conn = RunService.RenderStepped:Connect(function()
+        if not AimbotState.enabled or AimbotState.mode ~= "Silent" then return end
+        AimbotState.target = getNearestByDistance()
+    end)
+    return true
+end
+
 local function stopAimbot()
-    if Aimbot.conn then Aimbot.conn:Disconnect(); Aimbot.conn = nil end
+    if AimbotState.conn then AimbotState.conn:Disconnect(); AimbotState.conn = nil end
+    AimbotState.target = nil
 end
 
 local FOVCircle = {gui = nil, frame = nil, enabled = false, conn = nil}
@@ -194,7 +313,7 @@ local function startFOVCircle()
     FOVCircle.gui.Enabled = true
     FOVCircle.conn = RunService.RenderStepped:Connect(function()
         if not FOVCircle.enabled then return end
-        FOVCircle.frame.Size = UDim2.fromOffset(Aimbot.fov * 2, Aimbot.fov * 2)
+        FOVCircle.frame.Size = UDim2.fromOffset(AimbotState.fov * 2, AimbotState.fov * 2)
     end)
 end
 
@@ -313,18 +432,41 @@ local AimTab = windows:MakeTab({Title = "Aimbot", Icon = "crosshair"})
 AimTab:AddSection("Aimbot")
 AimTab:AddToggle({Title = "Enable Aimbot", Default = false, Flag = "riv_aim",
     Callback = function(state)
-        Aimbot.enabled = state
-        if state then startAimbot() notify("Aimbot", "ON", 2, "Success")
-        else stopAimbot() notify("Aimbot", "OFF", 2, "Info") end
+        AimbotState.enabled = state
+        if state then
+            if AimbotState.mode == "Silent" then
+                if startSilentAimbot() then
+                    notify("Silent Aim", "ON", 2, "Success")
+                else
+                    AimbotState.enabled = false
+                end
+            else
+                startNearestAimbot()
+                notify("Nearest Aimbot", "ON", 2, "Success")
+            end
+        else
+            stopAimbot()
+            notify("Aimbot", "OFF", 2, "Info")
+        end
+    end})
+AimTab:AddDropdown({Title = "Mode", Description = "Nearest = camera lock / Silent = hook FireServer", Options = {"Nearest", "Silent"}, Default = "Nearest", Flag = "riv_aim_mode",
+    Callback = function(v)
+        local mode = (typeof(v) == "table" and v[1]) or v
+        AimbotState.mode = mode
+        if AimbotState.enabled then
+            stopAimbot()
+            AimbotState.enabled = false
+            notify("Aimbot", "Mode changed - re-enable", 2, "Warning")
+        end
     end})
 AimTab:AddDropdown({Title = "Aim Part", Options = {"Head", "HumanoidRootPart", "UpperTorso"}, Default = "Head", Flag = "riv_aim_part",
-    Callback = function(v) Aimbot.targetPart = (typeof(v) == "table" and v[1]) or v end})
+    Callback = function(v) AimbotState.targetPart = (typeof(v) == "table" and v[1]) or v end})
 AimTab:AddSlider({Title = "FOV", Min = 50, Max = 800, Default = 200, Flag = "riv_fov",
-    Callback = function(v) Aimbot.fov = v end})
+    Callback = function(v) AimbotState.fov = v end})
 AimTab:AddSlider({Title = "Smoothness", Min = 0.05, Max = 1, Default = 0.4, Flag = "riv_smooth",
-    Callback = function(v) Aimbot.smoothness = v end})
-AimTab:AddToggle({Title = "Visible Check", Default = true, Flag = "riv_vis", Callback = function(s) Aimbot.visibleCheck = s end})
-AimTab:AddToggle({Title = "Team Check", Default = true, Flag = "riv_team", Callback = function(s) Aimbot.teamCheck = s end})
+    Callback = function(v) AimbotState.smoothness = v end})
+AimTab:AddToggle({Title = "Visible Check", Default = true, Flag = "riv_vis", Callback = function(s) AimbotState.visibleCheck = s end})
+AimTab:AddToggle({Title = "Team Check", Default = true, Flag = "riv_team", Callback = function(s) AimbotState.teamCheck = s end})
 AimTab:AddToggle({Title = "Show FOV Circle", Default = false, Flag = "riv_fovc",
     Callback = function(s)
         FOVCircle.enabled = s
