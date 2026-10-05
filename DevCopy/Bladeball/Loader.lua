@@ -188,6 +188,7 @@ System.parry        = {}
 System.manual_spam  = {}
 System.auto_spam    = {}
 System.autoparry    = {}
+System.triggerbot   = System.__triggerbot  
 
 local maxParryCount = 36
 local parryDelay    = 0.05
