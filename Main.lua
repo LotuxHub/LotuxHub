@@ -23,7 +23,7 @@ local BASE_URL = "https://raw.githubusercontent.com/LotuxHub/LotuxHub/refs/heads
 local function getGameInfo()
     local id = game.PlaceId
     if id == PlaceIds.BladeBall then
-        return { url = BASE_URL .. "BladeBall/Loader.lua",  status = BASE_URL .. "BladeBall/status.json" }
+        return { url = BASE_URL .. "Bladeball/Loader.lua", status = BASE_URL .. "BladeBall/status.json" }
     elseif id == PlaceIds.BloxFruits1 or id == PlaceIds.BloxFruits2 or id == PlaceIds.BloxFruits3 then
         return { url = BASE_URL .. "BloxFruits/Loader.lua", status = BASE_URL .. "BloxFruits/status.json" }
     elseif id == PlaceIds.BrookhavenRP then
