@@ -1,20 +1,49 @@
--- Lotux Hub Loader v2.0
--- by LoadFlint/lucas
-
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
 local LocalPlayer = Players.LocalPlayer
 local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
 
--- ╔══════════════════════════════════════════╗
--- ║   ⬇️  URL PRINCIPAL DO SCRIPT (UI.lua)  ║
--- ║   Deixe "" para exibir "Em Desenvolvimento"
--- ╚══════════════════════════════════════════╝
-local SCRIPT_URL = "https://raw.githubusercontent.com/LotuxHub/LotuxHub/refs/heads/main/DevCopy/BloxFruits/UI.lua"
+local PlaceIds = {
+    BladeBall = 13772394625,
+    BloxFruits1 = 2753915549,
+    BloxFruits2 = 4442272183,
+    BloxFruits3 = 7449423635,
+    BrookhavenRP = 4924922222,
+    StealAnEgg = 107778070777162,
+    Rivals = 17625359962,
+}
 
--- =====================================================
--- PAINEL "EM DESENVOLVIMENTO" (SCRIPT_URL vazio)
--- =====================================================
+function loadGameScript(loadstring)
+    if PlaceIds.BloxFruits1 == game.PlaceId or PlaceIds.BloxFruits2 == game.PlaceId or PlaceIds.BloxFruits3 == game.PlaceId then
+        loadstring(game:HttpGet("https://raw.githubusercontent.com/LotuxHub/LotuxHub/refs/heads/main/DevCopy/BloxFruits/Loader.lua"))()
+    else
+        warn("[LotuxHub] Este script ainda nao possui suporte para este jogo. PlaceId: " .. tostring(game.PlaceId))
+        return
+    elseif PlaceIds.BladeBall == game.PlaceId then
+        loadstring(game:HttpGet("https://raw.githubusercontent.com/LotuxHub/LotuxHub/refs/heads/main/DevCopy/BladeBall/Loader.lua"))()
+    else
+        warn("[LotuxHub] Este script ainda nao possui suporte para este jogo. PlaceId: " .. tostring(game.PlaceId))
+        return
+    elseif PlaceIds.BrookhavenRP == game.PlaceId then
+        loadstring(game:HttpGet("https://raw.githubusercontent.com/LotuxHub/LotuxHub/refs/heads/main/DevCopy/BrookhavenRP/Loader.lua"))()
+    else
+        warn("[LotuxHub] Este script ainda nao possui suporte para este jogo. PlaceId: " .. tostring(game.PlaceId))
+        return
+    elseif PlaceIds.StealAnEgg == game.PlaceId then
+        loadstring(game:HttpGet("https://raw.githubusercontent.com/LotuxHub/LotuxHub/refs/heads/main/DevCopy/StealAnEgg/Loader.lua"))()
+    else
+        warn("[LotuxHub] Este script ainda nao possui suporte para este jogo. PlaceId: " .. tostring(game.PlaceId))
+        return
+    elseif PlaceIds.Rivals == game.PlaceId then
+        loadstring(game:HttpGet("https://raw.githubusercontent.com/LotuxHub/LotuxHub/refs/heads/main/DevCopy/Rivals/Loader.lua"))()
+    else
+        warn("[LotuxHub] Este script ainda nao possui suporte para este jogo. PlaceId: " .. tostring(game.PlaceId))
+        return
+    end
+end
+
+local SCRIPT_URL = loadGameScript(loadstring)
+
 local function criarPainelDesenvolvimento()
     if PlayerGui:FindFirstChild("LotuxHubErro") then
         PlayerGui.LotuxHubErro:Destroy()
