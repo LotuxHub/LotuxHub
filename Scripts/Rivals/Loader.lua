@@ -113,10 +113,12 @@ local AimbotState = {
     mode = "Nearest",
     targetPart = "Head",
     fov = 200,
-    smoothness = 0.4,
-    visibleCheck = true,
+    maxDistance = 500,
+    smoothness = 0.6,
+    visibleCheck = false,
     teamCheck = true,
     useCameraLock = true,
+    keepTargetBehind = true,
     target = nil,
     bindName = "LotuxAimbotNearest",
     hookInstalled = false,
@@ -146,31 +148,30 @@ local function getValidTargets()
     return targets
 end
 
-local function getClosestToCursor()
+local function getNearestTarget()
     local targets = getValidTargets()
+    local myHrp = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+    if not myHrp then return nil end
     local best, bestDist = nil, math.huge
-    local mouse = UIS:GetMouseLocation()
-    local myChar = LocalPlayer.Character
     for _, t in ipairs(targets) do
         local part = t.character:FindFirstChild(AimbotState.targetPart)
         if part then
-            local sp, onScreen = Camera:WorldToScreenPoint(part.Position)
-            if onScreen then
-                local d2d = (Vector2.new(sp.X, sp.Y) - mouse).Magnitude
-                if d2d <= AimbotState.fov and d2d < bestDist then
-                    if AimbotState.visibleCheck and myChar then
-                        local origin = Camera.CFrame.Position
-                        local dir = part.Position - origin
-                        local rp = RaycastParams.new()
-                        rp.FilterDescendantsInstances = {myChar, Camera}
-                        rp.FilterType = Enum.RaycastFilterType.Exclude
-                        local result = Workspace:Raycast(origin, dir, rp)
-                        if not result or result.Instance:IsDescendantOf(t.character) then
-                            bestDist = d2d; best = t
-                        end
-                    else
-                        bestDist = d2d; best = t
+            local d = (t.hrp.Position - myHrp.Position).Magnitude
+            if d <= AimbotState.maxDistance and d < bestDist then
+                if AimbotState.visibleCheck then
+                    local origin = Camera.CFrame.Position
+                    local dir = part.Position - origin
+                    local rp = RaycastParams.new()
+                    rp.FilterDescendantsInstances = {LocalPlayer.Character, Camera}
+                    rp.FilterType = Enum.RaycastFilterType.Exclude
+                    local result = Workspace:Raycast(origin, dir, rp)
+                    if not result or result.Instance:IsDescendantOf(t.character) then
+                        bestDist = d
+                        best = t
                     end
+                else
+                    bestDist = d
+                    best = t
                 end
             end
         end
@@ -178,23 +179,9 @@ local function getClosestToCursor()
     return best
 end
 
-local function getNearestByDistance()
-    local targets = getValidTargets()
-    local myHrp = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-    if not myHrp then return nil end
-    local best, bestDist = nil, math.huge
-    for _, t in ipairs(targets) do
-        if t.character:FindFirstChild(AimbotState.targetPart) then
-            local d = (t.hrp.Position - myHrp.Position).Magnitude
-            if d < bestDist then bestDist = d; best = t end
-        end
-    end
-    return best
-end
-
 local function aimLoopNearest(dt)
     if not AimbotState.enabled or AimbotState.mode ~= "Nearest" then return end
-    local target = getClosestToCursor()
+    local target = getNearestTarget()
     AimbotState.target = target
     if not target then return end
     local targetPart = target.character:FindFirstChild(AimbotState.targetPart)
@@ -233,25 +220,33 @@ local function installSilentHook()
                 local myHrp = LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
                 if targetPart and myHrp then
                     local args = {...}
-                    local newDir = (targetPart.Position - myHrp.Position).Unit
+                    local aimDir = (targetPart.Position - myHrp.Position).Unit
+                    local aimPos = targetPart.Position
                     local modified = false
                     for i = 1, #args do
                         local a = args[i]
-                        if typeof(a) == "Vector3" then
-                            if math.abs(a.Magnitude - 1) < 0.05 then
-                                args[i] = newDir
+                        local t = typeof(a)
+                        if t == "Vector3" then
+                            local mag = a.Magnitude
+                            if mag > 0.01 and mag < 10 then
+                                args[i] = aimDir * mag
                                 modified = true
-                            elseif a.Magnitude > 1 and a.Magnitude < 5000 then
-                                args[i] = targetPart.Position
+                            elseif mag >= 10 and mag < 10000 then
+                                args[i] = aimPos
                                 modified = true
                             end
-                        elseif typeof(a) == "CFrame" then
-                            args[i] = CFrame.new(a.Position, a.Position + newDir)
+                        elseif t == "CFrame" then
+                            args[i] = CFrame.new(a.Position, aimPos)
                             modified = true
                         end
                     end
                     if modified then
                         AimbotState.silentModifications = AimbotState.silentModifications + 1
+                        if #AimbotState.debugLog < 30 then
+                            local line = "[Silent] " .. tostring(self.Name) .. " modded"
+                            table.insert(AimbotState.debugLog, line)
+                            print(line)
+                        end
                         return oldNamecall(self, table.unpack(args))
                     end
                 end
@@ -267,7 +262,7 @@ local silentConn = nil
 
 local function silentTargetLoop()
     if not AimbotState.enabled or AimbotState.mode ~= "Silent" then return end
-    AimbotState.target = getNearestByDistance()
+    AimbotState.target = getNearestTarget()
 end
 
 local function startSilentAimbot()
@@ -286,7 +281,7 @@ local function stopAimbot()
     AimbotState.target = nil
 end
 
-local function debugRemote()
+local function logRemotes()
     if type(hookmetamethod) ~= "function" then
         notify("Debug", "No hookmetamethod in executor", 3, "Error")
         return
@@ -303,11 +298,11 @@ local function debugRemote()
             end
             print(line)
             table.insert(AimbotState.debugLog, line)
-            if #AimbotState.debugLog > 50 then table.remove(AimbotState.debugLog, 1) end
+            if #AimbotState.debugLog > 60 then table.remove(AimbotState.debugLog, 1) end
         end
         return oldNamecall(self, ...)
     end))
-    notify("Debug", "Check F9 console", 3, "Info")
+    notify("Debug", "Check F9 console (attack someone)", 4, "Info")
 end
 
 local FOVCircle = {gui = nil, frame = nil, enabled = false, conn = nil}
@@ -484,13 +479,13 @@ AimTab:AddDropdown({Title = "Mode", Options = {"Nearest", "Silent"}, Default = "
     end})
 AimTab:AddDropdown({Title = "Aim Part", Options = {"Head", "HumanoidRootPart", "UpperTorso"}, Default = "Head", Flag = "riv_aim_part",
     Callback = function(v) AimbotState.targetPart = (typeof(v) == "table" and v[1]) or v end})
-AimTab:AddSlider({Title = "FOV", Min = 50, Max = 800, Default = 200, Flag = "riv_fov",
-    Callback = function(v) AimbotState.fov = v end})
-AimTab:AddSlider({Title = "Smoothness", Min = 0.05, Max = 1, Default = 0.4, Flag = "riv_smooth",
+AimTab:AddSlider({Title = "Max Distance", Description = "Range for Nearest / Silent", Min = 50, Max = 2000, Default = 500, Flag = "riv_aim_maxd",
+    Callback = function(v) AimbotState.maxDistance = v end})
+AimTab:AddSlider({Title = "Smoothness", Description = "Nearest only - lower = smoother", Min = 0.05, Max = 1, Default = 0.6, Flag = "riv_smooth",
     Callback = function(v) AimbotState.smoothness = v end})
-AimTab:AddToggle({Title = "Visible Check", Default = true, Flag = "riv_vis", Callback = function(s) AimbotState.visibleCheck = s end})
+AimTab:AddToggle({Title = "Visible Check", Default = false, Flag = "riv_vis", Callback = function(s) AimbotState.visibleCheck = s end})
 AimTab:AddToggle({Title = "Team Check", Default = true, Flag = "riv_team", Callback = function(s) AimbotState.teamCheck = s end})
-AimTab:AddToggle({Title = "Camera Lock", Description = "Freeze camera to target", Default = true, Flag = "riv_camlock",
+AimTab:AddToggle({Title = "Camera Lock", Description = "Freeze camera on target", Default = true, Flag = "riv_camlock",
     Callback = function(s) AimbotState.useCameraLock = s end})
 AimTab:AddToggle({Title = "Show FOV Circle", Default = false, Flag = "riv_fovc",
     Callback = function(s)
@@ -498,11 +493,17 @@ AimTab:AddToggle({Title = "Show FOV Circle", Default = false, Flag = "riv_fovc",
         if s then startFOVCircle() else stopFOVCircle() end
     end})
 AimTab:AddSection("Debug")
-AimTab:AddButton({Title = "Log Remote Calls", Callback = function() debugRemote() end})
+AimTab:AddButton({Title = "Log Remote Calls", Callback = function() logRemotes() end})
 AimTab:AddButton({Title = "Print Modifications Count",
     Callback = function()
-        notify("Silent Aim", "Mods: " .. tostring(AimbotState.silentModifications), 3, "Info")
-        print("Silent modifications:", AimbotState.silentModifications)
+        local count = AimbotState.silentModifications
+        notify("Silent Aim", "Mods: " .. tostring(count), 3, "Info")
+        print("Silent modifications:", count)
+    end})
+AimTab:AddButton({Title = "Print Debug Log",
+    Callback = function()
+        print("=== Lotux Debug Log ===")
+        for _, line in ipairs(AimbotState.debugLog) do print(line) end
     end})
 
 local MoveTab = windows:MakeTab({Title = "Movement", Icon = "user"})
