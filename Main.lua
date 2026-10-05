@@ -18,7 +18,7 @@ local PlaceIds = {
     Rivals       = 117398147513099,   -- ← ANTES era 17625359962
 }
 
-local BASE_URL = "https://raw.githubusercontent.com/LotuxHub/LotuxHub/refs/heads/main/DevCopy/"
+local BASE_URL = "https://raw.githubusercontent.com/LotuxHub/LotuxHub/refs/heads/main/Scripts/"
 
 local function getGameInfo()
     local id         = game.PlaceId
