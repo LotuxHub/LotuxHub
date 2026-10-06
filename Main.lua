@@ -4,7 +4,7 @@ local LocalPlayer    = Players.LocalPlayer
 local PlayerGui      = LocalPlayer:WaitForChild("PlayerGui")
 
 local PlaceIds = {
-    BladeBall    = 13772394625,
+    BladeBall    = 16281300371,
     BloxFruits1  = 2753915549,
     BloxFruits2  = 4442272183,
     BloxFruits3  = 7449423635,
